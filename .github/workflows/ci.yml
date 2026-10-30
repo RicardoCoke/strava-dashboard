@@ -25,18 +25,27 @@ jobs:
 
   frontend:
     runs-on: ubuntu-latest
-    if: ${{ hashFiles('frontend/angular.json') != '' }}
     defaults:
       run:
         working-directory: frontend
     steps:
       - uses: actions/checkout@v4
+      - name: Check frontend exists
+        id: check
+        working-directory: .
+        run: |
+          if [ -f frontend/angular.json ]; then echo "exists=true" >> "$GITHUB_OUTPUT"; else echo "exists=false" >> "$GITHUB_OUTPUT"; echo "No Angular app yet; run the 'Bootstrap frontend' workflow."; fi
       - uses: actions/setup-node@v4
+        if: steps.check.outputs.exists == 'true'
         with:
           node-version: '22'
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - run: npm ci
-      - run: npm run lint
-      - run: npm test -- --watch=false
-      - run: npm run build
+      - if: steps.check.outputs.exists == 'true'
+        run: npm ci
+      - if: steps.check.outputs.exists == 'true'
+        run: npm run lint
+      - if: steps.check.outputs.exists == 'true'
+        run: npm test -- --watch=false
+      - if: steps.check.outputs.exists == 'true'
+        run: npm run build
