@@ -1,6 +1,7 @@
 package app.stravadashboard.persistence
 
 import app.stravadashboard.domain.model.ActivityId
+import app.stravadashboard.domain.model.HrHistogramResult
 import app.stravadashboard.domain.model.RunActivity
 import app.stravadashboard.domain.model.StreamPaceResult
 import app.stravadashboard.domain.ports.ActivityDetail
@@ -78,13 +79,30 @@ class ExposedRunRepository(
         }
     }
 
+    override suspend fun saveHrHistogram(
+        id: ActivityId,
+        result: HrHistogramResult,
+        computedAt: Instant,
+    ) {
+        database.query {
+            RunHrHistogramsTable.upsert {
+                it[runId] = id.value
+                it[status] = result.status.toDbValue()
+                it[histogram] = result.histogram?.encode()
+                it[RunHrHistogramsTable.computedAt] = computedAt.epochSecond
+            }
+        }
+    }
+
     override suspend fun findAll(): List<RunActivity> =
         database.query {
             val laps = RunLapsTable.selectAll().groupBy({ it[RunLapsTable.runId] }, { it.toLap() })
             val paces = RunStreamPacesTable.selectAll().associate { it[RunStreamPacesTable.runId] to it.toStreamPace() }
+            val histograms =
+                RunHrHistogramsTable.selectAll().associate { it[RunHrHistogramsTable.runId] to it.toHrHistogram() }
             RunsTable.selectAll().map { row ->
                 val id = row[RunsTable.id]
-                row.toRun(laps[id].orEmpty().sortedBy { it.index }, paces[id])
+                row.toRun(laps[id].orEmpty().sortedBy { it.index }, paces[id], histograms[id])
             }
         }
 
@@ -113,6 +131,7 @@ class ExposedRunRepository(
         database.query {
             RunLapsTable.deleteAll()
             RunStreamPacesTable.deleteAll()
+            RunHrHistogramsTable.deleteAll()
             RunsTable.deleteAll()
         }
     }
@@ -123,6 +142,7 @@ class ExposedRunRepository(
         if (ids.isEmpty()) return
         RunLapsTable.deleteWhere { runId inList ids }
         RunStreamPacesTable.deleteWhere { runId inList ids }
+        RunHrHistogramsTable.deleteWhere { runId inList ids }
         RunsTable.deleteWhere { RunsTable.id inList ids }
     }
 }

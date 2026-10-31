@@ -2,6 +2,7 @@ package app.stravadashboard.testsupport
 
 import app.stravadashboard.config.AppConfig
 import app.stravadashboard.domain.model.ActivityId
+import app.stravadashboard.domain.model.HrHistogramResult
 import app.stravadashboard.domain.model.Lap
 import app.stravadashboard.domain.model.Meters
 import app.stravadashboard.domain.model.RUN_SPORT_TYPE
@@ -41,6 +42,7 @@ fun run(
     sportType: String = RUN_SPORT_TYPE,
     streamPace: StreamPaceResult? = null,
     startLocal: LocalDateTime = date.atTime(7, 0),
+    hrHistogram: HrHistogramResult? = null,
 ): RunActivity =
     RunActivity(
         id = ActivityId(id),
@@ -55,14 +57,17 @@ fun run(
         laps = laps,
         detailFetchedAt = if (laps == null) null else startLocal.toInstant(ZoneOffset.UTC),
         streamPace = streamPace,
+        hrHistogram = hrHistogram,
     )
 
+@Suppress("LongParameterList")
 fun summary(
     id: Long,
     start: Instant,
     name: String = "Morning Run",
     sportType: String = RUN_SPORT_TYPE,
     trainer: Boolean = false,
+    heartRate: Double? = 150.0,
 ): ActivitySummary =
     ActivitySummary(
         id = ActivityId(id),
@@ -71,7 +76,7 @@ fun summary(
         startUtc = start,
         startLocal = LocalDateTime.ofInstant(start, ZoneOffset.UTC),
         distance = Meters(10_000.0),
-        averageHeartRateBpm = 150.0,
+        averageHeartRateBpm = heartRate,
         trainer = trainer,
     )
 

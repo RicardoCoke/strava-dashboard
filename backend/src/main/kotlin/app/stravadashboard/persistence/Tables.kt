@@ -42,6 +42,15 @@ object RunStreamPacesTable : Table("run_stream_paces") {
     override val primaryKey = PrimaryKey(runId)
 }
 
+/** One row per run once its heart-rate stream was fetched. [histogram] is `bpm:seconds,…`; null when unavailable. */
+object RunHrHistogramsTable : Table("run_hr_histograms") {
+    val runId = long("run_id").references(RunsTable.id, onDelete = ReferenceOption.CASCADE)
+    val status = text("status")
+    val histogram = text("histogram").nullable()
+    val computedAt = long("computed_at")
+    override val primaryKey = PrimaryKey(runId)
+}
+
 object SyncStateTable : Table("sync_state") {
     val id = integer("id")
     val listCursor = long("list_cursor").nullable()
@@ -49,5 +58,6 @@ object SyncStateTable : Table("sync_state") {
     val rateLimitedUntil = long("rate_limited_until").nullable()
     val lastStatus = text("last_status").nullable()
     val ownerAthleteId = long("owner_athlete_id").nullable()
+    val historyStart = long("history_start").nullable()
     override val primaryKey = PrimaryKey(id)
 }

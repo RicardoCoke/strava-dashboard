@@ -31,11 +31,12 @@ internal data class LapDto(
     val distance: Double,
 )
 
-/** Response of `/streams?keys=time,velocity_smooth&key_by_type=true`. Other stream keys are ignored. */
+/** Response of `/streams?keys=…&key_by_type=true` (speed or heart rate). Other stream keys are ignored. */
 @Serializable
 internal data class StreamSetDto(
     val time: IntStreamDto? = null,
     @SerialName("velocity_smooth") val velocitySmooth: DoubleStreamDto? = null,
+    val heartrate: IntStreamDto? = null,
 )
 
 @Serializable

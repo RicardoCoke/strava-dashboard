@@ -32,11 +32,17 @@ class StravaClient(
     internal suspend fun activity(id: Long): StravaResult<DetailedActivityDto> =
         authorizedGet("/activities/$id", mapOf("include_all_efforts" to "false")) { it.body() }
 
-    /** Only `time` and `velocity_smooth`; location and heart-rate streams are never requested. */
-    internal suspend fun speedStreams(id: Long): StravaResult<StreamSetDto> =
-        authorizedGet("/activities/$id/streams", mapOf("keys" to "time,velocity_smooth", "key_by_type" to "true")) {
-            it.body()
-        }
+    /** Only `time` and `velocity_smooth`; location streams are never requested. */
+    internal suspend fun speedStreams(id: Long): StravaResult<StreamSetDto> = streams(id, "time,velocity_smooth")
+
+    /** Only `time` and `heartrate` (feature 005); location streams are never requested. */
+    internal suspend fun heartRateStreams(id: Long): StravaResult<StreamSetDto> = streams(id, "time,heartrate")
+
+    private suspend fun streams(
+        id: Long,
+        keys: String,
+    ): StravaResult<StreamSetDto> =
+        authorizedGet("/activities/$id/streams", mapOf("keys" to keys, "key_by_type" to "true")) { it.body() }
 
     private suspend fun <T> authorizedGet(
         path: String,

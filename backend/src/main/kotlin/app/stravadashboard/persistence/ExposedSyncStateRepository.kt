@@ -20,6 +20,7 @@ class ExposedSyncStateRepository(
                     rateLimitedUntil = row[SyncStateTable.rateLimitedUntil]?.let(Instant::ofEpochSecond),
                     lastStatus = row[SyncStateTable.lastStatus]?.let(::statusOf),
                     ownerAthleteId = row[SyncStateTable.ownerAthleteId],
+                    historyStart = row[SyncStateTable.historyStart]?.let(Instant::ofEpochSecond),
                 )
             } ?: SyncState()
         }
@@ -33,6 +34,7 @@ class ExposedSyncStateRepository(
                 it[rateLimitedUntil] = state.rateLimitedUntil?.epochSecond
                 it[lastStatus] = state.lastStatus?.name
                 it[ownerAthleteId] = state.ownerAthleteId
+                it[historyStart] = state.historyStart?.epochSecond
             }
         }
     }

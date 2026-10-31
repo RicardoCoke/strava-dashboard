@@ -4,17 +4,19 @@ import app.stravadashboard.domain.SyncPolicy.MAX_ACTIVITY_CALLS_PER_SYNC
 import app.stravadashboard.domain.SyncPolicy.PAGE_SIZE
 import app.stravadashboard.domain.SyncPolicy.failureOf
 import app.stravadashboard.domain.SyncPolicy.pendingCount
+import app.stravadashboard.domain.model.HrHistogramResult
+import app.stravadashboard.domain.model.HrHistogramStatus
 import app.stravadashboard.domain.model.RUN_SPORT_TYPE
 import app.stravadashboard.domain.model.RunActivity
 import app.stravadashboard.domain.model.RunType
 import app.stravadashboard.domain.model.StreamPaceResult
 import app.stravadashboard.domain.model.StreamPaceStatus
 import app.stravadashboard.domain.ports.ActivitySource
-import app.stravadashboard.domain.ports.ActivitySummary
 import app.stravadashboard.domain.ports.RunRepository
 import app.stravadashboard.domain.ports.SourceResult
 import app.stravadashboard.domain.ports.SyncStateRepository
 import app.stravadashboard.domain.ports.SyncStatus
+import app.stravadashboard.domain.trainingload.HrHistogramBuilder
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.slf4j.LoggerFactory
@@ -38,8 +40,9 @@ sealed interface SyncOutcome {
 }
 
 /**
- * Keeps the local run store in step with Strava: a one-time 5-month import, then incremental list passes,
- * detail calls, speed-stream calls for outdoor workouts and pruning. Only one sync runs at a time.
+ * Keeps the local run store in step with Strava: a one-time import from the history start (6 months + 41 days), then
+ * incremental list passes, detail calls, speed-stream calls for outdoor workouts, heart-rate stream calls for runs
+ * with heart rate, and pruning. Only one sync runs at a time.
  * The rules for when and what to call live in [SyncPolicy].
  */
 class SyncService(
@@ -108,25 +111,27 @@ class SyncService(
         }
     }
 
-    /** Lists every page after the cursor; the cursor is only set once all pages have been read. */
+    /**
+     * Lists every page after the cursor; the cursor (and, for a pass from the history start, [SyncState.historyStart])
+     * is only set once all pages have been read.
+     */
     private suspend fun listPass(now: Instant): SourceResult<Nothing>? {
-        val after = SyncPolicy.listAfter(syncState.get().listCursor, now, zone)
+        val backfillStart = SyncPolicy.backfillStart(now, zone)
+        val after = SyncPolicy.listAfter(syncState.get(), now, zone)
         var page = 1
         do {
             val result = source.listActivities(after, page++, PAGE_SIZE)
             if (result !is SourceResult.Success) return failureOf(result)
-            storePage(result.value)
+            val (stored, others) = result.value.partition { it.sportType == RUN_SPORT_TYPE }
+            runs.upsertSummaries(stored)
+            runs.delete(others.map { it.id })
         } while (result.value.size == PAGE_SIZE)
 
-        val cursor = runs.newestStartUtc() ?: SyncPolicy.backfillStart(now, zone)
-        syncState.save(syncState.get().copy(listCursor = cursor))
+        val cursor = runs.newestStartUtc() ?: backfillStart
+        val state = syncState.get()
+        val historyStart = if (after == backfillStart) after else state.historyStart
+        syncState.save(state.copy(listCursor = cursor, historyStart = historyStart))
         return null
-    }
-
-    private suspend fun storePage(items: List<ActivitySummary>) {
-        val (stored, others) = items.partition { it.sportType == RUN_SPORT_TYPE }
-        runs.upsertSummaries(stored)
-        runs.delete(others.map { it.id })
     }
 
     /** Detail and stream calls, sharing one cap, in priority order. */
@@ -146,7 +151,11 @@ class SyncService(
         now: Instant,
     ): SourceResult<Nothing>? {
         val workout = call.streamFor
-        return if (workout != null) fetchStream(call.run, workout, now) else fetchDetail(call.run, now)
+        return when {
+            call.heartRate -> fetchHrStream(call.run, now)
+            workout != null -> fetchStream(call.run, workout, now)
+            else -> fetchDetail(call.run, now)
+        }
     }
 
     /** A 404 means the activity was deleted on Strava, so it is removed locally too. */
@@ -176,6 +185,22 @@ class SyncService(
                 else -> return failureOf(result)
             }
         runs.saveStreamPace(run.id, stored, now)
+        return null
+    }
+
+    /** Reduces the heart-rate stream to a histogram in memory; only the histogram is stored. */
+    private suspend fun fetchHrStream(
+        run: RunActivity,
+        now: Instant,
+    ): SourceResult<Nothing>? {
+        val stored =
+            when (val result = source.heartRateStream(run.id)) {
+                is SourceResult.Success ->
+                    HrHistogramResult(HrHistogramStatus.COMPUTED, HrHistogramBuilder.build(result.value))
+                SourceResult.NotFound -> HrHistogramResult(HrHistogramStatus.UNAVAILABLE, null)
+                else -> return failureOf(result)
+            }
+        runs.saveHrHistogram(run.id, stored, now)
         return null
     }
 

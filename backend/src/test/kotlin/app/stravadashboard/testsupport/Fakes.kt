@@ -1,6 +1,7 @@
 package app.stravadashboard.testsupport
 
 import app.stravadashboard.domain.model.ActivityId
+import app.stravadashboard.domain.model.HeartRateStream
 import app.stravadashboard.domain.model.SpeedStream
 import app.stravadashboard.domain.ports.ActivityDetail
 import app.stravadashboard.domain.ports.ActivitySource
@@ -30,6 +31,7 @@ class FakeActivitySource : ActivitySource {
     var activities: List<ActivitySummary> = emptyList()
     val details = mutableMapOf<Long, ActivityDetail>()
     val streams = mutableMapOf<Long, SpeedStream>()
+    val hrStreams = mutableMapOf<Long, HeartRateStream>()
     val calls = mutableListOf<String>()
     val listAfters = mutableListOf<Instant>()
 
@@ -55,6 +57,11 @@ class FakeActivitySource : ActivitySource {
 
     override suspend fun speedStream(id: ActivityId): SourceResult<SpeedStream> =
         record("stream:${id.value}") { streams[id.value]?.let { SourceResult.Success(it) } ?: SourceResult.NotFound }
+
+    override suspend fun heartRateStream(id: ActivityId): SourceResult<HeartRateStream> =
+        record("hrstream:${id.value}") {
+            hrStreams[id.value]?.let { SourceResult.Success(it) } ?: SourceResult.NotFound
+        }
 
     private fun <T> record(
         call: String,

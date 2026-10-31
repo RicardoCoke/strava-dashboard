@@ -12,7 +12,7 @@ import java.sql.Connection
 import kotlin.io.path.createDirectories
 
 object DatabaseFactory {
-    /** Opens (or creates) the SQLite file at [dbPath] and creates the tables if they don't exist. */
+    /** Opens (or creates) the SQLite file at [dbPath], creates missing tables and adds columns added since. */
     fun connect(dbPath: String): Database {
         Path
             .of(dbPath)
@@ -29,9 +29,28 @@ object DatabaseFactory {
                 databaseConfig = DatabaseConfig { defaultIsolationLevel = Connection.TRANSACTION_SERIALIZABLE },
             )
         transaction(database) {
-            SchemaUtils.create(StravaTokensTable, RunsTable, RunLapsTable, RunStreamPacesTable, SyncStateTable)
+            SchemaUtils.create(
+                StravaTokensTable,
+                RunsTable,
+                RunLapsTable,
+                RunStreamPacesTable,
+                RunHrHistogramsTable,
+                SyncStateTable,
+            )
+            addColumnIfMissing(SyncStateTable.tableName, SyncStateTable.historyStart.name, "INTEGER")
         }
         return database
+    }
+
+    /** `CREATE TABLE IF NOT EXISTS` doesn't add columns to an existing table, so files from before need this. */
+    private fun Transaction.addColumnIfMissing(
+        table: String,
+        column: String,
+        sqlType: String,
+    ) {
+        val existing = mutableListOf<String>()
+        exec("PRAGMA table_info($table)") { rows -> while (rows.next()) existing += rows.getString("name") }
+        if (column !in existing) exec("ALTER TABLE $table ADD COLUMN $column $sqlType")
     }
 }
 

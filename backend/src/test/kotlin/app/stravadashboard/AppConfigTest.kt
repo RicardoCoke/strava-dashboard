@@ -1,6 +1,8 @@
 package app.stravadashboard
 
 import app.stravadashboard.config.AppConfig
+import app.stravadashboard.config.LthrSetting
+import app.stravadashboard.domain.model.Bpm
 import java.time.LocalDate
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -83,6 +85,35 @@ class AppConfigTest {
         val text = AppConfig.fromEnvironment(required + ("TRAINING_PLAN_CSV" to "C:/plans/build.csv")).toString()
         assertTrue("trainingPlanCsv=<set>" in text)
         assertFalse("build.csv" in text)
+    }
+
+    private fun lthr(value: String): LthrSetting = AppConfig.fromEnvironment(required + ("LTHR_BPM" to value)).lthr
+
+    @Test
+    fun `005 R1 - LTHR_BPM unset gives NotConfigured`() {
+        assertEquals(LthrSetting.NotConfigured, AppConfig.fromEnvironment(required).lthr)
+        assertEquals(LthrSetting.NotConfigured, lthr("  "))
+    }
+
+    @Test
+    fun `005 R1 - LTHR_BPM valid range`() {
+        assertEquals(LthrSetting.Valid(Bpm(175)), lthr(" 175 "))
+        assertEquals(LthrSetting.Valid(Bpm(100)), lthr("100"))
+        assertEquals(LthrSetting.Valid(Bpm(220)), lthr("220"))
+    }
+
+    @Test
+    fun `005 R1 - LTHR_BPM invalid values do not stop startup`() {
+        listOf("abc", "175.5", "99", "221").forEach { assertEquals(LthrSetting.Invalid, lthr(it), it) }
+    }
+
+    @Test
+    fun `005 R1 - toString masks LTHR`() {
+        assertTrue("lthr=<unset>" in AppConfig.fromEnvironment(required).toString())
+        assertTrue("lthr=<invalid>" in AppConfig.fromEnvironment(required + ("LTHR_BPM" to "abc")).toString())
+        val text = AppConfig.fromEnvironment(required + ("LTHR_BPM" to "187")).toString()
+        assertTrue("lthr=<set>" in text)
+        assertFalse("187" in text)
     }
 
     @Test

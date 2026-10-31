@@ -1,6 +1,9 @@
 package app.stravadashboard.persistence
 
 import app.stravadashboard.domain.model.ActivityId
+import app.stravadashboard.domain.model.HrHistogram
+import app.stravadashboard.domain.model.HrHistogramResult
+import app.stravadashboard.domain.model.HrHistogramStatus
 import app.stravadashboard.domain.model.Lap
 import app.stravadashboard.domain.model.Meters
 import app.stravadashboard.domain.model.RUN_SPORT_TYPE
@@ -34,10 +37,31 @@ internal fun ResultRow.toStreamPace(): StreamPaceResult =
         pace = this[RunStreamPacesTable.repPaceSPerKm]?.let(::SecondsPerKm),
     )
 
+internal fun HrHistogramStatus.toDbValue(): String = name.lowercase()
+
+/** `bpm:seconds` pairs sorted by bpm, joined with `,` (e.g. `140:1800,160:1200`). */
+internal fun HrHistogram.encode(): String =
+    secondsByBpm.entries.sortedBy { it.key }.joinToString(",") { (bpm, seconds) -> "$bpm:$seconds" }
+
+internal fun decodeHrHistogram(text: String): HrHistogram =
+    HrHistogram(
+        text.split(",").filter { it.isNotEmpty() }.associate { pair ->
+            val (bpm, seconds) = pair.split(":")
+            bpm.toInt() to seconds.toInt()
+        },
+    )
+
+internal fun ResultRow.toHrHistogram(): HrHistogramResult =
+    HrHistogramResult(
+        status = HrHistogramStatus.valueOf(this[RunHrHistogramsTable.status].uppercase()),
+        histogram = this[RunHrHistogramsTable.histogram]?.let(::decodeHrHistogram),
+    )
+
 /** Only Runs are stored, so the sport type is always [RUN_SPORT_TYPE]. Laps are null until the detail is fetched. */
 internal fun ResultRow.toRun(
     laps: List<Lap>,
     streamPace: StreamPaceResult?,
+    hrHistogram: HrHistogramResult?,
 ): RunActivity {
     val detailFetchedAt = this[RunsTable.detailFetchedAt]?.let(Instant::ofEpochSecond)
     return RunActivity(
@@ -53,5 +77,6 @@ internal fun ResultRow.toRun(
         laps = if (detailFetchedAt == null) null else laps,
         detailFetchedAt = detailFetchedAt,
         streamPace = streamPace,
+        hrHistogram = hrHistogram,
     )
 }

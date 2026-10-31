@@ -1,6 +1,8 @@
 package app.stravadashboard.strava
 
 import app.stravadashboard.domain.model.ActivityId
+import app.stravadashboard.domain.model.Bpm
+import app.stravadashboard.domain.model.HeartRateStream
 import app.stravadashboard.domain.model.Lap
 import app.stravadashboard.domain.model.Meters
 import app.stravadashboard.domain.model.MetersPerSecond
@@ -38,6 +40,17 @@ internal fun StreamSetDto.toSpeedStream(): SpeedStream? {
     val speeds = velocitySmooth?.data.orEmpty()
     return if (times.size >= MIN_STREAM_SAMPLES && times.size == speeds.size) {
         SpeedStream(times.map(::Seconds), speeds.map(::MetersPerSecond))
+    } else {
+        null
+    }
+}
+
+/** Null unless both `time` and `heartrate` are present, of equal length and at least two samples. */
+internal fun StreamSetDto.toHeartRateStream(): HeartRateStream? {
+    val times = time?.data.orEmpty()
+    val bpm = heartrate?.data.orEmpty()
+    return if (times.size >= MIN_STREAM_SAMPLES && times.size == bpm.size) {
+        HeartRateStream(times.map(::Seconds), bpm.map(::Bpm))
     } else {
         null
     }
