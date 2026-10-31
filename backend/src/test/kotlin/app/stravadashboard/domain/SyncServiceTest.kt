@@ -43,6 +43,13 @@ class SyncServiceTest {
 
     private fun sync(): SyncInfo = assertIs<SyncOutcome.Done>(runBlocking { service.syncIfDue() }).info
 
+    @Test
+    fun `006 R7 - long easy run gets a detail call and no stream call`() {
+        source.activities = listOf(summary(1, daysAgo(9), name = "Sunday long run", distanceMeters = 25_000.0))
+        sync()
+        assertEquals(listOf("detail:1"), source.activityCalls)
+    }
+
     private fun stream(): SpeedStream {
         val speeds = List(600) { 3.0 } + List(5) { List(360) { 4.0 } + List(120) { 2.5 } }.flatten()
         return SpeedStream(speeds.indices.map(::Seconds), speeds.map(::MetersPerSecond))

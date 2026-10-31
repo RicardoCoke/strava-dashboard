@@ -9,6 +9,12 @@ sealed interface RunType {
         override val label: String = "Easy runs"
     }
 
+    /** A non-workout run over 20 km. Named `LongRun` so it doesn't shadow `kotlin.Long`. */
+    data object LongRun : RunType {
+        override val key: String = "long"
+        override val label: String = "Long runs"
+    }
+
     data class Workout(
         val reps: Int,
         val minutes: Int,

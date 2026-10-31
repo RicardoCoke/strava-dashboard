@@ -57,12 +57,14 @@ fun run(
         streamPace = streamPace,
     )
 
+@Suppress("LongParameterList")
 fun summary(
     id: Long,
     start: Instant,
     name: String = "Morning Run",
     sportType: String = RUN_SPORT_TYPE,
     trainer: Boolean = false,
+    distanceMeters: Double = 10_000.0,
 ): ActivitySummary =
     ActivitySummary(
         id = ActivityId(id),
@@ -70,7 +72,7 @@ fun summary(
         sportType = sportType,
         startUtc = start,
         startLocal = LocalDateTime.ofInstant(start, ZoneOffset.UTC),
-        distance = Meters(10_000.0),
+        distance = Meters(distanceMeters),
         averageHeartRateBpm = 150.0,
         trainer = trainer,
     )

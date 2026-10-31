@@ -51,17 +51,25 @@ object HeartRateTrend {
     ): HrTrendResult {
         val windowStart = today.minusMonths(WINDOW_MONTHS)
         val inWindow = runs.filter { it.isRun && it.localDate in windowStart..today }
-        val easyFirstThenMostRecent =
-            compareBy<Map.Entry<RunType, List<RunActivity>>> { it.key != RunType.Easy }
+        val byRankThenMostRecent =
+            compareBy<Map.Entry<RunType, List<RunActivity>>> { rank(it.key) }
                 .thenByDescending { entry -> entry.value.maxOf { it.startUtc } }
         val types =
             inWindow
                 .groupBy { RunClassifier.classify(it) }
                 .entries
-                .sortedWith(easyFirstThenMostRecent)
+                .sortedWith(byRankThenMostRecent)
                 .map { (type, typeRuns) -> typeTrend(type, typeRuns, windowStart) }
         return HrTrendResult(windowStart, today, MIN_POINTS_FOR_COMPARISON, types)
     }
+
+    /** Easy runs, then long runs, then workouts; recency only orders workouts among themselves. */
+    private fun rank(type: RunType): Int =
+        when (type) {
+            RunType.Easy -> 0
+            RunType.LongRun -> 1
+            is RunType.Workout -> 2
+        }
 
     private fun typeTrend(
         type: RunType,

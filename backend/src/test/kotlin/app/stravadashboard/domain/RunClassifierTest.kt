@@ -43,6 +43,44 @@ class RunClassifierTest {
     }
 
     @Test
+    fun `006 R1 - non-workout run over 20 km is a long run`() {
+        val type = RunClassifier.classify(run(name = "Sunday long run", distanceMeters = 21_100.0))
+        assertEquals(RunType.LongRun, type)
+        assertEquals("long", type.key)
+        assertEquals("Long runs", type.label)
+    }
+
+    @Test
+    fun `006 R1 - threshold uses raw metres above 20000`() {
+        assertEquals(RunType.LongRun, RunClassifier.classify(run(distanceMeters = 20_000.1)))
+    }
+
+    @Test
+    fun `006 R1 - workout pattern over 20 km stays a workout`() {
+        assertEquals(RunType.Workout(3, 20), RunClassifier.classify(run(name = "3x20min", distanceMeters = 24_000.0)))
+        assertEquals(
+            RunType.Workout(3, 20),
+            RunClassifier.classify(run(description = "3x20min tempo", distanceMeters = 24_000.0)),
+        )
+    }
+
+    @Test
+    fun `006 R1 - treadmill run over 20 km is a long run`() {
+        assertEquals(RunType.LongRun, RunClassifier.classify(run(trainer = true, distanceMeters = 22_000.0)))
+    }
+
+    @Test
+    fun `006 R2 - exactly 20000 m and 19950 m are easy runs`() {
+        assertEquals(RunType.Easy, RunClassifier.classify(run(distanceMeters = 20_000.0)))
+        assertEquals(RunType.Easy, RunClassifier.classify(run(distanceMeters = 19_950.0)))
+    }
+
+    @Test
+    fun `006 R1 - text-only classification ignores distance`() {
+        assertEquals(RunType.Easy, RunClassifier.classify("Long run", null))
+    }
+
+    @Test
     fun `R7 - out of range reps or minutes are easy`() {
         listOf("0x6min", "60x1min", "5x0min").forEach {
             assertEquals(RunType.Easy, RunClassifier.classify(it, null), it)
