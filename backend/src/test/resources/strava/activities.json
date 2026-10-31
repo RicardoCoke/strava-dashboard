@@ -1,0 +1,24 @@
+[
+  {
+    "id": 111,
+    "name": "Invented tempo 5x6min",
+    "sport_type": "Run",
+    "type": "Run",
+    "start_date": "2026-10-26T03:30:00Z",
+    "start_date_local": "2026-10-25T23:30:00Z",
+    "distance": 10049.0,
+    "average_heartrate": 151.3,
+    "trainer": false,
+    "start_latlng": [0.0, 0.0],
+    "map": { "id": "a1", "summary_polyline": "invented", "resource_state": 2 }
+  },
+  {
+    "id": 222,
+    "name": "Invented ride",
+    "sport_type": "Ride",
+    "start_date": "2026-10-24T08:00:00Z",
+    "start_date_local": "2026-10-24T10:00:00Z",
+    "distance": 30000.0,
+    "trainer": false
+  }
+]

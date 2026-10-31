@@ -1,0 +1,40 @@
+<h1>Running</h1>
+<app-calendar-like-build />
+
+@switch (state().kind) {
+  @case ('loading') {
+    <div class="loading" role="status" aria-live="polite">
+      <app-ring-spinner />
+      <p class="loading-text">Loading your runs…</p>
+      <p class="loading-note">The first import can take a minute.</p>
+    </div>
+  }
+  @case ('error') {
+    <div class="card status-card" role="alert">
+      <p>Couldn't load your dashboard.</p>
+      <button type="button" class="retry" (click)="retry()">Retry</button>
+    </div>
+  }
+  @case ('loaded') {
+    @if (data(); as data) {
+      <app-sync-banner [sync]="data.sync" />
+      @if (empty()) {
+        <div class="card status-card">
+          <p class="empty">No runs in the last 5 months</p>
+        </div>
+      } @else {
+        <app-headline-tiles [dashboard]="data" />
+        <div class="cards">
+          <app-weekly-distance-chart [weekly]="data.weeklyDistance" />
+          <app-heart-rate-trend-chart
+            [trend]="data.heartRateTrend"
+            [selectedTypeKey]="selectedHrTypeKey()"
+            (typeSelected)="selectedHrTypeKey.set($event)"
+          />
+          <app-workout-pace-comparison-chart [comparison]="data.workoutPaceComparison" />
+        </div>
+      }
+    }
+  }
+}
+<app-build-calendar-section />

@@ -1,0 +1,34 @@
+:host {
+  display: block;
+}
+
+.cards {
+  display: grid;
+  gap: 1rem;
+}
+
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 4rem 1rem;
+  text-align: center;
+}
+
+.loading-text {
+  margin: 1rem 0 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.loading-note {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.status-card {
+  text-align: center;
+}

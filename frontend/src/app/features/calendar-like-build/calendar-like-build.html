@@ -1,0 +1,24 @@
+<section class="card plan" aria-labelledby="plan-heading">
+  <h2 id="plan-heading">Marathon build</h2>
+
+  @switch (store.state().kind) {
+    @case ('loading') {
+      <p class="empty" role="status">Loading your plan…</p>
+    }
+    @case ('notConfigured') {
+      <p class="plan-empty">No training plan set up yet.</p>
+      <p class="empty">Set TRAINING_PLAN_CSV in .env to the path of your plan CSV, then reload.</p>
+    }
+    @case ('error') {
+      <div class="plan-error" role="alert">
+        <p>{{ store.errorText() }}</p>
+        <button type="button" class="retry" (click)="retry()">Retry</button>
+      </div>
+    }
+    @case ('loaded') {
+      @if (store.data(); as data) {
+        <app-build-progress [progress]="data.progress" />
+      }
+    }
+  }
+</section>

@@ -1,1 +1,127 @@
-/* You can add global styles to this file, and also import other style files */
+/*
+ * Global styles: the one dark theme (feature 002).
+ * Colour tokens live here and, with the same values, in app/shared/chart/palette.ts (ECharts can't read CSS vars).
+ * Component styles use only var(--color-*).
+ */
+:root {
+  color-scheme: dark;
+  --color-bg: #0b0d0f;
+  --color-surface: #17191c;
+  --color-surface-raised: #22262a;
+  --color-border: #2a2e33;
+  --color-text: #f2f4f5;
+  --color-text-muted: #9aa3ad;
+  --color-accent: #00f19f;
+  --color-secondary: #6f8299;
+  --color-worse: #ff6b4a;
+  --color-treadmill: #a78bfa;
+  --color-grid: rgba(255, 255, 255, 0.06);
+}
+
+body {
+  margin: 0;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+  color: var(--color-text);
+  background: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1 {
+  margin: 0 0 1.25rem;
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--color-text);
+}
+
+a {
+  color: var(--color-accent);
+}
+
+button,
+select {
+  font: inherit;
+}
+
+select {
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+}
+
+a:focus-visible,
+button:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.card {
+  padding: 1.25rem 1.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+}
+
+.card h2 {
+  margin: 0 0 1rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.card h3 {
+  margin: 1rem 0 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+/* Neutral notice: sync banner and Connect messages. Red-orange is reserved for "getting worse". */
+.notice {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border-left: 3px solid var(--color-secondary);
+  border-radius: 8px;
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+}
+
+.empty,
+.note {
+  color: var(--color-text-muted);
+}
+
+.tone-better {
+  color: var(--color-accent);
+}
+
+.tone-worse {
+  color: var(--color-worse);
+}
+
+.tone-neutral {
+  color: var(--color-text);
+}
+
+/* Retry button shared by the dashboard and the marathon build section. */
+.retry {
+  padding: 0.5rem 1.25rem;
+  border: 1px solid var(--color-accent);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-accent);
+  font-weight: 600;
+  cursor: pointer;
+}

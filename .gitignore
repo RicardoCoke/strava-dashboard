@@ -2,6 +2,9 @@
 .env
 data/
 *.db
+# Training-plan CSVs (feature 004); test fixtures live under backend/src/test/resources
+/*.csv
+/backend/*.csv
 
 # Backend
 backend/build/

@@ -1,0 +1,9 @@
+{
+  "id": 111,
+  "name": "Invented tempo 5x6min",
+  "description": "Treadmill notes\n4:15 4:10",
+  "laps": [
+    { "lap_index": 1, "elapsed_time": 300, "distance": 1000.0, "average_heartrate": 140.0 },
+    { "lap_index": 2, "elapsed_time": 250, "distance": 1000.0 }
+  ]
+}
