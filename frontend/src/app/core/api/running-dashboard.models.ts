@@ -94,11 +94,57 @@ export interface WorkoutPaceComparison {
   types: PaceTypeComparison[];
 }
 
+// Feature 007: this week vs last week, for the headline tiles.
+
+export type WeekMissing = 'thisWeek' | 'lastWeek' | 'bothWeeks';
+
+export interface DistanceDifference {
+  thisWeekKm: number;
+  lastWeekKm: number;
+  /** This week so far minus all of last week; never −0. */
+  differenceKm: number;
+}
+
+export interface WeekHrStat {
+  averageHeartRateBpm: number;
+  runCount: number;
+}
+
+export interface EasyHrWeekComparison {
+  thisWeek: WeekHrStat | null;
+  lastWeek: WeekHrStat | null;
+  changeBpm: number | null;
+  missingIn: WeekMissing | null;
+}
+
+export interface WeekPaceStat {
+  averageRepPaceSecondsPerKm: number;
+  runCount: number;
+  typeLabels: string[];
+}
+
+export interface WorkoutPaceWeekComparison {
+  thisWeek: WeekPaceStat | null;
+  lastWeek: WeekPaceStat | null;
+  /** Negative means faster. */
+  changeSecondsPerKm: number | null;
+  missingIn: WeekMissing | null;
+}
+
+export interface WeekComparison {
+  thisWeek: DateWindow;
+  lastWeek: DateWindow;
+  distance: DistanceDifference;
+  easyHeartRate: EasyHrWeekComparison;
+  workoutPace: WorkoutPaceWeekComparison;
+}
+
 export interface RunningDashboardResponse {
   sync: SyncInfo;
   weeklyDistance: WeeklyDistance;
   heartRateTrend: HeartRateTrend;
   workoutPaceComparison: WorkoutPaceComparison;
+  weekComparison: WeekComparison;
 }
 
 export interface ApiError {

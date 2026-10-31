@@ -16,7 +16,17 @@ import { buildHeadlineTiles } from './headline-tiles.model';
               <span class="unit">{{ tile.unit }}</span>
             }
           </p>
-          <p class="detail">{{ tile.detail }}</p>
+          <p class="detail">
+            @if (tile.comparison) {
+              <span class="comparison">{{ tile.comparison }}</span>
+              <span class="separator"> · </span>
+            }
+            @if (tile.delta) {
+              <span [class]="'delta tone-' + tile.delta.tone">{{ tile.delta.text }}</span>
+              <span class="separator"> · </span>
+            }
+            <span class="detail-text">{{ tile.detail }}</span>
+          </p>
         </article>
       }
     </div>
@@ -62,6 +72,19 @@ import { buildHeadlineTiles } from './headline-tiles.model';
     .unit {
       font-size: 0.95rem;
       font-weight: 600;
+      color: var(--color-text-muted);
+    }
+
+    /* Detail-line size; bold so the colour reads. */
+    .delta {
+      font-weight: 600;
+    }
+
+    .separator {
+      white-space: pre;
+    }
+
+    .tone-muted {
       color: var(--color-text-muted);
     }
 
