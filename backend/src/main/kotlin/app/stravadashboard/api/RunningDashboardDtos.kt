@@ -48,6 +48,7 @@ data class HeartRateTrendDto(
 data class HrRunTypeDto(
     val typeKey: String,
     val label: String,
+    /** "easy", "long" or "workout". */
     val kind: String,
     val runCount: Int,
     val runsWithoutHeartRate: Int,

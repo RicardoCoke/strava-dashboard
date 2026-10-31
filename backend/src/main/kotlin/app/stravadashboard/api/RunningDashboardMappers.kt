@@ -62,7 +62,12 @@ private fun HrTypeTrend.toDto(): HrRunTypeDto =
     HrRunTypeDto(
         typeKey = type.key,
         label = type.label,
-        kind = if (type is RunType.Easy) "easy" else "workout",
+        kind =
+            when (type) {
+                RunType.Easy -> "easy"
+                RunType.LongRun -> "long"
+                is RunType.Workout -> "workout"
+            },
         runCount = runCount,
         runsWithoutHeartRate = runsWithoutHeartRate,
         hasEnoughData = hasEnoughData,

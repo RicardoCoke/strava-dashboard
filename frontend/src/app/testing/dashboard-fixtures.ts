@@ -70,6 +70,18 @@ export function hrType(overrides: Partial<HrRunType> = {}): HrRunType {
   };
 }
 
+/** Feature 006: a "Long runs" entry; the second point is a treadmill run. */
+export function longHrType(overrides: Partial<HrRunType> = {}): HrRunType {
+  return hrType({
+    typeKey: 'long',
+    label: 'Long runs',
+    kind: 'long',
+    runCount: 5,
+    points: hrType().points.map((point, i) => ({ ...point, distanceKm: [21.1, 24.0, 32.0][i] })),
+    ...overrides,
+  });
+}
+
 export function paceType(overrides: Partial<PaceTypeComparison> = {}): PaceTypeComparison {
   return {
     typeKey: '5x6min',

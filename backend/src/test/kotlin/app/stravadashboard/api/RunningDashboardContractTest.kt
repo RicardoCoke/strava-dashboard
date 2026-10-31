@@ -42,6 +42,14 @@ class RunningDashboardContractTest {
                                 points = listOf(HrPoint(date("2026-06-01"), 142.3, 8.2, false, true)),
                                 trend = HrTrendLine(date("2026-06-01"), 145.2, date("2026-10-28"), 140.1, -5.1),
                             ),
+                            HrTypeTrend(
+                                type = RunType.LongRun,
+                                runCount = 2,
+                                runsWithoutHeartRate = 0,
+                                points = listOf(HrPoint(date("2026-10-25"), 148.0, 32.0, true, false)),
+                                trend = null,
+                            ),
+                            HrTypeTrend(RunType.Workout(5, 6), 1, 1, emptyList(), null),
                         ),
                 ),
             pace =
@@ -78,7 +86,13 @@ class RunningDashboardContractTest {
                 "hasEnoughData": true,
                 "points": [ { "date": "2026-06-01", "averageHeartRateBpm": 142.3, "distanceKm": 8.2, "treadmill": false, "rising": true } ],
                 "trend": { "startDate": "2026-06-01", "startBpm": 145.2, "endDate": "2026-10-28", "endBpm": 140.1,
-                           "changeBpm": -5.1 } }
+                           "changeBpm": -5.1 } },
+              { "typeKey": "long", "label": "Long runs", "kind": "long", "runCount": 2, "runsWithoutHeartRate": 0,
+                "hasEnoughData": false,
+                "points": [ { "date": "2026-10-25", "averageHeartRateBpm": 148.0, "distanceKm": 32.0, "treadmill": true, "rising": false } ],
+                "trend": null },
+              { "typeKey": "5x6min", "label": "5x6min", "kind": "workout", "runCount": 1, "runsWithoutHeartRate": 1,
+                "hasEnoughData": false, "points": [], "trend": null }
             ]
           },
           "workoutPaceComparison": {

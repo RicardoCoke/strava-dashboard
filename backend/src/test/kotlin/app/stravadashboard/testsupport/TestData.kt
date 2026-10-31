@@ -67,6 +67,7 @@ fun summary(
     name: String = "Morning Run",
     sportType: String = RUN_SPORT_TYPE,
     trainer: Boolean = false,
+    distanceMeters: Double = 10_000.0,
     heartRate: Double? = 150.0,
 ): ActivitySummary =
     ActivitySummary(
@@ -75,7 +76,7 @@ fun summary(
         sportType = sportType,
         startUtc = start,
         startLocal = LocalDateTime.ofInstant(start, ZoneOffset.UTC),
-        distance = Meters(10_000.0),
+        distance = Meters(distanceMeters),
         averageHeartRateBpm = heartRate,
         trainer = trainer,
     )

@@ -52,7 +52,7 @@ export interface HrTrendLine {
 export interface HrRunType {
   typeKey: string;
   label: string;
-  kind: 'easy' | 'workout';
+  kind: 'easy' | 'long' | 'workout';
   runCount: number;
   runsWithoutHeartRate: number;
   hasEnoughData: boolean;
