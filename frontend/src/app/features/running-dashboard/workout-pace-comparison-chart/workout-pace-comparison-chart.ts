@@ -50,23 +50,11 @@ import {
             <p class="summary empty">{{ notEnoughText() }}</p>
           }
           @if (notShownText(); as note) {
-            <p class="note muted">{{ note }}</p>
+            <p class="note">{{ note }}</p>
           }
         }
       }
     </section>
-  `,
-  styles: `
-    .type-picker {
-      display: inline-flex;
-      gap: 0.5rem;
-      align-items: center;
-      margin-bottom: 0.5rem;
-    }
-
-    .muted {
-      color: var(--color-text-muted);
-    }
   `,
 })
 export class WorkoutPaceComparisonChart {

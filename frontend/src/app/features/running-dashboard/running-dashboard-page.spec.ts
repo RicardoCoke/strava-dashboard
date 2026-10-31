@@ -80,6 +80,11 @@ describe('RunningDashboardPage', () => {
     });
     http.expectOne('/api/dashboard/running').flush(withTypes);
     fixture.detectChanges();
+    // After a finished sync the page reloads in place (009).
+    const reload = () => {
+      sync.finish();
+      fixture.detectChanges();
+    };
     const select = () =>
       element().querySelector<HTMLSelectElement>('app-workout-pace-comparison-chart select');
     const picker = select();
@@ -89,15 +94,19 @@ describe('RunningDashboardPage', () => {
     }
     fixture.detectChanges();
 
-    // A failed load, then Retry: the page reloads and keeps the picked type.
-    (fixture.componentInstance as unknown as { retry(): void }).retry();
+    // A failed reload keeps the content (009), and the next reload keeps the picked type.
+    reload();
+    http
+      .expectOne('/api/dashboard/running')
+      .flush(null, { status: 500, statusText: 'Server Error' });
     fixture.detectChanges();
+    expect(select()?.value).toBe('4x8min');
+    reload();
     http.expectOne('/api/dashboard/running').flush(withTypes);
     fixture.detectChanges();
     expect(select()?.value).toBe('4x8min');
 
-    (fixture.componentInstance as unknown as { retry(): void }).retry();
-    fixture.detectChanges();
+    reload();
     http.expectOne('/api/dashboard/running').flush(dashboard());
     fixture.detectChanges();
     expect(select()?.value).toBe('5x6min');
