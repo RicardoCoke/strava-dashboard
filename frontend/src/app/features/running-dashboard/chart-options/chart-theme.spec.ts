@@ -3,7 +3,7 @@ import { palette } from '../../../shared/chart/palette';
 import { hrType, paceType, week } from '../../../testing/dashboard-fixtures';
 import { buildHeartRateTrendOptions } from './heart-rate-trend.options';
 import { buildWeeklyDistanceOptions } from './weekly-distance.options';
-import { buildWorkoutPaceOptions } from './workout-pace.options';
+import { buildWorkoutPaceTrendOptions } from './workout-pace.options';
 
 const weeks = [
   week(),
@@ -33,7 +33,7 @@ describe('dark chart styling', () => {
   it('002 R9 - all charts use dark axis grid and tooltip style', () => {
     expectDarkStyle(buildWeeklyDistanceOptions(weeks));
     expectDarkStyle(buildHeartRateTrendOptions(hrType()));
-    expectDarkStyle(buildWorkoutPaceOptions([paceType()]));
+    expectDarkStyle(buildWorkoutPaceTrendOptions(paceType()));
   });
 
   it('002 R9 - weekly bars secondary with accent current week', () => {
@@ -63,13 +63,15 @@ describe('dark chart styling', () => {
     expect(trend.lineStyle).toEqual({ type: 'dashed', width: 1, color: palette.textMuted });
   });
 
-  it('002 R9 - pace bars secondary and accent with rounded tops', () => {
-    const options = buildWorkoutPaceOptions([paceType()]);
-    const [previous, current] = options.series as BarSeriesOption[];
-    expect(previous.itemStyle).toEqual({ color: palette.secondary, borderRadius: [4, 4, 0, 0] });
-    expect(current.itemStyle).toEqual({ color: palette.accent, borderRadius: [4, 4, 0, 0] });
-    expect([previous.barMaxWidth, current.barMaxWidth]).toEqual([28, 28]);
-    expect(current.label).toMatchObject({ color: palette.text });
+  it('010 R6 - pace points accent circles, treadmill triangles and a secondary line', () => {
+    const options = buildWorkoutPaceTrendOptions(paceType());
+    const [line, outdoor, treadmill] = options.series as {
+      itemStyle?: object;
+      lineStyle?: object;
+    }[];
+    expect(line.lineStyle).toEqual({ width: 1.5, color: palette.secondary });
+    expect(outdoor.itemStyle).toEqual({ color: palette.accent });
+    expect(treadmill.itemStyle).toEqual({ color: palette.treadmill });
     expect(options.legend).toMatchObject({ textStyle: { color: palette.textMuted } });
   });
 });

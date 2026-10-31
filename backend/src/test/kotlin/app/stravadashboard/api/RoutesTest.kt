@@ -282,18 +282,18 @@ class RoutesTest {
                 ),
                 root.firstOf("heartRateTrend", "types").keys,
             )
-            assertEquals(
-                setOf(
-                    "typeKey",
-                    "label",
-                    "current",
-                    "previous",
-                    "changeSecondsPerKm",
-                    "runsWithoutPace",
-                    "hasEnoughData",
-                ),
-                root.firstOf("workoutPaceComparison", "types").keys,
-            )
+        }
+
+    @Test
+    fun `010 R1 - pace window matches heart rate window and types carry points`() =
+        app {
+            val root = Json.parseToJsonElement(connectedDashboardBody()).jsonObject
+            val pace = root.obj("workoutPaceComparison")
+            val heartRate = root.obj("heartRateTrend")
+            assertEquals(heartRate["windowStart"], pace["windowStart"])
+            assertEquals(heartRate["windowEnd"], pace["windowEnd"])
+            val keys = "typeKey label runCount points current previous changeSecondsPerKm runsWithoutPace hasEnoughData"
+            assertEquals(keys.split(" ").toSet(), root.firstOf("workoutPaceComparison", "types").keys)
         }
 
     @Test

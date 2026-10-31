@@ -43,26 +43,21 @@ describe('marathon build parts', () => {
 
   it('004 R11 - single and range paces formatted', () => {
     const plan = trainingPlan();
-    const element = render(TargetPaces, { paces: plan.targetPaces, notes: plan.notes });
+    const element = render(TargetPaces, { paces: plan.targetPaces });
     expect(squash(element.querySelector('.title'))).toBe('Target paces');
     const rows = Array.from(element.querySelectorAll('.pace')).map((row) => childTexts(row));
     expect(rows).toEqual(['Easy 5:38 /km', '15K 4:00–4:10 /km target 4:05', '30K 4:15–4:22 /km']);
   });
 
-  it('004 R11 - notes listed and hidden when empty', () => {
-    const plan = trainingPlan();
-    const withNotes = render(TargetPaces, { paces: plan.targetPaces, notes: plan.notes });
-    const notes = Array.from(withNotes.querySelectorAll('.note-list li')).map(
-      (li) => li.textContent,
-    );
-    expect(notes).toEqual(['6x10 - rest 1\'30"', "2x20 - jog 3'"]);
-
-    const withoutNotes = render(TargetPaces, { paces: plan.targetPaces, notes: [] });
-    expect(withoutNotes.querySelector('.notes')).toBeNull();
+  it('010 R10 - build calendar has no plan notes panel', () => {
+    const element = render(TargetPaces, { paces: trainingPlan().targetPaces });
+    expect(element.querySelector('.notes')).toBeNull();
+    expect(element.textContent).not.toContain('Plan notes');
+    expect(element.querySelectorAll('.pace').length).toBe(3);
   });
 
   it('004 R11 - panel hidden without paces', () => {
-    const element = render(TargetPaces, { paces: [], notes: [] });
+    const element = render(TargetPaces, { paces: [] });
     expect(element.querySelector('.paces')).toBeNull();
   });
 

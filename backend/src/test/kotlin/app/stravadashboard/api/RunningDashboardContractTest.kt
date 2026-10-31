@@ -10,6 +10,7 @@ import app.stravadashboard.domain.HrTrendResult
 import app.stravadashboard.domain.HrTypeTrend
 import app.stravadashboard.domain.MissingIn
 import app.stravadashboard.domain.PaceComparisonResult
+import app.stravadashboard.domain.PacePoint
 import app.stravadashboard.domain.PaceTypeComparison
 import app.stravadashboard.domain.PaceWindowStat
 import app.stravadashboard.domain.SyncInfo
@@ -61,6 +62,8 @@ class RunningDashboardContractTest {
                 ),
             pace =
                 PaceComparisonResult(
+                    windowStart = date("2026-05-29"),
+                    windowEnd = date("2026-10-29"),
                     currentWindow = DateWindow(date("2026-09-30"), date("2026-10-29")),
                     previousWindow = DateWindow(date("2026-08-31"), date("2026-09-29")),
                     types =
@@ -69,9 +72,23 @@ class RunningDashboardContractTest {
                                 type = RunType.Workout(5, 6),
                                 current = PaceWindowStat(SecondsPerKm(253), 2),
                                 previous = PaceWindowStat(SecondsPerKm(260), 3),
-                                runsWithoutPace = 1,
+                                runCount = 6,
+                                points =
+                                    listOf(
+                                        PacePoint(date("2026-07-10"), SecondsPerKm(262), false),
+                                        PacePoint(date("2026-09-15"), SecondsPerKm(260), true),
+                                        PacePoint(date("2026-10-14"), SecondsPerKm(253), false),
+                                        PacePoint(date("2026-10-20"), SecondsPerKm(252), false),
+                                        PacePoint(date("2026-10-25"), SecondsPerKm(254), false),
+                                    ),
                             ),
-                            PaceTypeComparison(RunType.Workout(4, 8), PaceWindowStat(SecondsPerKm(250), 1), null, 0),
+                            PaceTypeComparison(
+                                RunType.Workout(4, 8),
+                                PaceWindowStat(SecondsPerKm(250), 1),
+                                null,
+                                1,
+                                listOf(PacePoint(date("2026-10-27"), SecondsPerKm(250), false)),
+                            ),
                         ),
                 ),
             weekComparison =
@@ -117,14 +134,23 @@ class RunningDashboardContractTest {
             ]
           },
           "workoutPaceComparison": {
+            "windowStart": "2026-05-29", "windowEnd": "2026-10-29",
             "currentWindow": { "start": "2026-09-30", "end": "2026-10-29" },
             "previousWindow": { "start": "2026-08-31", "end": "2026-09-29" },
             "types": [
-              { "typeKey": "5x6min", "label": "5x6min",
+              { "typeKey": "5x6min", "label": "5x6min", "runCount": 6,
+                "points": [
+                  { "date": "2026-07-10", "repPaceSecondsPerKm": 262, "treadmill": false },
+                  { "date": "2026-09-15", "repPaceSecondsPerKm": 260, "treadmill": true },
+                  { "date": "2026-10-14", "repPaceSecondsPerKm": 253, "treadmill": false },
+                  { "date": "2026-10-20", "repPaceSecondsPerKm": 252, "treadmill": false },
+                  { "date": "2026-10-25", "repPaceSecondsPerKm": 254, "treadmill": false }
+                ],
                 "current": { "averageRepPaceSecondsPerKm": 253, "runCount": 2 },
                 "previous": { "averageRepPaceSecondsPerKm": 260, "runCount": 3 },
                 "changeSecondsPerKm": -7, "runsWithoutPace": 1, "hasEnoughData": true },
-              { "typeKey": "4x8min", "label": "4x8min",
+              { "typeKey": "4x8min", "label": "4x8min", "runCount": 1,
+                "points": [ { "date": "2026-10-27", "repPaceSecondsPerKm": 250, "treadmill": false } ],
                 "current": { "averageRepPaceSecondsPerKm": 250, "runCount": 1 },
                 "previous": null, "changeSecondsPerKm": null, "runsWithoutPace": 0, "hasEnoughData": false }
             ]

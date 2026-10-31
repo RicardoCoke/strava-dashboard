@@ -33,7 +33,11 @@
             [selectedTypeKey]="selectedHrTypeKey()"
             (typeSelected)="selectedHrTypeKey.set($event)"
           />
-          <app-workout-pace-comparison-chart [comparison]="data.workoutPaceComparison" />
+          <app-workout-pace-comparison-chart
+            [comparison]="data.workoutPaceComparison"
+            [selectedTypeKey]="selectedPaceTypeKey()"
+            (typeSelected)="selectedPaceTypeKey.set($event)"
+          />
         </div>
       }
     }

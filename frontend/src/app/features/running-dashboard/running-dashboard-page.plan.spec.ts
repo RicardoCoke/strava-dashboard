@@ -61,7 +61,7 @@ describe('RunningDashboardPage with the marathon build section', () => {
     ).toBeTruthy();
   });
 
-  it('004 R11 - paces and notes in the calendar card', () => {
+  it('004 R11 - paces in the calendar card, without plan notes (010 R10)', () => {
     http.expectOne('/api/dashboard/running').flush(dashboard());
     http.expectOne('/api/training-plan').flush(trainingPlan());
     fixture.detectChanges();
@@ -72,6 +72,7 @@ describe('RunningDashboardPage with the marathon build section', () => {
       bottom?.querySelectorAll('app-target-paces, app-build-calendar') ?? [],
     ).map((el) => el.tagName.toLowerCase());
     expect(bottomParts).toEqual(['app-target-paces', 'app-build-calendar']);
+    expect(bottom?.textContent).not.toContain('Plan notes');
 
     const top = element().querySelector('app-calendar-like-build');
     expect(top?.querySelector('app-target-paces, app-build-calendar')).toBeNull();

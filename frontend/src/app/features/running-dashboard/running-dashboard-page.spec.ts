@@ -1,7 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { dashboard, emptyDashboard, stubCharts } from '../../testing/dashboard-fixtures';
+import { dashboard, emptyDashboard, paceType, stubCharts } from '../../testing/dashboard-fixtures';
 import { stubPlanSection } from '../../testing/plan-section-stub';
 import { stubTrainingLoadSection } from '../../testing/training-load-stub';
 import { stubVo2maxSection } from '../../testing/vo2max-stub';
@@ -60,11 +60,7 @@ describe('RunningDashboardPage', () => {
     const headings = Array.from(element().querySelectorAll('section.card h2')).map((h) =>
       h.textContent?.trim(),
     );
-    expect(headings).toEqual([
-      'Weekly distance',
-      'Heart rate by run type',
-      'Workout pace: last 30 days vs previous 30 days',
-    ]);
+    expect(headings).toEqual(['Weekly distance', 'Heart rate by run type', 'Workout pace by type']);
   });
 
   it('R5 - sync banner shows above the charts when status is not ok', () => {
@@ -75,5 +71,35 @@ describe('RunningDashboardPage', () => {
     );
     fixture.detectChanges();
     expect(text()).toContain('Still importing runs from Strava (12 remaining).');
+  });
+
+  it('010 R4 - selection kept after reload, falls back when gone', () => {
+    const types = [paceType(), paceType({ typeKey: '4x8min', label: '4x8min' })];
+    const withTypes = dashboard({
+      workoutPaceComparison: { ...dashboard().workoutPaceComparison, types },
+    });
+    http.expectOne('/api/dashboard/running').flush(withTypes);
+    fixture.detectChanges();
+    const select = () =>
+      element().querySelector<HTMLSelectElement>('app-workout-pace-comparison-chart select');
+    const picker = select();
+    if (picker) {
+      picker.value = '4x8min';
+      picker.dispatchEvent(new Event('change'));
+    }
+    fixture.detectChanges();
+
+    // A failed load, then Retry: the page reloads and keeps the picked type.
+    (fixture.componentInstance as unknown as { retry(): void }).retry();
+    fixture.detectChanges();
+    http.expectOne('/api/dashboard/running').flush(withTypes);
+    fixture.detectChanges();
+    expect(select()?.value).toBe('4x8min');
+
+    (fixture.componentInstance as unknown as { retry(): void }).retry();
+    fixture.detectChanges();
+    http.expectOne('/api/dashboard/running').flush(dashboard());
+    fixture.detectChanges();
+    expect(select()?.value).toBe('5x6min');
   });
 });

@@ -11,7 +11,6 @@ data class TrainingPlanResponse(
     val endDate: String,
     val progress: BuildProgressDto,
     val targetPaces: List<TargetPaceDto>,
-    val notes: List<String>,
     val weeks: List<PlanWeekDto>,
 )
 

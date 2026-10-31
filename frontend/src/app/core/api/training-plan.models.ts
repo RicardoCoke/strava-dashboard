@@ -73,6 +73,5 @@ export interface TrainingPlanResponse {
   endDate: string;
   progress: BuildProgress;
   targetPaces: TargetPace[];
-  notes: string[];
   weeks: PlanWeek[];
 }

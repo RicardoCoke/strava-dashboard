@@ -2,7 +2,7 @@ package app.stravadashboard.domain.trainingplan
 
 import java.time.DayOfWeek
 
-/** Parses the rows of the training-plan CSV into paces, notes and week blocks (004 R3, R4). */
+/** Parses the rows of the training-plan CSV into paces and week blocks (004 R3, R4). */
 object TrainingPlanParser {
     private val WEEK_HEADER = Regex("""^WEEK\s+\d+$""")
     private const val RACE_WEEK = "RACE WEEK"
@@ -27,7 +27,7 @@ object TrainingPlanParser {
             starts.mapIndexed { i, start ->
                 parseWeek(rows.subList(start, starts.getOrElse(i + 1) { rows.size }))
             }
-        return TrainingPlan(PlanHeaderParser.paces(header), PlanHeaderParser.notes(header), weeks)
+        return TrainingPlan(PlanHeaderParser.paces(header), weeks)
     }
 
     private fun isWeekHeader(cell: String): Boolean {

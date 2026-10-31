@@ -3,18 +3,12 @@ import { By } from '@angular/platform-browser';
 import { TestBed } from '@angular/core/testing';
 import { ChartComponent } from '../../shared/chart/chart';
 import { palette } from '../../shared/chart/palette';
-import { hrType, paceType, stubCharts, week } from '../../testing/dashboard-fixtures';
+import { hrType, stubCharts, week } from '../../testing/dashboard-fixtures';
 import { HeartRateTrendChart } from './heart-rate-trend-chart/heart-rate-trend-chart';
 import { WeeklyDistanceChart } from './weekly-distance-chart/weekly-distance-chart';
-import { WorkoutPaceComparisonChart } from './workout-pace-comparison-chart/workout-pace-comparison-chart';
 
 describe('dashboard cards', () => {
   beforeEach(() => stubCharts());
-
-  const windows = {
-    currentWindow: { start: '2026-09-30', end: '2026-10-29' },
-    previousWindow: { start: '2026-08-31', end: '2026-09-29' },
-  };
 
   it('R8 - weekly card shows empty state when no runs', () => {
     const fixture = TestBed.createComponent(WeeklyDistanceChart);
@@ -99,66 +93,5 @@ describe('dashboard cards', () => {
     fixture.componentRef.setInput('selectedTypeKey', '5x6min');
     fixture.detectChanges();
     expect(lineColours()).toEqual([palette.accent]);
-  });
-
-  it('R11 - pace card shows change text per type', () => {
-    const fixture = TestBed.createComponent(WorkoutPaceComparisonChart);
-    fixture.componentRef.setInput('comparison', { ...windows, types: [paceType()] });
-    fixture.detectChanges();
-    const text = (fixture.nativeElement as HTMLElement).textContent?.replace(/\s+/g, ' ');
-    expect(text).toContain('5x6min: 4:20 /km → 4:13 /km · 7 s/km faster');
-  });
-
-  it('R12 - pace card lists types without enough data', () => {
-    const fixture = TestBed.createComponent(WorkoutPaceComparisonChart);
-    fixture.componentRef.setInput('comparison', {
-      ...windows,
-      types: [
-        paceType(),
-        paceType({
-          typeKey: '4x8min',
-          label: '4x8min',
-          previous: null,
-          hasEnoughData: false,
-          changeSecondsPerKm: null,
-        }),
-        paceType({
-          typeKey: '3x10min',
-          label: '3x10min',
-          current: null,
-          hasEnoughData: false,
-          changeSecondsPerKm: null,
-        }),
-        paceType({
-          typeKey: '2x15min',
-          label: '2x15min',
-          current: null,
-          previous: null,
-          hasEnoughData: false,
-          changeSecondsPerKm: null,
-        }),
-      ],
-    });
-    fixture.detectChanges();
-    const items = Array.from(
-      (fixture.nativeElement as HTMLElement).querySelectorAll('.not-enough li'),
-    ).map((li) => li.textContent?.trim());
-    expect(items).toEqual([
-      '4x8min: no paced runs in the previous 30 days',
-      '3x10min: no paced runs in the last 30 days',
-      '2x15min: no paced runs in either period',
-    ]);
-  });
-
-  it('R12 - no pace chart when no type has enough data', () => {
-    const fixture = TestBed.createComponent(WorkoutPaceComparisonChart);
-    fixture.componentRef.setInput('comparison', {
-      ...windows,
-      types: [paceType({ previous: null, hasEnoughData: false, changeSecondsPerKm: null })],
-    });
-    fixture.detectChanges();
-    const element = fixture.nativeElement as HTMLElement;
-    expect(element.querySelector('app-chart')).toBeNull();
-    expect(element.textContent).toContain('Not enough data yet');
   });
 });

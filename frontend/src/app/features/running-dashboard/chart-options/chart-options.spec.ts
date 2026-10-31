@@ -1,5 +1,5 @@
 import type { BarSeriesOption, LineSeriesOption } from 'echarts';
-import { hrType, paceType, week } from '../../../testing/dashboard-fixtures';
+import { hrType, week } from '../../../testing/dashboard-fixtures';
 import { palette } from '../../../shared/chart/palette';
 import {
   buildHeartRateTrendOptions,
@@ -7,7 +7,6 @@ import {
   hrTrendText,
 } from './heart-rate-trend.options';
 import { buildWeeklyDistanceOptions, weekTooltip } from './weekly-distance.options';
-import { CURRENT_SERIES, PREVIOUS_SERIES, buildWorkoutPaceOptions } from './workout-pace.options';
 
 type Formatter = (params: unknown) => string;
 
@@ -81,31 +80,5 @@ describe('chart option builders', () => {
   it('R12 - HR options without a trend have no trend series', () => {
     const options = buildHeartRateTrendOptions(hrType({ hasEnoughData: false, trend: null }));
     expect((options.series as LineSeriesOption[]).map((s) => s.name)).not.toContain('Trend');
-  });
-
-  it('R11 - pace comparison grouped bars with m ss labels and change text', () => {
-    const options = buildWorkoutPaceOptions([
-      paceType(),
-      paceType({
-        typeKey: '4x8min',
-        label: '4x8min',
-        previous: null,
-        hasEnoughData: false,
-        changeSecondsPerKm: null,
-      }),
-    ]);
-
-    expect(options.xAxis).toMatchObject({ type: 'category', data: ['5x6min'] });
-    expect(options.yAxis).toMatchObject({ name: 'Pace (min/km), lower is faster' });
-    const axisFormatter = (options.yAxis as { axisLabel: { formatter: (v: number) => string } })
-      .axisLabel.formatter;
-    expect(axisFormatter(253)).toBe('4:13');
-    const [previous, current] = options.series as BarSeriesOption[];
-    expect(previous.name).toBe(PREVIOUS_SERIES);
-    expect(current.name).toBe(CURRENT_SERIES);
-    expect(previous.data).toEqual([260]);
-    expect(current.data).toEqual([253]);
-    const labelFormatter = (current.label as { formatter: Formatter }).formatter;
-    expect(labelFormatter({ value: 253 })).toBe('4:13');
   });
 });

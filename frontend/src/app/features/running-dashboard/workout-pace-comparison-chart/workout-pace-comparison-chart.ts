@@ -1,86 +1,114 @@
-import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import {
   PaceTypeComparison,
   WorkoutPaceComparison,
 } from '../../../core/api/running-dashboard.models';
 import { ChartComponent } from '../../../shared/chart/chart';
-import { formatPaceChange } from '../../../shared/format/pace';
-import { Tone, toneForChange } from '../../../shared/format/tone';
-import { PacePipe } from '../../../shared/pipes/pace.pipe';
+import { Tone } from '../../../shared/format/tone';
 import {
-  buildWorkoutPaceOptions,
-  comparablePaceTypes,
+  buildWorkoutPaceTrendOptions,
+  notEnoughPaceText,
+  paceChangeText,
+  paceChangeTone,
+  paceSummaryPrefix,
+  runsNotShownText,
 } from '../chart-options/workout-pace.options';
 
-/** "5x6min: no paced runs in the previous 30 days" (or "last 30 days", or "either period"). */
-export function missingWindowText(type: PaceTypeComparison): string {
-  const missing =
-    !type.current && !type.previous
-      ? 'either period'
-      : !type.previous
-        ? 'the previous 30 days'
-        : 'the last 30 days';
-  return `${type.label}: no paced runs in ${missing}`;
-}
-
+/** "Workout pace by type": pick a workout type, one rep-pace point per run, the 30-day change below (feature 010). */
 @Component({
   selector: 'app-workout-pace-comparison-chart',
-  imports: [ChartComponent, PacePipe],
+  imports: [ChartComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="card">
-      <h2>Workout pace: last 30 days vs previous 30 days</h2>
+      <h2>Workout pace by type</h2>
       @if (comparison().types.length === 0) {
-        <p class="empty">No workouts (e.g. 5x6min) in the last 60 days</p>
+        <p class="empty">No workouts (e.g. 5x6min) in the last 5 months</p>
       } @else {
-        @if (drawn().length > 0) {
-          <app-chart
-            [options]="options()"
-            label="Average rep pace per workout type, two 30-day periods"
-          />
-          <ul class="changes">
-            @for (row of drawn(); track row.type.typeKey) {
-              <li>
-                <strong>{{ row.type.label }}</strong
-                >: {{ row.previous | pace }} → {{ row.current | pace }} ·
-                <span class="change" [class]="'tone-' + changeTone(row.type)">{{
-                  changeText(row.type)
-                }}</span>
-              </li>
+        <label class="type-picker">
+          Workout type
+          <select (change)="onSelect($event)">
+            @for (type of comparison().types; track type.typeKey) {
+              <option [value]="type.typeKey" [selected]="type.typeKey === selected()?.typeKey">
+                {{ type.label }} ({{ type.runCount }} {{ type.runCount === 1 ? 'run' : 'runs' }})
+              </option>
             }
-          </ul>
-        }
-        @if (notEnough().length > 0) {
-          <h3>Not enough data yet</h3>
-          <ul class="not-enough empty">
-            @for (type of notEnough(); track type.typeKey) {
-              <li>{{ missingText(type) }}</li>
-            }
-          </ul>
+          </select>
+        </label>
+        @if (selected(); as type) {
+          @if (type.points.length > 0) {
+            <app-chart [options]="options()" [label]="'Average rep pace per run: ' + type.label" />
+          } @else {
+            <p class="empty">No runs with a rep pace for this workout type yet</p>
+          }
+          @if (summaryPrefix(); as prefix) {
+            <p class="summary">
+              {{ prefix
+              }}<span class="change" [class]="'tone-' + changeTone()">{{ changeText() }}</span>
+            </p>
+          } @else {
+            <p class="summary empty">{{ notEnoughText() }}</p>
+          }
+          @if (notShownText(); as note) {
+            <p class="note muted">{{ note }}</p>
+          }
         }
       }
     </section>
   `,
+  styles: `
+    .type-picker {
+      display: inline-flex;
+      gap: 0.5rem;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+
+    .muted {
+      color: var(--color-text-muted);
+    }
+  `,
 })
 export class WorkoutPaceComparisonChart {
   readonly comparison = input.required<WorkoutPaceComparison>();
+  readonly selectedTypeKey = input<string | null>(null);
+  readonly typeSelected = output<string>();
 
-  protected readonly drawn = computed(() => comparablePaceTypes(this.comparison().types));
-  protected readonly notEnough = computed(() => {
-    const drawn = new Set(this.drawn().map((row) => row.type));
-    return this.comparison().types.filter((type) => !drawn.has(type));
+  /** The picked type, or the first one (most recent run) by default; null only when there are no types. */
+  protected readonly selected = computed<PaceTypeComparison | null>(() => {
+    const types = this.comparison().types;
+    return (
+      types.find((type) => type.typeKey === this.selectedTypeKey()) ??
+      (types.length > 0 ? types[0] : null)
+    );
   });
-  protected readonly options = computed(() => buildWorkoutPaceOptions(this.comparison().types));
 
-  protected changeText(type: PaceTypeComparison): string {
-    return formatPaceChange(type.changeSecondsPerKm ?? 0);
-  }
+  protected readonly options = computed(() => {
+    const type = this.selected();
+    return type ? buildWorkoutPaceTrendOptions(type) : {};
+  });
+  protected readonly summaryPrefix = computed(() => {
+    const type = this.selected();
+    return type ? paceSummaryPrefix(type) : null;
+  });
+  protected readonly changeText = computed(() => {
+    const type = this.selected();
+    return type ? paceChangeText(type) : '';
+  });
+  protected readonly changeTone = computed<Tone>(() => {
+    const type = this.selected();
+    return type ? paceChangeTone(type) : 'neutral';
+  });
+  protected readonly notEnoughText = computed(() => {
+    const type = this.selected();
+    return type ? notEnoughPaceText(type) : '';
+  });
+  protected readonly notShownText = computed(() => {
+    const type = this.selected();
+    return type ? runsNotShownText(type.runsWithoutPace) : null;
+  });
 
-  protected changeTone(type: PaceTypeComparison): Tone {
-    return toneForChange(type.changeSecondsPerKm ?? 0);
-  }
-
-  protected missingText(type: PaceTypeComparison): string {
-    return missingWindowText(type);
+  protected onSelect(event: Event): void {
+    this.typeSelected.emit((event.target as HTMLSelectElement).value);
   }
 }

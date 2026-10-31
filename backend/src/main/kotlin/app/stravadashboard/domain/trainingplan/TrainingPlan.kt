@@ -50,7 +50,6 @@ data class PlanWeek(
 
 data class TrainingPlan(
     val paces: List<TargetPace>,
-    val notes: List<String>,
     val weeks: List<PlanWeek>,
 )
 
@@ -100,6 +99,5 @@ data class BuildCalendar(
     val endDate: LocalDate,
     val progress: BuildProgress,
     val paces: List<TargetPace>,
-    val notes: List<String>,
     val weeks: List<DatedWeek>,
 )

@@ -132,7 +132,6 @@ export function trainingPlan(overrides: Partial<TrainingPlanResponse> = {}): Tra
         maxSecondsPerKm: 262,
       },
     ],
-    notes: ['6x10 - rest 1\'30"', "2x20 - jog 3'"],
     weeks,
     ...overrides,
   };

@@ -48,16 +48,9 @@ class TrainingPlanParserTest {
     }
 
     @Test
-    fun `004 R3 - sheet notes from column after NOTES`() {
-        assertEquals(listOf("6x10 - rest 1'30\"", "2x20 - jog 3'", "4x8' during long"), plan.notes)
-        assertEquals(emptyList(), parsePlan(samplePlanText().replace(";NOTES;", ";;")).notes)
-    }
-
-    @Test
     fun `004 R3 - note text mentioning pace is not a pace`() {
         val withPaceNote = parsePlan(samplePlanText().replace("2x20 - jog 3'", "4x8' at HM pace"))
         assertEquals(listOf("easy", "15k", "hm", "30k"), withPaceNote.paces.map { it.key })
-        assertTrue("4x8' at HM pace" in withPaceNote.notes)
     }
 
     @Test
