@@ -4,6 +4,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { dashboard, emptyDashboard, hrType, stubCharts } from '../../testing/dashboard-fixtures';
 import { stubPlanSection } from '../../testing/plan-section-stub';
 import { stubTrainingLoadSection } from '../../testing/training-load-stub';
+import { SyncStoreStub, stubSyncStore, syncStatus } from '../../testing/sync-store-stub';
 import { stubVo2maxSection } from '../../testing/vo2max-stub';
 import { RunningDashboardPage } from './running-dashboard-page';
 
@@ -12,6 +13,7 @@ const URL = '/api/dashboard/running';
 describe('RunningDashboardPage redesign', () => {
   let fixture: ComponentFixture<RunningDashboardPage>;
   let http: HttpTestingController;
+  let sync: SyncStoreStub;
   const element = () => fixture.nativeElement as HTMLElement;
 
   beforeEach(() => {
@@ -20,6 +22,7 @@ describe('RunningDashboardPage redesign', () => {
     });
     stubCharts();
     stubVo2maxSection();
+    sync = stubSyncStore();
     stubTrainingLoadSection();
     stubPlanSection();
     fixture = TestBed.createComponent(RunningDashboardPage);
@@ -37,11 +40,7 @@ describe('RunningDashboardPage redesign', () => {
     const children = Array.from(loading?.children ?? []).map(
       (c) => c.tagName.toLowerCase() + '|' + c.textContent?.trim(),
     );
-    expect(children).toEqual([
-      'app-ring-spinner|',
-      'p|Loading your runs…',
-      'p|The first import can take a minute.',
-    ]);
+    expect(children).toEqual(['app-ring-spinner|', 'p|Loading your runs…']);
     expect(element().querySelector('app-headline-tiles, section.card')).toBeNull();
   });
 
@@ -79,11 +78,8 @@ describe('RunningDashboardPage redesign', () => {
   });
 
   it('002 R4 - three tiles render between banner and weekly card in order', () => {
-    respond(
-      dashboard({
-        sync: { status: 'partial', lastSyncedAt: null, retryAfter: null, runsPendingDetail: 3 },
-      }),
-    );
+    sync.status.set(syncStatus({ status: 'partial', runsPendingDetail: 3 }));
+    respond(dashboard());
     const order = Array.from(
       element().querySelectorAll('app-sync-banner, app-headline-tiles, app-weekly-distance-chart'),
     ).map((e) => e.tagName.toLowerCase());
@@ -220,11 +216,8 @@ describe('RunningDashboardPage redesign', () => {
   });
 
   it('002 R2 - sync banner uses notice style and keeps texts', () => {
-    respond(
-      dashboard({
-        sync: { status: 'partial', lastSyncedAt: null, retryAfter: null, runsPendingDetail: 3 },
-      }),
-    );
+    sync.status.set(syncStatus({ status: 'partial', runsPendingDetail: 3 }));
+    respond(dashboard());
     const banner = element().querySelector('.banner');
     expect(banner?.classList).toContain('notice');
     expect(banner?.getAttribute('role')).toBe('status');

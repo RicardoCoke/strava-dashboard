@@ -7,9 +7,11 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import { skip } from 'rxjs';
 import { isTrainingLoadResponse } from '../../core/api/training-load.models';
 import { TrainingLoadService } from '../../core/api/training-load.service';
+import { SyncStore } from '../../core/sync/sync.store';
 import { formatShortDate } from '../../shared/format/dates';
 import { formatOneDecimal, formatSignedOneDecimal } from '../../shared/format/numbers';
 import { RampWarning } from './ramp-warning/ramp-warning';
@@ -69,6 +71,16 @@ export class TrainingLoadSection implements OnInit {
     return state.kind === 'invalidConfig' ? state.message : '';
   });
 
+  constructor() {
+    // On the dashboard page, reload in place after each finished sync (feature 009, R9).
+    const sync = inject(SyncStore, { optional: true });
+    if (sync) {
+      toObservable(sync.dataVersion)
+        .pipe(skip(1), takeUntilDestroyed())
+        .subscribe(() => this.load({ quiet: true }));
+    }
+  }
+
   ngOnInit(): void {
     this.load();
   }
@@ -77,19 +89,25 @@ export class TrainingLoadSection implements OnInit {
     this.load();
   }
 
-  private load(): void {
-    this.state.set({ kind: 'loading' });
+  /** A quiet reload keeps the current content while it runs and if it fails. */
+  private load({ quiet } = { quiet: false }): void {
+    if (!quiet) {
+      this.state.set({ kind: 'loading' });
+    }
     this.service
       .getTrainingLoad()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: (data: unknown) =>
-          this.state.set(
-            isTrainingLoadResponse(data) ? { kind: 'loaded', data } : { kind: 'error' },
-          ),
+        next: (data: unknown) => {
+          if (isTrainingLoadResponse(data)) {
+            this.state.set({ kind: 'loaded', data });
+          } else if (!quiet) {
+            this.state.set({ kind: 'error' });
+          }
+        },
         error: (error: unknown) => {
           const next = loadStateFromError(error);
-          if (next) {
+          if (next && !quiet) {
             this.state.set(next);
           }
         },

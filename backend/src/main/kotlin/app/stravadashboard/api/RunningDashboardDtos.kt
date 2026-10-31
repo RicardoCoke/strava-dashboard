@@ -7,7 +7,6 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class RunningDashboardResponse(
-    val sync: SyncInfoDto,
     val weeklyDistance: WeeklyDistanceDto,
     val heartRateTrend: HeartRateTrendDto,
     val workoutPaceComparison: WorkoutPaceComparisonDto,
@@ -61,14 +60,6 @@ data class WeekPaceStatDto(
     val averageRepPaceSecondsPerKm: Int,
     val runCount: Int,
     val typeLabels: List<String>,
-)
-
-@Serializable
-data class SyncInfoDto(
-    val status: String,
-    val lastSyncedAt: String?,
-    val retryAfter: String?,
-    val runsPendingDetail: Int,
 )
 
 @Serializable

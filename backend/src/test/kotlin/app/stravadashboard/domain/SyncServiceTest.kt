@@ -23,14 +23,19 @@ import app.stravadashboard.testsupport.TEST_ZONE
 import app.stravadashboard.testsupport.kmLap
 import app.stravadashboard.testsupport.summary
 import app.stravadashboard.testsupport.tempDbPath
+import ch.qos.logback.classic.Logger
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.read.ListAppender
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.exposed.sql.transactions.transaction
+import org.slf4j.LoggerFactory
 import java.time.Duration
 import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -186,18 +191,18 @@ class SyncServiceTest {
     }
 
     @Test
-    fun `R4 - detail and stream calls share cap of 80 in priority order`() {
-        // 60 workouts: 60 detail calls first, then only 20 of the 60 stream calls fit.
+    fun `R4 - detail and stream calls share the 80 call budget with list pages in priority order`() {
+        // 60 workouts: 1 list page and 60 detail calls first, then only 19 of the 60 stream calls fit the budget.
         source.activities =
             (1..60L).map { summary(it, daysAgo(30).plus(Duration.ofHours(it)), name = "5x6min", heartRate = null) }
 
         val info = sync()
 
-        assertEquals(80, source.activityCalls.size)
+        assertEquals(80, source.calls.size)
         assertTrue(source.activityCalls.take(60).all { it.startsWith("detail") })
         assertEquals(listOf("stream:60", "stream:59"), source.activityCalls.drop(60).take(2))
         assertEquals(SyncStatus.PARTIAL, info.status)
-        assertEquals(40, info.runsPendingDetail)
+        assertEquals(41, info.runsPendingDetail)
     }
 
     @Test
@@ -254,7 +259,7 @@ class SyncServiceTest {
         val outcomes = runBlocking { List(2) { async { service.syncIfDue() } }.awaitAll() }
 
         assertEquals(1, source.calls.count { it.startsWith("list") })
-        assertEquals(80, source.activityCalls.size)
+        assertEquals(80, source.calls.size)
         assertEquals(outcomes.first(), outcomes.last())
     }
 
@@ -264,12 +269,12 @@ class SyncServiceTest {
 
         val first = sync()
         assertEquals(SyncStatus.PARTIAL, first.status)
-        assertEquals(20, first.runsPendingDetail)
+        assertEquals(21, first.runsPendingDetail)
 
         source.calls.clear()
-        clock.advance(Duration.ofMinutes(1))
+        clock.advance(Duration.ofMinutes(15))
         val second = sync()
-        assertEquals(20, source.activityCalls.size)
+        assertEquals(21, source.activityCalls.size)
         assertEquals(SyncStatus.OK, second.status)
     }
 
@@ -446,16 +451,16 @@ class SyncServiceTest {
 
         val first = sync()
 
-        assertEquals(80, source.activityCalls.size)
+        assertEquals(80, source.calls.size)
         assertTrue(source.activityCalls.take(50).all { it.startsWith("detail") })
         assertEquals(listOf("hrstream:50", "hrstream:49"), source.activityCalls.drop(50).take(2))
         assertEquals(SyncStatus.PARTIAL, first.status)
-        assertEquals(20, first.runsPendingDetail)
+        assertEquals(21, first.runsPendingDetail)
 
         source.calls.clear()
-        clock.advance(Duration.ofMinutes(1))
+        clock.advance(Duration.ofMinutes(15))
         val second = sync()
-        assertEquals(20, source.activityCalls.count { it.startsWith("hrstream") })
+        assertEquals(21, source.activityCalls.count { it.startsWith("hrstream") })
         assertEquals(SyncStatus.OK, second.status)
     }
 
@@ -490,5 +495,71 @@ class SyncServiceTest {
         source.failFromCall = 1
         source.failure = SourceResult.ReauthRequired
         assertIs<SyncOutcome.ReauthRequired>(runBlocking { service.syncIfDue() })
+    }
+
+    @Test
+    fun `R4 - two syncs in one window share the 80 call budget`() {
+        // A first import of 30 runs at 10:02 uses 31 calls; 49 are left for the rest of the window.
+        clock.advance(Duration.ofMinutes(2))
+        source.activities = (1..30L).map { summary(it, daysAgo(20).plus(Duration.ofHours(it)), heartRate = null) }
+        sync()
+        assertEquals(31, source.calls.size)
+
+        source.activities += (31..100L).map { summary(it, daysAgo(3).plus(Duration.ofMinutes(it)), heartRate = null) }
+        source.calls.clear()
+        clock.advance(Duration.ofMinutes(10))
+        // Make the 10:12 sync due, as a backlog or a stale list would.
+        runBlocking { syncState.save(syncState.get().copy(lastSuccessfulSyncAt = NOW.minus(Duration.ofMinutes(15)))) }
+        val second = sync()
+
+        assertEquals(49, source.calls.size)
+        assertEquals(SyncStatus.PARTIAL, second.status)
+    }
+
+    @Test
+    fun `R4 - budget running out during list pass keeps cursor`() {
+        val tiny = SyncService(source, runs, syncState, clock, TEST_ZONE, StravaCallBudget(clock, callsPerWindow = 1))
+        source.activities = (1..250L).map { summary(it, firstKeptDay.plus(Duration.ofHours(it))) }
+
+        val info = assertIs<SyncOutcome.Done>(runBlocking { tiny.syncIfDue() }).info
+
+        assertEquals(listOf("list:1"), source.calls)
+        assertEquals(SyncStatus.PARTIAL, info.status)
+        assertNull(runBlocking { syncState.get() }.listCursor)
+        assertEquals(NOW, runBlocking { syncState.get() }.lastAttemptAt)
+    }
+
+    @Test
+    fun `R5 - unreachable strava records unavailable and attempt time`() {
+        source.activities = listOf(summary(1, daysAgo(1)))
+        source.failFromCall = 1
+
+        assertEquals(SyncStatus.STRAVA_UNAVAILABLE, sync().status)
+
+        val state = runBlocking { syncState.get() }
+        assertEquals(SyncStatus.STRAVA_UNAVAILABLE, state.lastStatus)
+        assertEquals(NOW, state.lastAttemptAt)
+    }
+
+    @Test
+    fun `R5 - unexpected exception is caught and logged by class name only`() {
+        val appender = ListAppender<ILoggingEvent>().apply { start() }
+        val root = LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME) as Logger
+        root.addAppender(appender)
+        source.activities = listOf(summary(1, daysAgo(1)))
+        source.exception = IllegalStateException("Invented secret detail")
+
+        val info =
+            try {
+                sync()
+            } finally {
+                root.detachAppender(appender)
+            }
+
+        assertEquals(SyncStatus.STRAVA_UNAVAILABLE, info.status)
+        assertEquals(NOW, runBlocking { syncState.get() }.lastAttemptAt)
+        val logged = appender.list.joinToString("\n") { it.formattedMessage + (it.throwableProxy?.message ?: "") }
+        assertTrue("IllegalStateException" in logged)
+        assertFalse("Invented secret detail" in logged)
     }
 }

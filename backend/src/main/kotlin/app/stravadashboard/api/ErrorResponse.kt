@@ -12,6 +12,7 @@ data class ErrorResponse(
         val REAUTH_REQUIRED =
             ErrorResponse("strava_reauth_required", "Your Strava connection expired. Please connect again.")
         val INTERNAL = ErrorResponse("internal_error", "Something went wrong.")
+        val XSRF_INVALID = ErrorResponse("xsrf_invalid", "Request could not be verified. Reload the page.")
         val TRAINING_PLAN_NOT_CONFIGURED =
             ErrorResponse("training_plan_not_configured", "No training plan is configured.")
         val TRAINING_PLAN_UNAVAILABLE =

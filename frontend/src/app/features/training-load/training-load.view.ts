@@ -77,9 +77,7 @@ export function isEmpty(data: TrainingLoadResponse): boolean {
 /** The empty-state lines when no run with heart rate is counted yet. */
 export function emptyText(data: TrainingLoadResponse): string[] {
   if (data.runsPendingHeartRate > 0) {
-    return [
-      `Heart-rate data is still importing: ${runs(data.runsPendingHeartRate)} to go. Reload in a while.`,
-    ];
+    return [`Heart-rate data is still importing: ${runs(data.runsPendingHeartRate)} to go.`];
   }
   const skipped =
     data.runsSkippedNoHeartRate > 0

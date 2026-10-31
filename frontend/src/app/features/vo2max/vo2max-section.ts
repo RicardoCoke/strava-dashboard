@@ -7,9 +7,11 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import { skip } from 'rxjs';
 import { isVo2maxResponse } from '../../core/api/vo2max.models';
 import { Vo2maxService } from '../../core/api/vo2max.service';
+import { SyncStore } from '../../core/sync/sync.store';
 import { formatOneDecimal } from '../../shared/format/numbers';
 import { RacePredictionTiles } from './race-prediction-tiles/race-prediction-tiles';
 import { Vo2maxChart } from './vo2max-chart/vo2max-chart';
@@ -56,13 +58,23 @@ export class Vo2maxSection implements OnInit {
   protected readonly pendingText = computed(() => {
     const data = this.data();
     return data
-      ? `Lap heart-rate data is still importing: ${runs(data.runsPendingDetail)} to go. Reload in a while.`
+      ? `Lap heart-rate data is still importing: ${runs(data.runsPendingDetail)} to go.`
       : '';
   });
   protected readonly invalidMessage = computed(() => {
     const state = this.state();
     return state.kind === 'invalidConfig' ? state.message : '';
   });
+
+  constructor() {
+    // On the dashboard page, reload in place after each finished sync (feature 009, R9).
+    const sync = inject(SyncStore, { optional: true });
+    if (sync) {
+      toObservable(sync.dataVersion)
+        .pipe(skip(1), takeUntilDestroyed())
+        .subscribe(() => this.load({ quiet: true }));
+    }
+  }
 
   ngOnInit(): void {
     this.load();
@@ -72,17 +84,25 @@ export class Vo2maxSection implements OnInit {
     this.load();
   }
 
-  private load(): void {
-    this.state.set({ kind: 'loading' });
+  /** A quiet reload keeps the current content while it runs and if it fails. */
+  private load({ quiet } = { quiet: false }): void {
+    if (!quiet) {
+      this.state.set({ kind: 'loading' });
+    }
     this.service
       .getVo2max()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: (data: unknown) =>
-          this.state.set(isVo2maxResponse(data) ? { kind: 'loaded', data } : { kind: 'error' }),
+        next: (data: unknown) => {
+          if (isVo2maxResponse(data)) {
+            this.state.set({ kind: 'loaded', data });
+          } else if (!quiet) {
+            this.state.set({ kind: 'error' });
+          }
+        },
         error: (error: unknown) => {
           const next = vo2maxStateFromError(error);
-          if (next) {
+          if (next && !quiet) {
             this.state.set(next);
           }
         },

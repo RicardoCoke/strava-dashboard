@@ -39,6 +39,9 @@ class FakeActivitySource : ActivitySource {
     var failFromCall: Int? = null
     var failure: SourceResult<Nothing> = SourceResult.Unavailable
 
+    /** When set, every call throws it, like an unexpected bug or a driver error. */
+    var exception: RuntimeException? = null
+
     val activityCalls: List<String> get() = calls.filterNot { it.startsWith("list") }
 
     override suspend fun listActivities(
@@ -68,6 +71,7 @@ class FakeActivitySource : ActivitySource {
         block: () -> SourceResult<T>,
     ): SourceResult<T> {
         calls += call
+        exception?.let { throw it }
         val limit = failFromCall
         return if (limit != null && calls.size >= limit) failure else block()
     }
