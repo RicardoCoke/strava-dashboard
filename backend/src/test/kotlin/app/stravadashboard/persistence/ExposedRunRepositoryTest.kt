@@ -3,6 +3,9 @@ package app.stravadashboard.persistence
 import app.stravadashboard.domain.SyncOutcome
 import app.stravadashboard.domain.SyncService
 import app.stravadashboard.domain.model.ActivityId
+import app.stravadashboard.domain.model.HrHistogram
+import app.stravadashboard.domain.model.HrHistogramResult
+import app.stravadashboard.domain.model.HrHistogramStatus
 import app.stravadashboard.domain.model.SecondsPerKm
 import app.stravadashboard.domain.model.StreamPaceResult
 import app.stravadashboard.domain.model.StreamPaceStatus
@@ -17,6 +20,7 @@ import app.stravadashboard.testsupport.kmLap
 import app.stravadashboard.testsupport.summary
 import app.stravadashboard.testsupport.tempDbPath
 import kotlinx.coroutines.runBlocking
+import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.time.Duration
@@ -95,6 +99,56 @@ class ExposedRunRepositoryTest {
 
         assertEquals(1, runBlocking { ExposedRunRepository(reopened).findAll() }.size)
         assertEquals(Instant.parse("2026-10-22T10:20:00Z"), source.listAfters.single())
+    }
+
+    @Test
+    fun `005 R3 - histogram round trip and pruned with its run`() =
+        runBlocking {
+            runs.upsertSummaries(
+                listOf(
+                    summary(1, Instant.parse("2026-03-18T07:00:00Z")),
+                    summary(2, Instant.parse("2026-03-19T07:00:00Z")),
+                ),
+            )
+            val histogram = HrHistogram(mapOf(160 to 1200, 140 to 1800))
+            runs.saveHrHistogram(ActivityId(1), HrHistogramResult(HrHistogramStatus.COMPUTED, histogram), NOW)
+            runs.saveHrHistogram(ActivityId(2), HrHistogramResult(HrHistogramStatus.COMPUTED, histogram), NOW)
+            transaction(database) {
+                assertEquals(
+                    "140:1800,160:1200",
+                    RunHrHistogramsTable.selectAll().first()[RunHrHistogramsTable.histogram],
+                )
+            }
+
+            runs.pruneBefore(LocalDate.of(2026, 3, 19))
+
+            val stored = runs.findAll().single()
+            assertEquals(2L, stored.id.value)
+            assertEquals(HrHistogramResult(HrHistogramStatus.COMPUTED, histogram), stored.hrHistogram)
+            transaction(database) { assertEquals(1, RunHrHistogramsTable.selectAll().count().toInt()) }
+            runs.deleteAll()
+            transaction(database) { assertTrue(RunHrHistogramsTable.selectAll().empty()) }
+        }
+
+    @Test
+    fun `005 R2 - migration adds history_start and histogram table keeping rows`() {
+        val path = tempDbPath()
+        val old = Database.connect("jdbc:sqlite:$path", "org.sqlite.JDBC")
+        transaction(old) {
+            exec(
+                "CREATE TABLE sync_state (id INT PRIMARY KEY, list_cursor BIGINT NULL, last_successful_sync_at " +
+                    "BIGINT NULL, rate_limited_until BIGINT NULL, last_status TEXT NULL, owner_athlete_id BIGINT NULL)",
+            )
+            exec("INSERT INTO sync_state (id, list_cursor) VALUES (1, ${NOW.epochSecond})")
+        }
+
+        val migrated = DatabaseFactory.connect(path)
+        val state = runBlocking { ExposedSyncStateRepository(migrated).get() }
+
+        assertEquals(NOW, state.listCursor)
+        assertNull(state.historyStart)
+        transaction(migrated) { assertTrue(RunHrHistogramsTable.selectAll().empty()) }
+        DatabaseFactory.connect(path) // a second start must not add the column again
     }
 
     @Test

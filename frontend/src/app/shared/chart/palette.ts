@@ -14,4 +14,8 @@ export const palette = {
   worse: '#ff6b4a',
   treadmill: '#a78bfa',
   grid: 'rgba(255, 255, 255, 0.06)',
+  // Training load lines (feature 005), reusing the values above.
+  fitness: '#00f19f',
+  fatigue: '#a78bfa',
+  form: '#f2f4f5',
 } as const;

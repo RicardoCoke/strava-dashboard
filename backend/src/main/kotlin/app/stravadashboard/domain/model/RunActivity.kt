@@ -22,7 +22,8 @@ data class StreamPaceResult(
 )
 
 /**
- * A stored Run. [laps] is null while the detail call hasn't been made yet.
+ * A stored Run. [laps] is null while the detail call hasn't been made yet, and [hrHistogram] while the heart-rate
+ * stream call hasn't been made yet.
  */
 data class RunActivity(
     val id: ActivityId,
@@ -37,6 +38,7 @@ data class RunActivity(
     val laps: List<Lap>?,
     val detailFetchedAt: Instant?,
     val streamPace: StreamPaceResult?,
+    val hrHistogram: HrHistogramResult? = null,
 ) {
     val localDate: LocalDate get() = startLocal.toLocalDate()
     val isRun: Boolean get() = sportType == RUN_SPORT_TYPE

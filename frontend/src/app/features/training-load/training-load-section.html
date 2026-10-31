@@ -1,0 +1,53 @@
+<section class="card load" aria-labelledby="load-heading">
+  <h2 id="load-heading">Training load</h2>
+
+  @switch (state().kind) {
+    @case ('loading') {
+      <p class="empty" role="status">Loading training load…</p>
+    }
+    @case ('notConfigured') {
+      <p class="load-empty">No threshold heart rate set up yet.</p>
+      <p class="empty">Set LTHR_BPM in .env (for example 175), then restart the backend.</p>
+    }
+    @case ('invalidConfig') {
+      <p class="load-problem" role="alert">
+        Training load settings have a problem: {{ invalidMessage() }}
+      </p>
+      <p class="empty">Set LTHR_BPM in .env (for example 175), then restart the backend.</p>
+    }
+    @case ('error') {
+      <div class="load-error" role="alert">
+        <p>Couldn't load training load.</p>
+        <button type="button" class="retry" (click)="retry()">Retry</button>
+      </div>
+    }
+    @case ('loaded') {
+      @if (data(); as data) {
+        @if (empty()) {
+          @for (line of emptyLines(); track line) {
+            <p class="empty">{{ line }}</p>
+          }
+        } @else {
+          @if (latest(); as latest) {
+            <div class="latest">
+              @for (item of latest.values; track item.label) {
+                <p class="latest-value">
+                  <span class="latest-label">{{ item.label }}</span>
+                  <span class="latest-number">{{ item.value }}</span>
+                </p>
+              }
+            </div>
+            <p class="latest-caption">{{ latest.caption }}</p>
+          }
+          <app-ramp-warning [ramp]="data.ramp" />
+          <app-training-load-chart [load]="data" />
+          <div class="footnote">
+            @for (line of footnote(); track line) {
+              <p>{{ line }}</p>
+            }
+          </div>
+        }
+      }
+    }
+  }
+</section>

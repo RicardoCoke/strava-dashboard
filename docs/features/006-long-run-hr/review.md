@@ -54,3 +54,8 @@ No Blockers or Majors, so no re-review was needed. All four findings were fixed:
 - **[Nit] AC6.2 tooltip not from the rendered chart:** fixed. The test now calls the rendered long-run chart's tooltip formatter and asserts its time x-axis and "Avg HR (bpm)" y-axis.
 
 Checks after fixes: backend ktlint, detekt, 173 tests pass; frontend lint, 124 tests and build pass.
+
+### After merging main (005 training load)
+- Conflict in `testsupport/TestData.kt`: both branches added a parameter to `summary()`; kept both (`distanceMeters` and `heartRate`).
+- 005 makes sync fetch an HR stream for every run with HR, so the AC7.2 sync test now checks that a long run gets the same calls as an easy run and no pace-stream call, instead of exactly one detail call.
+- Checks after merge: backend ktlint, detekt, 223 tests pass; frontend lint, 158 tests and build pass.

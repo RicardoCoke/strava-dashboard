@@ -27,6 +27,11 @@ value class SecondsPerKm(
 )
 
 @JvmInline
+value class Bpm(
+    val value: Int,
+)
+
+@JvmInline
 value class MetersPerSecond(
     val value: Double,
 )
