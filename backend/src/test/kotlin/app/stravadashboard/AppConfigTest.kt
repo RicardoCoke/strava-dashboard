@@ -2,6 +2,7 @@ package app.stravadashboard
 
 import app.stravadashboard.config.AppConfig
 import app.stravadashboard.config.LthrSetting
+import app.stravadashboard.config.MaxHrSetting
 import app.stravadashboard.domain.model.Bpm
 import java.time.LocalDate
 import kotlin.test.Test
@@ -114,6 +115,37 @@ class AppConfigTest {
         val text = AppConfig.fromEnvironment(required + ("LTHR_BPM" to "187")).toString()
         assertTrue("lthr=<set>" in text)
         assertFalse("187" in text)
+    }
+
+    private fun maxHr(value: String): MaxHrSetting = AppConfig.fromEnvironment(required + ("MAX_HR_BPM" to value)).maxHr
+
+    @Test
+    fun `008 R1 - MAX_HR_BPM unset gives default 194`() {
+        assertEquals(MaxHrSetting.Default, AppConfig.fromEnvironment(required).maxHr)
+        assertEquals(MaxHrSetting.Default, maxHr("  "))
+        assertEquals(194, MaxHrSetting.DEFAULT_MAX_HR_BPM)
+    }
+
+    @Test
+    fun `008 R1 - MAX_HR_BPM valid range`() {
+        assertEquals(MaxHrSetting.Configured(Bpm(190)), maxHr(" 190 "))
+        assertEquals(MaxHrSetting.Configured(Bpm(120)), maxHr("120"))
+        assertEquals(MaxHrSetting.Configured(Bpm(230)), maxHr("230"))
+    }
+
+    @Test
+    fun `008 R1 - MAX_HR_BPM invalid values do not stop startup`() {
+        listOf("abc", "190.5", "119", "231").forEach { assertEquals(MaxHrSetting.Invalid, maxHr(it), it) }
+    }
+
+    @Test
+    fun `008 R1 - toString masks max HR`() {
+        assertTrue("maxHr=<default>" in AppConfig.fromEnvironment(required).toString())
+        assertTrue("maxHr=<invalid>" in AppConfig.fromEnvironment(required + ("MAX_HR_BPM" to "abc")).toString())
+        val text = AppConfig.fromEnvironment(required + ("MAX_HR_BPM" to "193")).toString()
+        assertTrue("maxHr=<set>" in text)
+        assertFalse("193" in text)
+        assertEquals("Configured(<redacted>)", MaxHrSetting.Configured(Bpm(193)).toString())
     }
 
     @Test

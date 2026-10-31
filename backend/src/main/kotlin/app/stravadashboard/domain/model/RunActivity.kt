@@ -6,10 +6,12 @@ import java.time.LocalDateTime
 
 const val RUN_SPORT_TYPE = "Run"
 
+/** [averageHeartRateBpm] is null when the lap has no heart rate, or its detail predates feature 008. */
 data class Lap(
     val index: Int,
     val elapsed: Seconds,
     val distance: Meters,
+    val averageHeartRateBpm: Double? = null,
 )
 
 enum class StreamPaceStatus { COMPUTED, UNAVAILABLE }
@@ -39,6 +41,8 @@ data class RunActivity(
     val detailFetchedAt: Instant?,
     val streamPace: StreamPaceResult?,
     val hrHistogram: HrHistogramResult? = null,
+    /** Null until a detail call made since feature 008 (which also stores lap heart rate). */
+    val movingTime: Seconds? = null,
 ) {
     val localDate: LocalDate get() = startLocal.toLocalDate()
     val isRun: Boolean get() = sportType == RUN_SPORT_TYPE

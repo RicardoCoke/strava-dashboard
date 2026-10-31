@@ -4,6 +4,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { dashboard, emptyDashboard, hrType, stubCharts } from '../../testing/dashboard-fixtures';
 import { stubPlanSection } from '../../testing/plan-section-stub';
 import { stubTrainingLoadSection } from '../../testing/training-load-stub';
+import { stubVo2maxSection } from '../../testing/vo2max-stub';
 import { RunningDashboardPage } from './running-dashboard-page';
 
 const URL = '/api/dashboard/running';
@@ -18,6 +19,7 @@ describe('RunningDashboardPage redesign', () => {
       providers: [provideHttpClient(), provideHttpClientTesting()],
     });
     stubCharts();
+    stubVo2maxSection();
     stubTrainingLoadSection();
     stubPlanSection();
     fixture = TestBed.createComponent(RunningDashboardPage);

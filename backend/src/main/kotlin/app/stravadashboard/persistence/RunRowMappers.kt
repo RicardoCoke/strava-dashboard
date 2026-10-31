@@ -25,6 +25,7 @@ internal fun ResultRow.toLap(): Lap =
         index = this[RunLapsTable.lapIndex],
         elapsed = Seconds(this[RunLapsTable.elapsedTimeS]),
         distance = Meters(this[RunLapsTable.distanceM]),
+        averageHeartRateBpm = this[RunLapsTable.averageHeartrate],
     )
 
 /** Stored as `computed` / `unavailable`, as in the spec's schema. */
@@ -78,5 +79,6 @@ internal fun ResultRow.toRun(
         detailFetchedAt = detailFetchedAt,
         streamPace = streamPace,
         hrHistogram = hrHistogram,
+        movingTime = this[RunsTable.movingTimeS]?.let(::Seconds),
     )
 }

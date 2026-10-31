@@ -4,6 +4,7 @@ import app.stravadashboard.domain.model.ActivityId
 import app.stravadashboard.domain.model.HeartRateStream
 import app.stravadashboard.domain.model.Lap
 import app.stravadashboard.domain.model.Meters
+import app.stravadashboard.domain.model.Seconds
 import app.stravadashboard.domain.model.SpeedStream
 import java.time.Instant
 import java.time.LocalDateTime
@@ -22,6 +23,7 @@ data class ActivitySummary(
 data class ActivityDetail(
     val description: String?,
     val laps: List<Lap>,
+    val movingTime: Seconds = Seconds(0),
 )
 
 /** Outcome of a call to the activity source. Expected failures are values, not exceptions. */

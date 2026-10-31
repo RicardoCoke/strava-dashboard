@@ -31,7 +31,16 @@ internal fun SummaryActivityDto.toSummary(): ActivitySummary =
 internal fun DetailedActivityDto.toDetail(): ActivityDetail =
     ActivityDetail(
         description = description,
-        laps = laps.map { Lap(index = it.lapIndex, elapsed = Seconds(it.elapsedTime), distance = Meters(it.distance)) },
+        laps =
+            laps.map {
+                Lap(
+                    index = it.lapIndex,
+                    elapsed = Seconds(it.elapsedTime),
+                    distance = Meters(it.distance),
+                    averageHeartRateBpm = it.averageHeartrate,
+                )
+            },
+        movingTime = Seconds(movingTime),
     )
 
 /** Null unless both `time` and `velocity_smooth` are present, of equal length and at least two samples. */

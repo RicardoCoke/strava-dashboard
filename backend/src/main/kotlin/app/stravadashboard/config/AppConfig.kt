@@ -21,6 +21,8 @@ data class AppConfig(
     val trainingPlanStartDate: LocalDate = DEFAULT_TRAINING_PLAN_START,
     /** Lactate-threshold heart rate for the training load chart (feature 005). */
     val lthr: LthrSetting = LthrSetting.NotConfigured,
+    /** Maximum heart rate for the VO2max estimate (feature 008). */
+    val maxHr: MaxHrSetting = MaxHrSetting.Default,
 ) {
     val sessionSecret: ByteArray get() = HexFormat.of().parseHex(sessionSecretHex)
 
@@ -34,9 +36,15 @@ data class AppConfig(
                 LthrSetting.Invalid -> "<invalid>"
                 is LthrSetting.Valid -> "<set>"
             }
+        val maxHrText =
+            when (maxHr) {
+                MaxHrSetting.Default -> "<default>"
+                MaxHrSetting.Invalid -> "<invalid>"
+                is MaxHrSetting.Configured -> "<set>"
+            }
         return "AppConfig(host=$host, port=$port, stravaRedirectUri=$stravaRedirectUri, dbPath=$dbPath, " +
             "trainingPlanCsv=$plan, trainingPlanStartDate=$trainingPlanStartDate, lthr=$lthrText, " +
-            "secrets=<redacted>)"
+            "maxHr=$maxHrText, secrets=<redacted>)"
     }
 
     companion object {
@@ -62,6 +70,7 @@ data class AppConfig(
                     env["TRAINING_PLAN_START_DATE"]?.takeIf { it.isNotBlank() }?.let(::validStartDate)
                         ?: DEFAULT_TRAINING_PLAN_START,
                 lthr = LthrSetting.parse(env["LTHR_BPM"]),
+                maxHr = MaxHrSetting.parse(env["MAX_HR_BPM"]),
             )
 
         private fun validStartDate(text: String): LocalDate {

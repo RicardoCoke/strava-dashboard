@@ -52,6 +52,7 @@ class ExposedRunRepository(
             RunsTable.update({ RunsTable.id eq id.value }) {
                 it[description] = detail.description
                 it[detailFetchedAt] = fetchedAt.epochSecond
+                it[movingTimeS] = detail.movingTime.value
             }
             RunLapsTable.deleteWhere { runId eq id.value }
             RunLapsTable.batchInsert(detail.laps) { lap ->
@@ -59,6 +60,7 @@ class ExposedRunRepository(
                 this[RunLapsTable.lapIndex] = lap.index
                 this[RunLapsTable.elapsedTimeS] = lap.elapsed.value
                 this[RunLapsTable.distanceM] = lap.distance.value
+                this[RunLapsTable.averageHeartrate] = lap.averageHeartRateBpm
             }
         }
     }

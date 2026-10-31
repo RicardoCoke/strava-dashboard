@@ -22,6 +22,7 @@ internal data class DetailedActivityDto(
     val id: Long,
     val description: String? = null,
     val laps: List<LapDto> = emptyList(),
+    @SerialName("moving_time") val movingTime: Int = 0,
 )
 
 @Serializable
@@ -29,6 +30,7 @@ internal data class LapDto(
     @SerialName("lap_index") val lapIndex: Int,
     @SerialName("elapsed_time") val elapsedTime: Int,
     val distance: Double,
+    @SerialName("average_heartrate") val averageHeartrate: Double? = null,
 )
 
 /** Response of `/streams?keys=…&key_by_type=true` (speed or heart rate). Other stream keys are ignored. */

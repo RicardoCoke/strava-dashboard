@@ -1,0 +1,70 @@
+:host {
+  display: block;
+  margin-bottom: 1rem;
+}
+
+.vo2max-empty {
+  margin: 0 0 0.25rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.vo2max-problem {
+  margin: 0 0 0.25rem;
+  color: var(--color-text);
+}
+
+.vo2max-error {
+  text-align: center;
+
+  p {
+    margin: 0 0 0.75rem;
+    color: var(--color-text);
+  }
+}
+
+.vo2max-current {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.vo2max-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.vo2max-value {
+  font-size: 2.25rem;
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+
+.vo2max-unit {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.vo2max-caption {
+  margin: 0.25rem 0 1rem;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.footnote {
+  margin-top: 0.75rem;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+
+  p {
+    margin: 0.15rem 0;
+  }
+}

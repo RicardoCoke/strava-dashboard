@@ -38,6 +38,8 @@ object DatabaseFactory {
                 SyncStateTable,
             )
             addColumnIfMissing(SyncStateTable.tableName, SyncStateTable.historyStart.name, "INTEGER")
+            addColumnIfMissing(RunsTable.tableName, RunsTable.movingTimeS.name, "INTEGER")
+            addColumnIfMissing(RunLapsTable.tableName, RunLapsTable.averageHeartrate.name, "REAL")
         }
         return database
     }
