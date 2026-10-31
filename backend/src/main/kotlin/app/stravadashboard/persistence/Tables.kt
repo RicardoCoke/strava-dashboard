@@ -22,6 +22,9 @@ object RunsTable : Table("runs") {
     val trainer = bool("trainer")
     val description = text("description").nullable()
     val detailFetchedAt = long("detail_fetched_at").nullable()
+
+    /** Written only by the detail call (feature 008); null for details stored before it. */
+    val movingTimeS = integer("moving_time_s").nullable()
     override val primaryKey = PrimaryKey(id)
 }
 
@@ -30,6 +33,7 @@ object RunLapsTable : Table("run_laps") {
     val lapIndex = integer("lap_index")
     val elapsedTimeS = integer("elapsed_time_s")
     val distanceM = double("distance_m")
+    val averageHeartrate = double("average_heartrate").nullable()
     override val primaryKey = PrimaryKey(runId, lapIndex)
 }
 

@@ -4,6 +4,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { dashboard, stubCharts } from '../../testing/dashboard-fixtures';
 import { trainingPlan } from '../../testing/training-plan-fixtures';
 import { stubTrainingLoadSection } from '../../testing/training-load-stub';
+import { stubVo2maxSection } from '../../testing/vo2max-stub';
 import { RunningDashboardPage } from './running-dashboard-page';
 
 describe('RunningDashboardPage with the marathon build section', () => {
@@ -15,6 +16,7 @@ describe('RunningDashboardPage with the marathon build section', () => {
       providers: [provideHttpClient(), provideHttpClientTesting()],
     });
     stubCharts();
+    stubVo2maxSection();
     stubTrainingLoadSection();
     fixture = TestBed.createComponent(RunningDashboardPage);
     http = TestBed.inject(HttpTestingController);

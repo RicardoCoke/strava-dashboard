@@ -5,6 +5,7 @@ import app.stravadashboard.api.healthRoutes
 import app.stravadashboard.api.runningDashboardRoutes
 import app.stravadashboard.api.trainingLoadRoutes
 import app.stravadashboard.api.trainingPlanRoutes
+import app.stravadashboard.api.vo2maxRoutes
 import app.stravadashboard.auth.ConnectService
 import app.stravadashboard.auth.OAuthState
 import app.stravadashboard.auth.UserSession
@@ -15,6 +16,7 @@ import app.stravadashboard.domain.SyncService
 import app.stravadashboard.domain.ports.TrainingPlanSource
 import app.stravadashboard.domain.trainingload.TrainingLoadService
 import app.stravadashboard.domain.trainingplan.TrainingPlanService
+import app.stravadashboard.domain.vo2max.Vo2maxService
 import app.stravadashboard.persistence.DatabaseFactory
 import app.stravadashboard.persistence.ExposedRunRepository
 import app.stravadashboard.persistence.ExposedSyncStateRepository
@@ -91,6 +93,7 @@ fun Application.module(
     val connectService = ConnectService(oauth, tokens, runs, syncState)
     val planService = TrainingPlanService(trainingPlanSource, config.trainingPlanStartDate, clock, zone)
     val loadService = TrainingLoadService(config.lthr, tokens, syncService, runs, clock, zone)
+    val vo2maxService = Vo2maxService(config.maxHr, tokens, syncService, runs, clock, zone)
 
     routing {
         healthRoutes()
@@ -98,6 +101,7 @@ fun Application.module(
         runningDashboardRoutes(tokens, dashboardService)
         trainingPlanRoutes(tokens, planService)
         trainingLoadRoutes(tokens, loadService)
+        vo2maxRoutes(tokens, vo2maxService)
     }
 }
 

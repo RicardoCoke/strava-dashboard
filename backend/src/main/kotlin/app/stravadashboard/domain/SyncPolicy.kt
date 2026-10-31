@@ -23,6 +23,10 @@ internal enum class SyncPhase { MISSING_DETAILS, MISSING_STREAMS, MISSING_HR_STR
 /** A run with heart rate whose heart-rate stream hasn't been fetched yet (feature 005). */
 internal fun needsHrStream(run: RunActivity): Boolean = run.averageHeartRateBpm != null && run.hrHistogram == null
 
+/** A run with heart rate whose detail predates feature 008, so it has no lap heart rate or moving time yet. */
+internal fun needsLapHeartRate(run: RunActivity): Boolean =
+    run.averageHeartRateBpm != null && run.detailFetchedAt != null && run.movingTime == null
+
 /** The pure rules of [SyncService]: when a sync is due and which calls it makes. */
 internal object SyncPolicy {
     const val MAX_ACTIVITY_CALLS_PER_SYNC = 80
@@ -61,9 +65,17 @@ internal object SyncPolicy {
         return SyncInfo(status, state.lastSuccessfulSyncAt, until, pending)
     }
 
-    /** Runs waiting for a detail call, outdoor workouts waiting for a streams call, or runs waiting for HR streams. */
+    /**
+     * Runs waiting for a detail call (first or the 008 lap-HR refetch), outdoor workouts waiting for a streams call,
+     * or runs waiting for HR streams.
+     */
     fun pendingCount(all: List<RunActivity>): Int =
-        all.count { it.detailFetchedAt == null || RepPaceCalculator.needsStream(it) || needsHrStream(it) }
+        all.count {
+            it.detailFetchedAt == null ||
+                needsLapHeartRate(it) ||
+                RepPaceCalculator.needsStream(it) ||
+                needsHrStream(it)
+        }
 
     fun plan(
         phase: SyncPhase,
@@ -72,7 +84,9 @@ internal object SyncPolicy {
     ): List<ActivityCall> {
         val newestFirst = all.sortedByDescending { it.startUtc }
         return when (phase) {
-            SyncPhase.MISSING_DETAILS -> newestFirst.filter { it.detailFetchedAt == null }.map { ActivityCall(it) }
+            SyncPhase.MISSING_DETAILS ->
+                (newestFirst.filter { it.detailFetchedAt == null } + newestFirst.filter(::needsLapHeartRate))
+                    .map { ActivityCall(it) }
             SyncPhase.MISSING_STREAMS ->
                 newestFirst.filter(RepPaceCalculator::needsStream).mapNotNull { run ->
                     (RunClassifier.classify(run) as? RunType.Workout)?.let { ActivityCall(run, it) }

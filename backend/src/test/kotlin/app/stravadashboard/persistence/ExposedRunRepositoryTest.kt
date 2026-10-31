@@ -6,6 +6,7 @@ import app.stravadashboard.domain.model.ActivityId
 import app.stravadashboard.domain.model.HrHistogram
 import app.stravadashboard.domain.model.HrHistogramResult
 import app.stravadashboard.domain.model.HrHistogramStatus
+import app.stravadashboard.domain.model.Seconds
 import app.stravadashboard.domain.model.SecondsPerKm
 import app.stravadashboard.domain.model.StreamPaceResult
 import app.stravadashboard.domain.model.StreamPaceStatus
@@ -149,6 +150,51 @@ class ExposedRunRepositoryTest {
         assertNull(state.historyStart)
         transaction(migrated) { assertTrue(RunHrHistogramsTable.selectAll().empty()) }
         DatabaseFactory.connect(path) // a second start must not add the column again
+    }
+
+    @Test
+    fun `008 R2 - detail stores moving time and lap heart rate, summary upsert keeps them`() =
+        runBlocking {
+            runs.upsertSummaries(listOf(summary(1, NOW)))
+            assertNull(runs.findAll().single().movingTime)
+
+            val laps = listOf(kmLap(1, 300, heartRate = 150.0), kmLap(2, 290))
+            runs.saveDetail(ActivityId(1), ActivityDetail(null, laps, Seconds(3000)), NOW)
+            runs.upsertSummaries(listOf(summary(1, NOW, name = "Renamed")))
+
+            val stored = runs.findAll().single()
+            assertEquals(Seconds(3000), stored.movingTime)
+            assertEquals(listOf(150.0, null), stored.laps?.map { it.averageHeartRateBpm })
+        }
+
+    @Test
+    fun `008 R2 - migration adds moving_time_s and lap average_heartrate keeping rows`() {
+        val path = tempDbPath()
+        val old = Database.connect("jdbc:sqlite:$path", "org.sqlite.JDBC")
+        transaction(old) {
+            exec(
+                "CREATE TABLE runs (id BIGINT PRIMARY KEY, name TEXT NOT NULL, start_date_utc BIGINT NOT NULL, " +
+                    "start_date_local TEXT NOT NULL, distance_m DOUBLE PRECISION NOT NULL, average_heartrate " +
+                    "DOUBLE PRECISION NULL, trainer BOOLEAN NOT NULL, description TEXT NULL, " +
+                    "detail_fetched_at BIGINT NULL)",
+            )
+            exec(
+                "CREATE TABLE run_laps (run_id BIGINT NOT NULL, lap_index INT NOT NULL, elapsed_time_s INT NOT NULL, " +
+                    "distance_m DOUBLE PRECISION NOT NULL, PRIMARY KEY (run_id, lap_index))",
+            )
+            exec(
+                "INSERT INTO runs VALUES (1, 'Old run', ${NOW.epochSecond}, '2026-10-29T07:00:00', 10000.0, 150.0, " +
+                    "0, NULL, ${NOW.epochSecond})",
+            )
+            exec("INSERT INTO run_laps VALUES (1, 1, 300, 1000.0)")
+        }
+
+        val stored = runBlocking { ExposedRunRepository(DatabaseFactory.connect(path)).findAll() }.single()
+
+        assertEquals("Old run", stored.name)
+        assertNull(stored.movingTime)
+        assertEquals(listOf<Double?>(null), stored.laps?.map { it.averageHeartRateBpm })
+        DatabaseFactory.connect(path) // a second start must not add the columns again
     }
 
     @Test

@@ -43,6 +43,8 @@ fun run(
     streamPace: StreamPaceResult? = null,
     startLocal: LocalDateTime = date.atTime(7, 0),
     hrHistogram: HrHistogramResult? = null,
+    // A detail fetched by this version (008) always has a moving time; null only when laps are null.
+    movingSeconds: Int? = if (laps == null) null else 3000,
 ): RunActivity =
     RunActivity(
         id = ActivityId(id),
@@ -58,6 +60,7 @@ fun run(
         detailFetchedAt = if (laps == null) null else startLocal.toInstant(ZoneOffset.UTC),
         streamPace = streamPace,
         hrHistogram = hrHistogram,
+        movingTime = movingSeconds?.let(::Seconds),
     )
 
 @Suppress("LongParameterList")
@@ -85,7 +88,8 @@ fun kmLap(
     index: Int,
     seconds: Int,
     meters: Double = 1000.0,
-): Lap = Lap(index, Seconds(seconds), Meters(meters))
+    heartRate: Double? = null,
+): Lap = Lap(index, Seconds(seconds), Meters(meters), heartRate)
 
 fun tempDbPath(): String = Files.createTempDirectory("strava-dashboard-test").resolve("test.db").toString()
 

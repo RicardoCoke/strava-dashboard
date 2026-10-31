@@ -2,6 +2,7 @@ package app.stravadashboard.strava
 
 import app.stravadashboard.domain.model.ActivityId
 import app.stravadashboard.domain.model.HeartRateStream
+import app.stravadashboard.domain.ports.ActivityDetail
 import app.stravadashboard.domain.ports.SourceResult
 import app.stravadashboard.domain.ports.StoredTokens
 import app.stravadashboard.domain.ports.TokenRepository
@@ -92,6 +93,32 @@ class StravaClientTest {
         assertEquals("2", url.parameters["page"])
         assertEquals("200", url.parameters["per_page"])
         assertEquals("Bearer access-old", requests.single().headers[HttpHeaders.Authorization])
+    }
+
+    @Test
+    fun `008 R2 - detail maps moving time and lap heart rate`() {
+        val result =
+            runBlocking {
+                source {
+                    respond(
+                        resource("activity-detail.json"),
+                        HttpStatusCode.OK,
+                        json,
+                    )
+                }.activityDetail(ActivityId(111))
+            }
+        val detail = assertIs<SourceResult.Success<ActivityDetail>>(result).value
+        assertEquals(3000, detail.movingTime.value)
+        assertEquals(listOf(140.0, null), detail.laps.map { it.averageHeartRateBpm })
+    }
+
+    @Test
+    fun `008 R2 - missing moving_time maps to zero`() {
+        val result =
+            runBlocking {
+                source { respond("""{"id":1,"laps":[]}""", HttpStatusCode.OK, json) }.activityDetail(ActivityId(1))
+            }
+        assertEquals(0, assertIs<SourceResult.Success<ActivityDetail>>(result).value.movingTime.value)
     }
 
     @Test

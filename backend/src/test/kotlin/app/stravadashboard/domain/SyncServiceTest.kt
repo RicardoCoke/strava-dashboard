@@ -9,6 +9,7 @@ import app.stravadashboard.domain.model.Seconds
 import app.stravadashboard.domain.model.SpeedStream
 import app.stravadashboard.domain.model.StreamPaceStatus
 import app.stravadashboard.domain.ports.ActivityDetail
+import app.stravadashboard.domain.ports.ActivitySummary
 import app.stravadashboard.domain.ports.SourceResult
 import app.stravadashboard.domain.ports.SyncState
 import app.stravadashboard.domain.ports.SyncStatus
@@ -25,6 +26,7 @@ import app.stravadashboard.testsupport.tempDbPath
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
+import org.jetbrains.exposed.sql.transactions.transaction
 import java.time.Duration
 import java.time.Instant
 import kotlin.test.Test
@@ -322,6 +324,52 @@ class SyncServiceTest {
 
     private fun hrStream(): HeartRateStream =
         HeartRateStream(listOf(0, 1, 2, 3).map(::Seconds), listOf(140, 140, 160, 180).map(::Bpm))
+
+    /** Stores runs as a pre-008 store would have them: detail fetched, but no moving time or lap HR. */
+    private fun storeOldDetails(vararg summaries: ActivitySummary) {
+        runBlocking {
+            runs.upsertSummaries(summaries.toList())
+            summaries.forEach { runs.saveDetail(it.id, ActivityDetail(null, emptyList()), daysAgo(1)) }
+        }
+        transaction(database) { exec("UPDATE runs SET moving_time_s = NULL") }
+    }
+
+    @Test
+    fun `008 R2 - old details with HR are refetched once after missing details`() {
+        val old = summary(1, daysAgo(10))
+        val oldNoHr = summary(2, daysAgo(9), heartRate = null)
+        val fresh = summary(3, daysAgo(2))
+        storeOldDetails(old, oldNoHr)
+        source.activities = listOf(old, oldNoHr, fresh)
+        source.details[1] = ActivityDetail(null, listOf(kmLap(1, 300, heartRate = 160.0)), Seconds(3000))
+
+        sync()
+
+        assertEquals(listOf("detail:3", "detail:1"), source.activityCalls.filter { it.startsWith("detail") })
+        val stored = runBlocking { runs.findAll() }.associateBy { it.id.value }
+        assertEquals(Seconds(3000), stored.getValue(1).movingTime)
+        assertEquals(listOf(160.0), stored.getValue(1).laps?.map { it.averageHeartRateBpm })
+        assertNull(stored.getValue(2).movingTime)
+
+        source.calls.clear()
+        clock.advance(Duration.ofMinutes(20))
+        sync()
+        assertTrue(source.activityCalls.none { it == "detail:1" || it == "detail:2" })
+    }
+
+    @Test
+    fun `008 R2 - refetch counts as pending and 429 stops the sync`() {
+        storeOldDetails(summary(1, daysAgo(10)))
+        source.activities = emptyList()
+        source.failFromCall = 2
+        source.failure = SourceResult.RateLimited(NOW.plus(Duration.ofMinutes(15)))
+
+        val info = sync()
+
+        assertEquals(listOf("list:1", "detail:1"), source.calls)
+        assertEquals(SyncStatus.RATE_LIMITED, info.status)
+        assertEquals(1, info.runsPendingDetail)
+    }
 
     @Test
     fun `R2 - prune keeps the warm-up history`() {
