@@ -24,6 +24,7 @@ fun DashboardResult.Ready.toDto(): RunningDashboardResponse =
         weeklyDistance = WeeklyDistanceDto(weeks.map { it.toDto() }),
         heartRateTrend = heartRate.toDto(),
         workoutPaceComparison = pace.toDto(),
+        weekComparison = weekComparison.toDto(),
     )
 
 private fun SyncInfo.toDto(): SyncInfoDto =
@@ -101,6 +102,6 @@ private fun PaceTypeComparison.toDto(): PaceTypeComparisonDto =
 
 private fun PaceWindowStat.toDto(): PaceWindowStatDto = PaceWindowStatDto(averageRepPace.value, runCount)
 
-private fun DateWindow.toDto(): DateWindowDto = DateWindowDto(start.toString(), end.toString())
+internal fun DateWindow.toDto(): DateWindowDto = DateWindowDto(start.toString(), end.toString())
 
 private fun Instant.toIsoSeconds(): String = truncatedTo(ChronoUnit.SECONDS).toString()

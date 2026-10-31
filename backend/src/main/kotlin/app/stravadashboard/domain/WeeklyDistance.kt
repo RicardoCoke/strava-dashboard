@@ -20,15 +20,18 @@ object WeeklyDistance {
     const val WEEK_COUNT = 9
     private const val DAYS_PER_WEEK = 7L
 
+    /** The Monday of the week [date] falls in; every weekly figure uses this rule. */
+    fun weekStartOf(date: LocalDate): LocalDate = date.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+
     fun compute(
         runs: List<RunActivity>,
         today: LocalDate,
     ): List<WeekTotal> {
-        val currentWeekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+        val currentWeekStart = weekStartOf(today)
         val runsByWeek =
             runs
                 .filter { it.isRun }
-                .groupBy { it.localDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)) }
+                .groupBy { weekStartOf(it.localDate) }
         return (WEEK_COUNT - 1 downTo 0).map { weeksAgo ->
             val weekStart = currentWeekStart.minusWeeks(weeksAgo.toLong())
             val weekRuns = runsByWeek[weekStart].orEmpty()

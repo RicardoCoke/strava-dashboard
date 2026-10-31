@@ -64,6 +64,8 @@ Examples use the 001 fixed clock: **today = Thursday 2026-10-29**, so the curren
 - **AC5.4** Given a weeks list with no `isCurrentWeek` entry (defensive; the backend always sends one), then the value is "—", there is no unit, the detail is "No data for this week" and the tone is `neutral`.
 
 ### R6 — "Easy-run HR trend" tile
+*Note (007):* superseded. The tile is now "Easy-run HR" and compares this week's mean easy-run HR with last week's. See [007 specs](../007-week-vs-week-tiles/specs.md).
+
 - **AC6.1** Given `heartRateTrend.types` contains `typeKey = "easy"` with `hasEnoughData = true` and `trend.changeBpm = -8.0`, then the tile shows value "−8.0" (U+2212 minus), unit "bpm", detail "Easy runs · last 5 months" and tone `better`.
 - **AC6.2** Given `changeBpm = 3.2`, then the value is "+3.2" and the tone `worse`. Given `changeBpm = 0.0` (or `-0.0`), then the value is "0.0" and the tone `neutral`.
 - **AC6.3 (not enough data)** Given the easy entry has `hasEnoughData = false` (or `trend = null`) with 2 `points`, and `minRunsForComparison = 3`, then the value is "—", there is no unit, the detail is "Not enough data yet: 2 easy runs with heart rate, at least 3 needed." ("1 easy run" when there is 1 point) and the tone is `neutral`.
@@ -72,6 +74,8 @@ Examples use the 001 fixed clock: **today = Thursday 2026-10-29**, so the curren
 - **AC6.6 (agrees with chart)** Given the easy type is selected in the HR card, then the number in the tile value equals the number in the card's note "Trend: −8.0 bpm over the period (lower = fitter)". Both use the same formatter (`formatBpmChange`).
 
 ### R7 — "Workout pace" tile
+*Note (007):* superseded. The pace tile now compares the mean rep pace of all workouts this week with last week. See [007 specs](../007-week-vs-week-tiles/specs.md).
+
 - **AC7.1** Given `workoutPaceComparison.types` in backend order (most recent run first, 001 AC11.4): `4x8min` (`hasEnoughData = false`), `5x6min` (previous 260, current 253, `changeSecondsPerKm = -7`) and `2x10min` (`hasEnoughData = true`, change +3), then the tile uses `5x6min`, the first type with a paced run in both windows. It shows value "7", unit "s/km faster", detail "5x6min · 4:20 → 4:13 /km" (previous → current) and tone `better`.
 - **AC7.2** Given the chosen type has change `+3`, then the value is "3", the unit "s/km slower" and the tone `worse`. Given change `0`, then the value is "Same", the unit "pace" and the tone `neutral`.
 - **AC7.3 (none qualifies)** Given `types` is not empty but no type has a paced run in both windows, then the value is "—", there is no unit, the detail is "No workout type with paced runs in both 30-day periods yet" and the tone is `neutral`.

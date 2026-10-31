@@ -3,6 +3,7 @@ import {
   HrRunType,
   PaceTypeComparison,
   RunningDashboardResponse,
+  WeekComparison,
   WeekTotal,
 } from '../core/api/running-dashboard.models';
 import { ChartComponent } from '../shared/chart/chart';
@@ -126,6 +127,29 @@ export function dashboard(
       currentWindow: { start: '2026-09-30', end: '2026-10-29' },
       previousWindow: { start: '2026-08-31', end: '2026-09-29' },
       types: [paceType()],
+    },
+    weekComparison: weekComparison(),
+    ...overrides,
+  };
+}
+
+/** Feature 007: last week 29.0 km, easy HR 141.0 → 138.9 bpm, 5x6min 4:13 → 4x8min 4:08 /km. */
+export function weekComparison(overrides: Partial<WeekComparison> = {}): WeekComparison {
+  return {
+    thisWeek: { start: '2026-10-26', end: '2026-11-01' },
+    lastWeek: { start: '2026-10-19', end: '2026-10-25' },
+    distance: { thisWeekKm: 32.4, lastWeekKm: 29.0, differenceKm: 3.4 },
+    easyHeartRate: {
+      thisWeek: { averageHeartRateBpm: 138.9, runCount: 2 },
+      lastWeek: { averageHeartRateBpm: 141.0, runCount: 2 },
+      changeBpm: -2.1,
+      missingIn: null,
+    },
+    workoutPace: {
+      thisWeek: { averageRepPaceSecondsPerKm: 248, runCount: 1, typeLabels: ['4x8min'] },
+      lastWeek: { averageRepPaceSecondsPerKm: 253, runCount: 1, typeLabels: ['5x6min'] },
+      changeSecondsPerKm: -5,
+      missingIn: null,
     },
     ...overrides,
   };

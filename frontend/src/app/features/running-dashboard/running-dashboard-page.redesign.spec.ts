@@ -89,7 +89,7 @@ describe('RunningDashboardPage redesign', () => {
     const labels = Array.from(element().querySelectorAll('.tile .label')).map((l) =>
       l.textContent?.trim(),
     );
-    expect(labels).toEqual(['This week', 'Easy-run HR trend', 'Workout pace']);
+    expect(labels).toEqual(['This week', 'Easy-run HR', 'Workout pace']);
   });
 
   it('002 R4 - tile shows label value unit and detail', () => {
@@ -97,7 +97,57 @@ describe('RunningDashboardPage redesign', () => {
     const week = element().querySelector('[data-tile="thisWeek"]');
     expect(week?.querySelector('.value')?.textContent?.trim()).toBe('32.4');
     expect(week?.querySelector('.unit')?.textContent?.trim()).toBe('km');
-    expect(week?.querySelector('.detail')?.textContent?.trim()).toBe('4 runs');
+    expect(week?.querySelector('.detail .detail-text')?.textContent?.trim()).toBe('4 runs');
+  });
+
+  it('007 R3 - km comparison sits on the detail line like the hr tile', () => {
+    respond(dashboard());
+    const tile = element().querySelector('[data-tile="thisWeek"]');
+    const headline = tile?.querySelector('.headline');
+    expect(Array.from(headline?.children ?? []).map((c) => c.classList[0])).toEqual([
+      'value',
+      'unit',
+    ]);
+    const detail = tile?.querySelector('.detail');
+    expect(detail?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+      '29.0 → 32.4 km · +3.4 km · 4 runs',
+    );
+    const delta = detail?.querySelector('.delta');
+    expect(delta?.textContent?.trim()).toBe('+3.4 km');
+    expect(delta?.className).toContain('tone-better');
+    expect(delta?.className).not.toContain('tone-worse');
+    expect(element().querySelectorAll('.delta').length).toBe(1);
+    const style = (el: Element | null | undefined) => getComputedStyle(el as Element);
+    expect(style(delta).fontSize).toBe(style(detail).fontSize);
+    expect(style(delta).fontSize).not.toBe(style(headline?.querySelector('.value')).fontSize);
+    expect(headline?.querySelector('.value')?.textContent?.trim()).toBe('32.4');
+  });
+
+  it('007 R3 - fewer km renders a muted delta', () => {
+    const base = dashboard();
+    respond({
+      ...base,
+      weekComparison: {
+        ...base.weekComparison,
+        distance: { thisWeekKm: 20, lastWeekKm: 24.2, differenceKm: -4.2 },
+      },
+    });
+    const delta = element().querySelector('[data-tile="thisWeek"] .detail .delta');
+    expect(delta?.textContent?.trim()).toBe('−4.2 km');
+    expect(delta?.className).toContain('tone-muted');
+    expect(delta?.className).not.toContain('tone-better');
+  });
+
+  it('007 R3 - no delta when this week unavailable', () => {
+    const base = dashboard();
+    respond({
+      ...base,
+      weeklyDistance: {
+        weeks: base.weeklyDistance.weeks.map((w) => ({ ...w, isCurrentWeek: false })),
+      },
+    });
+    expect(element().querySelector('[data-tile="thisWeek"] .value')?.textContent?.trim()).toBe('—');
+    expect(element().querySelector('.delta')).toBeNull();
   });
 
   it('002 R8 - tile value has tone class', () => {
@@ -129,7 +179,7 @@ describe('RunningDashboardPage redesign', () => {
     http.verify();
   });
 
-  it('002 R6 - hr selector does not change tile', () => {
+  it('007 R5 - hr selector does not change tile', () => {
     const base = dashboard();
     respond({
       ...base,
@@ -151,7 +201,7 @@ describe('RunningDashboardPage redesign', () => {
     select.dispatchEvent(new Event('change'));
     fixture.detectChanges();
     expect(element().querySelector('[data-tile="easyHrTrend"] .value')?.textContent?.trim()).toBe(
-      '−8.0',
+      '−2.1',
     );
   });
 

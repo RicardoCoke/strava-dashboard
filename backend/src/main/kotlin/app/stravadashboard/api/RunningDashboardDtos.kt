@@ -11,6 +11,56 @@ data class RunningDashboardResponse(
     val weeklyDistance: WeeklyDistanceDto,
     val heartRateTrend: HeartRateTrendDto,
     val workoutPaceComparison: WorkoutPaceComparisonDto,
+    val weekComparison: WeekComparisonDto,
+)
+
+// Feature 007: this week vs last week, for the headline tiles.
+
+@Serializable
+data class WeekComparisonDto(
+    val thisWeek: DateWindowDto,
+    val lastWeek: DateWindowDto,
+    val distance: DistanceDifferenceDto,
+    val easyHeartRate: EasyHrWeekComparisonDto,
+    val workoutPace: WorkoutPaceWeekComparisonDto,
+)
+
+@Serializable
+data class DistanceDifferenceDto(
+    val thisWeekKm: Double,
+    val lastWeekKm: Double,
+    val differenceKm: Double,
+)
+
+@Serializable
+data class EasyHrWeekComparisonDto(
+    val thisWeek: WeekHrStatDto?,
+    val lastWeek: WeekHrStatDto?,
+    val changeBpm: Double?,
+    /** "thisWeek", "lastWeek", "bothWeeks" or null. */
+    val missingIn: String?,
+)
+
+@Serializable
+data class WeekHrStatDto(
+    val averageHeartRateBpm: Double,
+    val runCount: Int,
+)
+
+@Serializable
+data class WorkoutPaceWeekComparisonDto(
+    val thisWeek: WeekPaceStatDto?,
+    val lastWeek: WeekPaceStatDto?,
+    val changeSecondsPerKm: Int?,
+    /** "thisWeek", "lastWeek", "bothWeeks" or null. */
+    val missingIn: String?,
+)
+
+@Serializable
+data class WeekPaceStatDto(
+    val averageRepPaceSecondsPerKm: Int,
+    val runCount: Int,
+    val typeLabels: List<String>,
 )
 
 @Serializable

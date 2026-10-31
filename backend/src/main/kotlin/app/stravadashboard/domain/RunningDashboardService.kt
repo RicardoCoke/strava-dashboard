@@ -16,6 +16,7 @@ sealed interface DashboardResult {
         val weeks: List<WeekTotal>,
         val heartRate: HrTrendResult,
         val pace: PaceComparisonResult,
+        val weekComparison: WeekComparisonResult,
     ) : DashboardResult
 }
 
@@ -34,11 +35,13 @@ class RunningDashboardService(
             is SyncOutcome.Done -> {
                 val stored = runs.findAll()
                 val today = LocalDate.now(clock.withZone(zone))
+                val weeks = WeeklyDistance.compute(stored, today)
                 DashboardResult.Ready(
                     sync = outcome.info,
-                    weeks = WeeklyDistance.compute(stored, today),
+                    weeks = weeks,
                     heartRate = HeartRateTrend.compute(stored, today),
                     pace = WorkoutPaceComparison.compute(stored, today),
+                    weekComparison = WeekComparison.compute(stored, weeks, today),
                 )
             }
         }
