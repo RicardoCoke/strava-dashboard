@@ -1,6 +1,9 @@
 package app.stravadashboard.api
 
 import app.stravadashboard.module
+import app.stravadashboard.testsupport.testConfig
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respondError
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
@@ -12,7 +15,7 @@ class HealthRoutesTest {
     @Test
     fun `health endpoint returns ok`() =
         testApplication {
-            application { module() }
+            application { module(testConfig(), stravaEngine = MockEngine { respondError(HttpStatusCode.NotFound) }) }
 
             val response = client.get("/api/health")
 

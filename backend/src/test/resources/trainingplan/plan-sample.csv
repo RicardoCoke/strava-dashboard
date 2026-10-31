@@ -1,0 +1,25 @@
+5K RACE TIME;EASY PACE;15K PACE (min-max);;HM PACE (min-max);;30K PACE (min-max);;;NOTES;"6x10 - rest 1'30""";;;;;
+0:20:00;0:05:50;0:04:10;0:04:20;0:04:20;0:04:30;0:04:30;0:04:40;;;2x20 - jog 3';;;;;
+;;0:04:15;;0:04:25;;;;;;4x8' during long;;;;;
+SECONDS EQUIVALENT;350;255;;265;;;;;;;;;;;
+;;;;;;;;;;;;;;;
+WEEK 1;;MONDAY;;TUESDAY (hilly route);;WEDNESDAY;;THURSDAY;;FRIDAY;;SATURDAY;;SUNDAY;
+;% [EASY/SUBT];WU/CD [min];EASY [min];WU/CD [min];SUBT [min];WU/CD [min];EASY [min];WU/CD [min];SUBT [min];WU/CD [min];EASY [min];WU/CD [MIN];EASY [min];WU/CD [MIN];SUBT [min]
+;;0;50;20;4x8';0;0;20;45;0;35;0;35;20;5K RACE
+EASY;70,50;50;;20;;0;;20;;35;;35;;20;
+SUBT;29,50;0;;32;;0;;45;;0;;0;;20;
+VOLUME [km];55,30;8,50;;10,25;;0,00;;12,00;;6,00;;6,00;;8,55;
+;;;;;;;;;;;;;;;
+WEEK 2;;MONDAY;;TUESDAY;;WEDNESDAY;;THURSDAY;;FRIDAY;;SATURDAY;;SUNDAY (long run);
+;% [EASY/SUBT];WU/CD [min];EASY [min];WU/CD [min];SUBT [min];WU/CD [min];EASY [min];WU/CD [min];SUBT [min];WU/CD [min];EASY [min];WU/CD [MIN];SUBT [min];WU/CD [MIN];EASY [min]
+;;0;50;20;5x6';0;50;20;8x3';0;40;0;3x10';0;100
+EASY;80,00;50;;20;;50;;20;;40;;0;;100;
+SUBT;20,00;0;;30;;0;;24;;0;;0;;0;
+VOLUME [km];60,10;8,50;;9,80;;8,50;;9,40;;6,80;;0,00;;17,10;
+;;;;;;;;;;;;;;;
+RACE WEEK;;MONDAY;;TUESDAY;;WEDNESDAY;;THURSDAY;;FRIDAY;;SATURDAY;;SUNDAY;
+;% [EASY/SUBT];WU/CD [min];EASY [min];WU/CD [MIN];SUBT [min];WU/CD [min];EASY [min];WU/CD [MIN];SUBT [min];WU/CD [min];EASY [min];WU/CD [MIN];EASY [min];RACE 42,2K;
+;;0;40;20;2x10';0;40;20;1x10';0;30;0;20;60;30
+EASY;72,00;40;;20;;40;;20;;30;;20;;80;
+SUBT;28,00;0;;20;;0;;10;;0;;0;;90;
+VOLUME [km];70,00;7,00;;7,50;;7,00;;6,50;;5,00;;3,50;;42,20;

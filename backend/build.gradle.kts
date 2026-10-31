@@ -28,14 +28,39 @@ dependencies {
     implementation(libs.ktor.server.status.pages)
     implementation(libs.ktor.server.call.logging)
     implementation(libs.ktor.serialization.kotlinx.json)
+    implementation(libs.ktor.server.sessions)
+    implementation(libs.ktor.client.core)
+    implementation(libs.ktor.client.cio)
+    implementation(libs.ktor.client.content.negotiation)
+    implementation(libs.exposed.core)
+    implementation(libs.exposed.jdbc)
+    implementation(libs.sqlite.jdbc)
+    implementation(libs.kotlinx.coroutines.core)
     implementation(libs.logback.classic)
 
     testImplementation(kotlin("test"))
     testImplementation(libs.ktor.server.test.host)
+    testImplementation(libs.ktor.client.mock)
+    testImplementation(libs.kotlinx.coroutines.test)
 }
 
 tasks.test {
     useJUnitPlatform()
+}
+
+// Local dev convenience: `./gradlew run` passes the repo-root .env (git-ignored) to the app as environment variables.
+tasks.named<JavaExec>("run") {
+    val envFile = rootProject.file("../.env")
+    if (envFile.exists()) {
+        envFile
+            .readLines()
+            .map { it.trim() }
+            .filter { it.isNotEmpty() && !it.startsWith("#") && "=" in it }
+            .forEach { line ->
+                val (key, value) = line.split("=", limit = 2)
+                environment(key.trim(), value.trim())
+            }
+    }
 }
 
 detekt {

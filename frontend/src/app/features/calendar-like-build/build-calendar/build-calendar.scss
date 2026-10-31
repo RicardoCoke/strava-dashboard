@@ -1,0 +1,226 @@
+:host {
+  display: block;
+}
+
+.scroller {
+  position: relative;
+  max-height: 34rem;
+  overflow-y: auto;
+  border-top: 1px solid var(--color-border);
+}
+
+.week {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.4rem;
+  padding: 0.75rem 0.5rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.week.current-week {
+  background: var(--color-surface-raised);
+}
+
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.6rem;
+}
+
+.week-label,
+.tag,
+.badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.week-km {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+
+.week-split {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.day {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  min-width: 0;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease;
+}
+
+.date {
+  flex: none;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.15rem;
+  min-width: 0;
+  text-align: right;
+}
+
+.session {
+  font-size: 0.9rem;
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+.day-note,
+.numbers {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.numbers {
+  font-variant-numeric: tabular-nums;
+}
+
+.day.rest .session {
+  color: var(--color-text-muted);
+}
+
+.day.race {
+  border-color: var(--color-accent);
+}
+
+.day.marathon {
+  background: var(--color-accent);
+
+  .date,
+  .session,
+  .day-note,
+  .numbers,
+  .badge {
+    color: var(--color-bg);
+  }
+
+  .session {
+    font-size: 1.1rem;
+    font-weight: 700;
+  }
+}
+
+// Past days: dimmed with opaque muted colours (no transparency) and a thin diagonal cross behind the text.
+.day.past {
+  border-color: var(--color-border);
+  background-color: var(--color-bg);
+  background-image:
+    linear-gradient(
+      to top right,
+      transparent calc(50% - 0.5px),
+      var(--color-secondary) calc(50% - 0.5px),
+      var(--color-secondary) calc(50% + 0.5px),
+      transparent calc(50% + 0.5px)
+    ),
+    linear-gradient(
+      to bottom right,
+      transparent calc(50% - 0.5px),
+      var(--color-secondary) calc(50% - 0.5px),
+      var(--color-secondary) calc(50% + 0.5px),
+      transparent calc(50% + 0.5px)
+    );
+
+  .date,
+  .session,
+  .day-note,
+  .numbers,
+  .badge {
+    color: var(--color-text-muted);
+  }
+
+  .session {
+    font-size: 0.9rem;
+    font-weight: 400;
+  }
+}
+
+// Today: accent border (1px border + 1px inset shadow, so the tile never changes size) and a faint tint.
+.day.today {
+  border-color: var(--color-accent);
+  box-shadow: inset 0 0 0 1px var(--color-accent);
+  background-color: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
+
+  .badge {
+    color: var(--color-accent);
+  }
+}
+
+.day.today.marathon {
+  border-color: var(--color-text);
+  box-shadow: inset 0 0 0 1px var(--color-text);
+  background-color: var(--color-accent);
+
+  .badge {
+    color: var(--color-bg);
+  }
+}
+
+// Hover only on devices with a mouse, so touch screens don't keep a highlight after a tap.
+@media (hover: hover) {
+  .day:hover {
+    border-color: var(--color-text-muted);
+    background-color: var(--color-surface-raised);
+  }
+
+  .day.past:hover {
+    background-color: var(--color-surface);
+  }
+
+  .day.today:hover {
+    border-color: var(--color-accent);
+    background-color: color-mix(in srgb, var(--color-accent) 20%, var(--color-surface));
+  }
+
+  // A past marathon keeps the past hover style above.
+  .day.marathon:not(.past):hover {
+    border-color: var(--color-text);
+    background-color: var(--color-accent);
+  }
+}
+
+@media (min-width: 720px) {
+  .week {
+    grid-template-columns: 8.5rem repeat(7, minmax(0, 1fr));
+    align-items: stretch;
+  }
+
+  .summary {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  // Square tiles; a tile only grows taller when its text doesn't fit, and text is never clipped.
+  .day {
+    flex-direction: column;
+    justify-content: flex-start;
+    // A definite width makes the square follow the column, not the stretched row height.
+    box-sizing: border-box;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+  }
+
+  .body {
+    align-items: flex-start;
+    text-align: left;
+  }
+}

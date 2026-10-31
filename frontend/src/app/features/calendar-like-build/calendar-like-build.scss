@@ -1,0 +1,19 @@
+:host {
+  display: block;
+  margin-bottom: 1rem;
+}
+
+.plan-empty {
+  margin: 0 0 0.25rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.plan-error {
+  text-align: center;
+
+  p {
+    margin: 0 0 0.75rem;
+    color: var(--color-text);
+  }
+}
