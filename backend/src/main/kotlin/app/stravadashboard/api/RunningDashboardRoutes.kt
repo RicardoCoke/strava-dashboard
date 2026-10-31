@@ -20,7 +20,6 @@ fun Route.runningDashboardRoutes(
         }
         when (val result = service.get()) {
             DashboardResult.NotConnected -> call.respond(HttpStatusCode.Unauthorized, ErrorResponse.NOT_CONNECTED)
-            DashboardResult.ReauthRequired -> call.respond(HttpStatusCode.Unauthorized, ErrorResponse.REAUTH_REQUIRED)
             is DashboardResult.Ready -> call.respond(result.toDto())
         }
     }

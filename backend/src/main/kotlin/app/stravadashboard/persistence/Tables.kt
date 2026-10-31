@@ -63,5 +63,6 @@ object SyncStateTable : Table("sync_state") {
     val lastStatus = text("last_status").nullable()
     val ownerAthleteId = long("owner_athlete_id").nullable()
     val historyStart = long("history_start").nullable()
+    val lastAttemptAt = long("last_attempt_at").nullable()
     override val primaryKey = PrimaryKey(id)
 }

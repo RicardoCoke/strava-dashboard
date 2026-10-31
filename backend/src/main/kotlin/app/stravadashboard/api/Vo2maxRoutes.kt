@@ -20,7 +20,6 @@ fun Route.vo2maxRoutes(
         }
         when (val result = service.get()) {
             Vo2maxResult.NotConnected -> call.respond(HttpStatusCode.Unauthorized, ErrorResponse.NOT_CONNECTED)
-            Vo2maxResult.ReauthRequired -> call.respond(HttpStatusCode.Unauthorized, ErrorResponse.REAUTH_REQUIRED)
             Vo2maxResult.InvalidConfig ->
                 call.respond(HttpStatusCode.UnprocessableEntity, ErrorResponse.VO2MAX_INVALID_CONFIG)
             is Vo2maxResult.Ready -> call.respond(result.report.toDto())

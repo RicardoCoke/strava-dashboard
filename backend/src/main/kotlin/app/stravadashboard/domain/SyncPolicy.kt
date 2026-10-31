@@ -4,7 +4,6 @@ import app.stravadashboard.domain.model.RunActivity
 import app.stravadashboard.domain.model.RunType
 import app.stravadashboard.domain.ports.SourceResult
 import app.stravadashboard.domain.ports.SyncState
-import app.stravadashboard.domain.ports.SyncStatus
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
@@ -38,32 +37,6 @@ internal object SyncPolicy {
     val SYNC_INTERVAL: Duration = Duration.ofMinutes(15)
     val RECHECK_WINDOW: Duration = Duration.ofDays(7)
     val RECHECK_MIN_AGE: Duration = Duration.ofHours(1)
-
-    fun isDue(
-        state: SyncState,
-        pending: Int,
-        now: Instant,
-    ): Boolean {
-        val rateLimited = state.rateLimitedUntil?.let { now < it } ?: false
-        val stale = state.lastSuccessfulSyncAt?.let { Duration.between(it, now) >= SYNC_INTERVAL } ?: true
-        return !rateLimited && (stale || pending > 0 || state.listCursor == null)
-    }
-
-    /** Status reported when no sync runs for this request. */
-    fun idleInfo(
-        state: SyncState,
-        pending: Int,
-        now: Instant,
-    ): SyncInfo {
-        val until = state.rateLimitedUntil?.takeIf { now < it }
-        val status =
-            when {
-                until != null -> SyncStatus.RATE_LIMITED
-                pending > 0 -> SyncStatus.PARTIAL
-                else -> SyncStatus.OK
-            }
-        return SyncInfo(status, state.lastSuccessfulSyncAt, until, pending)
-    }
 
     /**
      * Runs waiting for a detail call (first or the 008 lap-HR refetch), outdoor workouts waiting for a streams call,

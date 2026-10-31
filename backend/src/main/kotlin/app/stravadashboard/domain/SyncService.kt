@@ -17,6 +17,7 @@ import app.stravadashboard.domain.ports.SourceResult
 import app.stravadashboard.domain.ports.SyncStateRepository
 import app.stravadashboard.domain.ports.SyncStatus
 import app.stravadashboard.domain.trainingload.HrHistogramBuilder
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.slf4j.LoggerFactory
@@ -39,10 +40,21 @@ sealed interface SyncOutcome {
     data object ReauthRequired : SyncOutcome
 }
 
+/** How a list pass ended: every page read, the call budget used up, or a failure that stops the sync. */
+private sealed interface ListPass {
+    data object Complete : ListPass
+
+    data object OutOfBudget : ListPass
+
+    data class Failed(
+        val failure: SourceResult<Nothing>,
+    ) : ListPass
+}
+
 /**
  * Keeps the local run store in step with Strava: a one-time import from the history start (6 months + 41 days), then
  * incremental list passes, detail calls, speed-stream calls for outdoor workouts, heart-rate stream calls for runs
- * with heart rate, and pruning. Only one sync runs at a time.
+ * with heart rate, and pruning. Only one sync runs at a time, and every Strava call is taken from [budget].
  * The rules for when and what to call live in [SyncPolicy].
  */
 class SyncService(
@@ -51,6 +63,7 @@ class SyncService(
     private val syncState: SyncStateRepository,
     private val clock: Clock,
     private val zone: ZoneId,
+    private val budget: StravaCallBudget = StravaCallBudget(clock),
 ) {
     private val mutex = Mutex()
 
@@ -65,47 +78,75 @@ class SyncService(
     suspend fun syncIfDue(): SyncOutcome {
         val attemptsBeforeWaiting = finishedAttempts
         return mutex.withLock {
-            val reusable = lastOutcome.takeIf { finishedAttempts != attemptsBeforeWaiting }
-            reusable ?: syncOrReport()
+            lastOutcome.takeIf { finishedAttempts != attemptsBeforeWaiting } ?: syncNowIfDue()
         }
     }
 
-    private suspend fun syncOrReport(): SyncOutcome {
+    private suspend fun syncNowIfDue(): SyncOutcome {
         val now = clock.instant()
         val state = syncState.get()
         val pending = pendingCount(runs.findAll())
-        if (!SyncPolicy.isDue(state, pending, now)) return SyncOutcome.Done(SyncPolicy.idleInfo(state, pending, now))
-
+        if (!SyncSchedule.isDue(state, pending, budget.view(), now)) {
+            return SyncOutcome.Done(SyncSchedule.idleInfo(state, pending, now))
+        }
         return sync(now).also {
             lastOutcome = it
             finishedAttempts++
         }
     }
 
-    private suspend fun sync(now: Instant): SyncOutcome {
-        val failure = listPass(now) ?: activityCalls(now)
-        if (failure != null) return recordFailure(failure)
+    /** An unexpected error counts as Strava being unavailable; only its class name is logged (feature 009, AC5.4). */
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun sync(now: Instant): SyncOutcome =
+        try {
+            when (val listed = listPass(now)) {
+                is ListPass.Failed -> recordFailure(listed.failure, now)
+                ListPass.OutOfBudget -> recordSuccess(now, outOfBudget = true)
+                ListPass.Complete -> activityCalls(now)?.let { recordFailure(it, now) } ?: recordSuccess(now)
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            log.warn("Strava sync failed unexpectedly: {}", e::class.simpleName)
+            recordFailure(SourceResult.Unavailable, now)
+        }
 
+    /** Out of budget, the sync stops early and counts as partial; the next window carries on (feature 009, AC4.5). */
+    private suspend fun recordSuccess(
+        now: Instant,
+        outOfBudget: Boolean = false,
+    ): SyncOutcome {
         runs.pruneBefore(SyncPolicy.pruneCutoff(now, zone))
         val pending = pendingCount(runs.findAll())
-        val status = if (pending > 0) SyncStatus.PARTIAL else SyncStatus.OK
-        syncState.save(syncState.get().copy(lastSuccessfulSyncAt = now, rateLimitedUntil = null, lastStatus = status))
+        val status = if (outOfBudget || pending > 0) SyncStatus.PARTIAL else SyncStatus.OK
+        syncState.save(
+            syncState.get().copy(
+                lastSuccessfulSyncAt = now,
+                rateLimitedUntil = null,
+                lastStatus = status,
+                lastAttemptAt = now,
+            ),
+        )
         log.info("Strava sync finished: status={}, runsPending={}", status, pending)
         return SyncOutcome.Done(SyncInfo(status, now, null, pending))
     }
 
-    private suspend fun recordFailure(failure: SourceResult<Nothing>): SyncOutcome {
+    private suspend fun recordFailure(
+        failure: SourceResult<Nothing>,
+        now: Instant,
+    ): SyncOutcome {
         val state = syncState.get()
         val pending = pendingCount(runs.findAll())
         log.info("Strava sync stopped: {}", failure::class.simpleName)
         return when (failure) {
             is SourceResult.RateLimited -> {
-                syncState.save(state.copy(rateLimitedUntil = failure.until, lastStatus = SyncStatus.RATE_LIMITED))
+                val saved = state.copy(rateLimitedUntil = failure.until, lastStatus = SyncStatus.RATE_LIMITED)
+                syncState.save(saved.copy(lastAttemptAt = now))
                 SyncOutcome.Done(SyncInfo(SyncStatus.RATE_LIMITED, state.lastSuccessfulSyncAt, failure.until, pending))
             }
             SourceResult.ReauthRequired -> SyncOutcome.ReauthRequired
             else -> {
-                syncState.save(state.copy(lastStatus = SyncStatus.STRAVA_UNAVAILABLE))
+                syncState.save(state.copy(lastStatus = SyncStatus.STRAVA_UNAVAILABLE, lastAttemptAt = now))
                 SyncOutcome.Done(SyncInfo(SyncStatus.STRAVA_UNAVAILABLE, state.lastSuccessfulSyncAt, null, pending))
             }
         }
@@ -115,47 +156,50 @@ class SyncService(
      * Lists every page after the cursor; the cursor (and, for a pass from the history start, [SyncState.historyStart])
      * is only set once all pages have been read.
      */
-    private suspend fun listPass(now: Instant): SourceResult<Nothing>? {
+    private suspend fun listPass(now: Instant): ListPass {
         val backfillStart = SyncPolicy.backfillStart(now, zone)
         val after = SyncPolicy.listAfter(syncState.get(), now, zone)
         var page = 1
+        var stop: ListPass? = null
         do {
-            val result = source.listActivities(after, page++, PAGE_SIZE)
-            if (result !is SourceResult.Success) return failureOf(result)
-            val (stored, others) = result.value.partition { it.sportType == RUN_SPORT_TYPE }
+            val result = if (budget.tryConsume()) source.listActivities(after, page++, PAGE_SIZE) else null
+            val listed = (result as? SourceResult.Success)?.value
+            if (listed == null) {
+                stop = result?.let { ListPass.Failed(failureOf(it)) } ?: ListPass.OutOfBudget
+                break
+            }
+            val (stored, others) = listed.partition { it.sportType == RUN_SPORT_TYPE }
             runs.upsertSummaries(stored)
             runs.delete(others.map { it.id })
-        } while (result.value.size == PAGE_SIZE)
+        } while (listed.size == PAGE_SIZE)
+        stop?.let { return it }
 
         val cursor = runs.newestStartUtc() ?: backfillStart
         val state = syncState.get()
         val historyStart = if (after == backfillStart) after else state.historyStart
         syncState.save(state.copy(listCursor = cursor, historyStart = historyStart))
-        return null
+        return ListPass.Complete
     }
 
-    /** Detail and stream calls, sharing one cap, in priority order. */
+    /** Detail and stream calls, sharing one cap and what is left of the budget, in priority order. */
     private suspend fun activityCalls(now: Instant): SourceResult<Nothing>? {
-        var remaining = MAX_ACTIVITY_CALLS_PER_SYNC
+        var remaining = minOf(MAX_ACTIVITY_CALLS_PER_SYNC, budget.remaining())
         for (phase in SyncPhase.entries) {
             val calls = SyncPolicy.plan(phase, runs.findAll(), now).take(remaining)
             remaining -= calls.size
-            val failure = calls.firstNotNullOfOrNull { execute(it, now) }
+            val failure =
+                calls.firstNotNullOfOrNull { call ->
+                    budget.tryConsume()
+                    val workout = call.streamFor
+                    when {
+                        call.heartRate -> fetchHrStream(call.run, now)
+                        workout != null -> fetchStream(call.run, workout, now)
+                        else -> fetchDetail(call.run, now)
+                    }
+                }
             if (failure != null) return failure
         }
         return null
-    }
-
-    private suspend fun execute(
-        call: ActivityCall,
-        now: Instant,
-    ): SourceResult<Nothing>? {
-        val workout = call.streamFor
-        return when {
-            call.heartRate -> fetchHrStream(call.run, now)
-            workout != null -> fetchStream(call.run, workout, now)
-            else -> fetchDetail(call.run, now)
-        }
     }
 
     /** A 404 means the activity was deleted on Strava, so it is removed locally too. */

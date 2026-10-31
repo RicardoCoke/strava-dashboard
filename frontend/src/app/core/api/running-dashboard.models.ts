@@ -1,17 +1,6 @@
 // Mirrors the JSON of GET /api/dashboard/running
 // (backend api/RunningDashboardDtos.kt, docs/features/001-running-dashboard/specs.md).
 
-export type SyncStatus = 'ok' | 'partial' | 'rateLimited' | 'stravaUnavailable';
-
-export interface SyncInfo {
-  status: SyncStatus;
-  /** ISO-8601 UTC instant. */
-  lastSyncedAt: string | null;
-  /** ISO-8601 UTC instant. */
-  retryAfter: string | null;
-  runsPendingDetail: number;
-}
-
 export interface WeekTotal {
   /** ISO local date (Monday). */
   weekStart: string;
@@ -140,7 +129,6 @@ export interface WeekComparison {
 }
 
 export interface RunningDashboardResponse {
-  sync: SyncInfo;
   weeklyDistance: WeeklyDistance;
   heartRateTrend: HeartRateTrend;
   workoutPaceComparison: WorkoutPaceComparison;

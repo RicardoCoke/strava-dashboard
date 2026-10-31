@@ -1,4 +1,5 @@
 <h1>Running</h1>
+<app-sync-banner [state]="sync.bannerState()" />
 <app-calendar-like-build />
 <app-training-load-section />
 <app-vo2max-section />
@@ -8,7 +9,6 @@
     <div class="loading" role="status" aria-live="polite">
       <app-ring-spinner />
       <p class="loading-text">Loading your runs…</p>
-      <p class="loading-note">The first import can take a minute.</p>
     </div>
   }
   @case ('error') {
@@ -19,7 +19,6 @@
   }
   @case ('loaded') {
     @if (data(); as data) {
-      <app-sync-banner [sync]="data.sync" />
       @if (empty()) {
         <div class="card status-card">
           <p class="empty">No runs in the last 5 months</p>

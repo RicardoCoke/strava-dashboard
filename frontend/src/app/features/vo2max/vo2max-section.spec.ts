@@ -100,9 +100,7 @@ describe('Vo2maxSection', () => {
 
   it('R13 - empty still importing', () => {
     respond(emptyVo2max({ runsPendingDetail: 12 }));
-    expect(text()).toContain(
-      'Lap heart-rate data is still importing: 12 runs to go. Reload in a while.',
-    );
+    expect(text()).toContain('Lap heart-rate data is still importing: 12 runs to go.');
     expect(element().querySelector('app-vo2max-chart')).toBeNull();
   });
 
