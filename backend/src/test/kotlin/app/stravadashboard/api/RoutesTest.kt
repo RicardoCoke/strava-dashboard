@@ -259,7 +259,10 @@ class RoutesTest {
         app {
             val root = Json.parseToJsonElement(connectedDashboardBody()).jsonObject
 
-            assertEquals(setOf("sync", "weeklyDistance", "heartRateTrend", "workoutPaceComparison"), root.keys)
+            assertEquals(
+                setOf("sync", "weeklyDistance", "heartRateTrend", "workoutPaceComparison", "weekComparison"),
+                root.keys,
+            )
             assertEquals(setOf("status", "lastSyncedAt", "retryAfter", "runsPendingDetail"), root.obj("sync").keys)
             assertEquals(9, root.obj("weeklyDistance").arr("weeks").size)
             assertEquals(
@@ -290,6 +293,19 @@ class RoutesTest {
                     "hasEnoughData",
                 ),
                 root.firstOf("workoutPaceComparison", "types").keys,
+            )
+        }
+
+    @Test
+    fun `007 R2 - dashboard JSON includes the week comparison block`() =
+        app {
+            val week = Json.parseToJsonElement(connectedDashboardBody()).jsonObject.obj("weekComparison")
+            assertEquals(setOf("thisWeek", "lastWeek", "distance", "easyHeartRate", "workoutPace"), week.keys)
+            assertEquals(setOf("thisWeekKm", "lastWeekKm", "differenceKm"), week.obj("distance").keys)
+            assertEquals(setOf("thisWeek", "lastWeek", "changeBpm", "missingIn"), week.obj("easyHeartRate").keys)
+            assertEquals(
+                setOf("thisWeek", "lastWeek", "changeSecondsPerKm", "missingIn"),
+                week.obj("workoutPace").keys,
             )
         }
 

@@ -2,15 +2,22 @@ package app.stravadashboard.api
 
 import app.stravadashboard.domain.DashboardResult
 import app.stravadashboard.domain.DateWindow
+import app.stravadashboard.domain.DistanceDifference
+import app.stravadashboard.domain.EasyHrComparison
 import app.stravadashboard.domain.HrPoint
 import app.stravadashboard.domain.HrTrendLine
 import app.stravadashboard.domain.HrTrendResult
 import app.stravadashboard.domain.HrTypeTrend
+import app.stravadashboard.domain.MissingIn
 import app.stravadashboard.domain.PaceComparisonResult
 import app.stravadashboard.domain.PaceTypeComparison
 import app.stravadashboard.domain.PaceWindowStat
 import app.stravadashboard.domain.SyncInfo
+import app.stravadashboard.domain.WeekComparisonResult
+import app.stravadashboard.domain.WeekHrStat
+import app.stravadashboard.domain.WeekPaceStat
 import app.stravadashboard.domain.WeekTotal
+import app.stravadashboard.domain.WorkoutPaceWeekComparison
 import app.stravadashboard.domain.model.RunType
 import app.stravadashboard.domain.model.SecondsPerKm
 import app.stravadashboard.domain.ports.SyncStatus
@@ -67,6 +74,20 @@ class RunningDashboardContractTest {
                             PaceTypeComparison(RunType.Workout(4, 8), PaceWindowStat(SecondsPerKm(250), 1), null, 0),
                         ),
                 ),
+            weekComparison =
+                WeekComparisonResult(
+                    thisWeek = DateWindow(date("2026-10-26"), date("2026-11-01")),
+                    lastWeek = DateWindow(date("2026-10-19"), date("2026-10-25")),
+                    distance = DistanceDifference(32.4, 29.0, 3.4),
+                    easyHeartRate = EasyHrComparison(WeekHrStat(138.9, 2), WeekHrStat(141.0, 2), -2.1, null),
+                    workoutPace =
+                        WorkoutPaceWeekComparison(
+                            thisWeek = null,
+                            lastWeek = WeekPaceStat(SecondsPerKm(253), 2, listOf(RunType.Workout(5, 6))),
+                            changeSecondsPerKm = null,
+                            missingIn = MissingIn.THIS_WEEK,
+                        ),
+                ),
         )
 
     private val expected =
@@ -107,6 +128,21 @@ class RunningDashboardContractTest {
                 "current": { "averageRepPaceSecondsPerKm": 250, "runCount": 1 },
                 "previous": null, "changeSecondsPerKm": null, "runsWithoutPace": 0, "hasEnoughData": false }
             ]
+          },
+          "weekComparison": {
+            "thisWeek": { "start": "2026-10-26", "end": "2026-11-01" },
+            "lastWeek": { "start": "2026-10-19", "end": "2026-10-25" },
+            "distance": { "thisWeekKm": 32.4, "lastWeekKm": 29.0, "differenceKm": 3.4 },
+            "easyHeartRate": {
+              "thisWeek": { "averageHeartRateBpm": 138.9, "runCount": 2 },
+              "lastWeek": { "averageHeartRateBpm": 141.0, "runCount": 2 },
+              "changeBpm": -2.1, "missingIn": null
+            },
+            "workoutPace": {
+              "thisWeek": null,
+              "lastWeek": { "averageRepPaceSecondsPerKm": 253, "runCount": 2, "typeLabels": ["5x6min"] },
+              "changeSecondsPerKm": null, "missingIn": "thisWeek"
+            }
           }
         }
         """
