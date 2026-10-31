@@ -118,6 +118,8 @@ data class HrTrendLineDto(
 
 @Serializable
 data class WorkoutPaceComparisonDto(
+    val windowStart: String,
+    val windowEnd: String,
     val currentWindow: DateWindowDto,
     val previousWindow: DateWindowDto,
     val types: List<PaceTypeComparisonDto>,
@@ -133,11 +135,20 @@ data class DateWindowDto(
 data class PaceTypeComparisonDto(
     val typeKey: String,
     val label: String,
+    val runCount: Int,
+    val points: List<PacePointDto>,
     val current: PaceWindowStatDto?,
     val previous: PaceWindowStatDto?,
     val changeSecondsPerKm: Int?,
     val runsWithoutPace: Int,
     val hasEnoughData: Boolean,
+)
+
+@Serializable
+data class PacePointDto(
+    val date: String,
+    val repPaceSecondsPerKm: Int,
+    val treadmill: Boolean,
 )
 
 @Serializable

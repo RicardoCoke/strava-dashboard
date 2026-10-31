@@ -37,7 +37,7 @@ object BuildCalendarBuilder {
                         },
                 )
             }
-        return BuildCalendar(startDate, endDate, progress, plan.paces, plan.notes, weeks)
+        return BuildCalendar(startDate, endDate, progress, plan.paces, weeks)
     }
 
     private fun progress(

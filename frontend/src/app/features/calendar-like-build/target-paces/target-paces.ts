@@ -22,16 +22,6 @@ import { paceRows } from '../plan-view';
         </ul>
       </div>
     }
-    @if (notes().length > 0) {
-      <div class="panel notes">
-        <h3 class="title">Plan notes</h3>
-        <ul class="note-list">
-          @for (note of notes(); track $index) {
-            <li>{{ note }}</li>
-          }
-        </ul>
-      </div>
-    }
   `,
   styles: `
     :host {
@@ -49,8 +39,7 @@ import { paceRows } from '../plan-view';
       color: var(--color-text-muted);
     }
 
-    .pace-list,
-    .note-list {
+    .pace-list {
       margin: 0;
       padding: 0;
       list-style: none;
@@ -90,16 +79,9 @@ import { paceRows } from '../plan-view';
       font-size: 0.8rem;
       color: var(--color-text-muted);
     }
-
-    .note-list li {
-      padding: 0.15rem 0;
-      font-size: 0.9rem;
-      color: var(--color-text);
-    }
   `,
 })
 export class TargetPaces {
   readonly paces = input.required<TargetPace[]>();
-  readonly notes = input.required<string[]>();
   protected readonly rows = computed(() => paceRows(this.paces()));
 }

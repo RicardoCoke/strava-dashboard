@@ -43,7 +43,9 @@ data class HrTrendResult(
 /** Whole-run average heart rate per run type over the last five months, with a least-squares trend line. */
 object HeartRateTrend {
     const val MIN_POINTS_FOR_COMPARISON = 3
-    private const val WINDOW_MONTHS = 5L
+
+    /** Shared with [WorkoutPaceComparison], so both "by type" cards cover the same months (feature 010). */
+    const val WINDOW_MONTHS = 5L
 
     fun compute(
         runs: List<RunActivity>,

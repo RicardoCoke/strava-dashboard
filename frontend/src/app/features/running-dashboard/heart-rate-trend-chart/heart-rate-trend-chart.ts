@@ -42,14 +42,6 @@ import { buildHeartRateTrendOptions, hrTrendText } from '../chart-options/heart-
       }
     </section>
   `,
-  styles: `
-    .type-picker {
-      display: inline-flex;
-      gap: 0.5rem;
-      align-items: center;
-      margin-bottom: 0.5rem;
-    }
-  `,
 })
 export class HeartRateTrendChart {
   readonly trend = input.required<HeartRateTrend>();

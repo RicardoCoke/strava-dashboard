@@ -252,7 +252,7 @@ class AggregationsTest {
     }
 
     @Test
-    fun `R11 - only workout types with runs in 60 days appear`() {
+    fun `010 R1 - workout types with runs in the last 5 months appear, most recent first`() {
         val runs =
             listOf(
                 run(id = 1, name = "Easy"),
@@ -261,7 +261,7 @@ class AggregationsTest {
                 run(id = 4, date = date("2026-10-01"), name = "3x10min"),
             )
         val types = WorkoutPaceComparison.compute(runs, TODAY).types
-        assertEquals(listOf("5x6min", "3x10min"), types.map { it.type.key })
+        assertEquals(listOf("5x6min", "3x10min", "4x8min"), types.map { it.type.key })
         assertTrue(types.none { it.type == RunType.Easy })
     }
 

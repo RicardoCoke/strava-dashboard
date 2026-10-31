@@ -65,6 +65,8 @@ private fun HrTypeTrend.toDto(): HrRunTypeDto =
 
 private fun PaceComparisonResult.toDto(): WorkoutPaceComparisonDto =
     WorkoutPaceComparisonDto(
+        windowStart = windowStart.toString(),
+        windowEnd = windowEnd.toString(),
         currentWindow = currentWindow.toDto(),
         previousWindow = previousWindow.toDto(),
         types = types.map { it.toDto() },
@@ -74,6 +76,8 @@ private fun PaceTypeComparison.toDto(): PaceTypeComparisonDto =
     PaceTypeComparisonDto(
         typeKey = type.key,
         label = type.label,
+        runCount = runCount,
+        points = points.map { PacePointDto(it.date.toString(), it.repPace.value, it.treadmill) },
         current = current?.toDto(),
         previous = previous?.toDto(),
         changeSecondsPerKm = changeSecondsPerKm,

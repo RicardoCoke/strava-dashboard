@@ -66,9 +66,20 @@ export interface PaceWindowStat {
   runCount: number;
 }
 
+export interface PacePoint {
+  /** ISO local date. */
+  date: string;
+  repPaceSecondsPerKm: number;
+  treadmill: boolean;
+}
+
 export interface PaceTypeComparison {
   typeKey: string;
   label: string;
+  /** All runs of this type in the 5-month window (feature 010). */
+  runCount: number;
+  /** One per run with a rep pace, date ascending. */
+  points: PacePoint[];
   current: PaceWindowStat | null;
   previous: PaceWindowStat | null;
   /** current − previous; negative means faster. */
@@ -78,6 +89,9 @@ export interface PaceTypeComparison {
 }
 
 export interface WorkoutPaceComparison {
+  /** ISO local date; the same 5-month window as heartRateTrend. */
+  windowStart: string;
+  windowEnd: string;
   currentWindow: DateWindow;
   previousWindow: DateWindow;
   types: PaceTypeComparison[];

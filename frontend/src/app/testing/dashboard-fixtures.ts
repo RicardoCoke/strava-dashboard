@@ -87,6 +87,14 @@ export function paceType(overrides: Partial<PaceTypeComparison> = {}): PaceTypeC
   return {
     typeKey: '5x6min',
     label: '5x6min',
+    runCount: 5,
+    points: [
+      { date: '2026-09-05', repPaceSecondsPerKm: 262, treadmill: false },
+      { date: '2026-09-12', repPaceSecondsPerKm: 259, treadmill: true },
+      { date: '2026-09-20', repPaceSecondsPerKm: 259, treadmill: false },
+      { date: '2026-10-05', repPaceSecondsPerKm: 254, treadmill: false },
+      { date: '2026-10-20', repPaceSecondsPerKm: 252, treadmill: true },
+    ],
     current: { averageRepPaceSecondsPerKm: 253, runCount: 2 },
     previous: { averageRepPaceSecondsPerKm: 260, runCount: 3 },
     changeSecondsPerKm: -7,
@@ -118,6 +126,8 @@ export function dashboard(
       types: [hrType()],
     },
     workoutPaceComparison: {
+      windowStart: '2026-05-29',
+      windowEnd: '2026-10-29',
       currentWindow: { start: '2026-09-30', end: '2026-10-29' },
       previousWindow: { start: '2026-08-31', end: '2026-09-29' },
       types: [paceType()],

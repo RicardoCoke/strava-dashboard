@@ -37,8 +37,7 @@ export function isTrainingPlanResponse(body: unknown): body is TrainingPlanRespo
     progress !== null &&
     typeof (progress as Record<string, unknown>)['label'] === 'string' &&
     Array.isArray(plan['weeks']) &&
-    Array.isArray(plan['targetPaces']) &&
-    Array.isArray(plan['notes'])
+    Array.isArray(plan['targetPaces'])
   );
 }
 

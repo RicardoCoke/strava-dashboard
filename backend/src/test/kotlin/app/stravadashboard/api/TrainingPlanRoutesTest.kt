@@ -79,12 +79,12 @@ class TrainingPlanRoutesTest {
     private fun JsonObject.first(list: String): JsonObject = getValue(list).jsonArray.first().jsonObject
 
     @Test
-    fun `004 R8 - returns calendar json shape`() =
+    fun `004 R8 - returns calendar json shape without notes (010 R10)`() =
         app {
             val response = connectedBrowser().get("/api/training-plan")
             assertEquals(HttpStatusCode.OK, response.status)
             val root = response.json()
-            assertEquals(keys("startDate endDate progress targetPaces notes weeks"), root.keys)
+            assertEquals(keys("startDate endDate progress targetPaces weeks"), root.keys)
             assertEquals(progressKeys, root.getValue("progress").jsonObject.keys)
             assertEquals(paceKeys, root.first("targetPaces").keys)
             val week = root.first("weeks")

@@ -4,7 +4,7 @@ import app.stravadashboard.domain.model.SECONDS_PER_MINUTE
 import app.stravadashboard.domain.model.SecondsPerKm
 import org.slf4j.LoggerFactory
 
-/** Target paces and sheet notes from the rows above the first week block (004 R3). */
+/** Target paces from the rows above the first week block (004 R3). */
 internal object PlanHeaderParser {
     private val log = LoggerFactory.getLogger(PlanHeaderParser::class.java)
     private val PACE_HEADER = Regex("""^(.+?)\s+PACE\b""", RegexOption.IGNORE_CASE)
@@ -19,11 +19,6 @@ internal object PlanHeaderParser {
         return header.indices.flatMap { r ->
             header[r].indices.filter { it < firstNotesColumn }.mapNotNull { c -> paceAt(header, r, c) }
         }
-    }
-
-    fun notes(header: List<List<String>>): List<String> {
-        val (row, column) = notesColumn(header) ?: return emptyList()
-        return header.drop(row).map { it.cell(column + 1) }.filter { it.isNotEmpty() }
     }
 
     /** Row and column of the first NOTES header cell, or null when there is none. */

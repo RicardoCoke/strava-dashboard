@@ -103,6 +103,14 @@ select:focus-visible {
   color: var(--color-text-muted);
 }
 
+/* The run-type select on the "by type" cards. */
+.type-picker {
+  display: inline-flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
 .tone-better {
   color: var(--color-accent);
 }

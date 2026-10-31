@@ -208,11 +208,7 @@ describe('RunningDashboardPage redesign', () => {
     const titles = Array.from(element().querySelectorAll('section.card h2')).map((h) =>
       h.textContent?.trim(),
     );
-    expect(titles).toEqual([
-      'Weekly distance',
-      'Heart rate by run type',
-      'Workout pace: last 30 days vs previous 30 days',
-    ]);
+    expect(titles).toEqual(['Weekly distance', 'Heart rate by run type', 'Workout pace by type']);
   });
 
   it('002 R2 - sync banner uses notice style and keeps texts', () => {

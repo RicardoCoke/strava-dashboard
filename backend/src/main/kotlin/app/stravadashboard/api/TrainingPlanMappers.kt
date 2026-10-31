@@ -13,7 +13,6 @@ fun BuildCalendar.toDto(): TrainingPlanResponse =
         endDate = endDate.toString(),
         progress = progress.toDto(),
         targetPaces = paces.map { it.toDto() },
-        notes = notes,
         weeks = weeks.map { it.toDto() },
     )
 

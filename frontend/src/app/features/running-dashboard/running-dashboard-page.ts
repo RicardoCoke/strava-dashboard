@@ -62,6 +62,7 @@ export class RunningDashboardPage implements OnInit {
 
   protected readonly state = signal<DashboardState>({ kind: 'loading' });
   protected readonly selectedHrTypeKey = signal<string | null>(null);
+  protected readonly selectedPaceTypeKey = signal<string | null>(null);
   protected readonly data = computed(() => {
     const state = this.state();
     return state.kind === 'loaded' ? state.data : null;
