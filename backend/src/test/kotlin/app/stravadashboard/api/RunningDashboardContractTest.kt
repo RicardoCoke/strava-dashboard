@@ -13,7 +13,6 @@ import app.stravadashboard.domain.PaceComparisonResult
 import app.stravadashboard.domain.PacePoint
 import app.stravadashboard.domain.PaceTypeComparison
 import app.stravadashboard.domain.PaceWindowStat
-import app.stravadashboard.domain.SyncInfo
 import app.stravadashboard.domain.WeekComparisonResult
 import app.stravadashboard.domain.WeekHrStat
 import app.stravadashboard.domain.WeekPaceStat
@@ -21,9 +20,7 @@ import app.stravadashboard.domain.WeekTotal
 import app.stravadashboard.domain.WorkoutPaceWeekComparison
 import app.stravadashboard.domain.model.RunType
 import app.stravadashboard.domain.model.SecondsPerKm
-import app.stravadashboard.domain.ports.SyncStatus
 import kotlinx.serialization.json.Json
-import java.time.Instant
 import java.time.LocalDate
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -34,7 +31,6 @@ class RunningDashboardContractTest {
 
     private val ready =
         DashboardResult.Ready(
-            sync = SyncInfo(SyncStatus.OK, Instant.parse("2026-10-29T08:12:03.456Z"), null, 0),
             weeks = listOf(WeekTotal(date("2026-08-31"), date("2026-09-06"), 32.4, 4, false)),
             heartRate =
                 HrTrendResult(
@@ -110,7 +106,6 @@ class RunningDashboardContractTest {
     private val expected =
         """
         {
-          "sync": { "status": "ok", "lastSyncedAt": "2026-10-29T08:12:03Z", "retryAfter": null, "runsPendingDetail": 0 },
           "weeklyDistance": {
             "weeks": [
               { "weekStart": "2026-08-31", "weekEnd": "2026-09-06", "label": "31 Aug", "distanceKm": 32.4,

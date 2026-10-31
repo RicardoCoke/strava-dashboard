@@ -4,6 +4,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { dashboard, stubCharts } from '../../testing/dashboard-fixtures';
 import { trainingLoad } from '../../testing/training-load-fixtures';
 import { trainingPlan } from '../../testing/training-plan-fixtures';
+import { stubSyncStore } from '../../testing/sync-store-stub';
 import { stubVo2maxSection } from '../../testing/vo2max-stub';
 import { RunningDashboardPage } from './running-dashboard-page';
 
@@ -17,6 +18,7 @@ describe('RunningDashboardPage with the training load card', () => {
     });
     stubCharts();
     stubVo2maxSection();
+    stubSyncStore();
     fixture = TestBed.createComponent(RunningDashboardPage);
     http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
@@ -27,8 +29,9 @@ describe('RunningDashboardPage with the training load card', () => {
   const tags = () => Array.from(element().children).map((child) => child.tagName.toLowerCase());
 
   it('005 R10 - training load card directly after marathon build', () => {
-    expect(tags().slice(0, 3)).toEqual([
+    expect(tags().slice(0, 4)).toEqual([
       'h1',
+      'app-sync-banner',
       'app-calendar-like-build',
       'app-training-load-section',
     ]);
@@ -37,10 +40,7 @@ describe('RunningDashboardPage with the training load card', () => {
     http.expectOne('/api/training-load').flush(trainingLoad());
     fixture.detectChanges();
     const order = tags();
-    expect(order.indexOf('app-training-load-section')).toBe(2);
-    expect(order.indexOf('app-training-load-section')).toBeLessThan(
-      order.indexOf('app-sync-banner'),
-    );
+    expect(order.indexOf('app-training-load-section')).toBe(3);
   });
 
   it('005 R10 - one training load request', () => {

@@ -1,8 +1,6 @@
 package app.stravadashboard.domain.trainingload
 
 import app.stravadashboard.config.LthrSetting
-import app.stravadashboard.domain.SyncOutcome
-import app.stravadashboard.domain.SyncService
 import app.stravadashboard.domain.ports.RunRepository
 import app.stravadashboard.domain.ports.TokenRepository
 import java.time.Clock
@@ -16,8 +14,6 @@ sealed interface TrainingLoadResult {
 
     data object InvalidConfig : TrainingLoadResult
 
-    data object ReauthRequired : TrainingLoadResult
-
     data class Ready(
         val load: TrainingLoad,
         val ramp: Ramp,
@@ -25,11 +21,10 @@ sealed interface TrainingLoadResult {
     ) : TrainingLoadResult
 }
 
-/** Checks the config, syncs if due, then computes the training load from the local store. */
+/** Checks the config, then computes the training load from the local store. */
 class TrainingLoadService(
     private val lthr: LthrSetting,
     private val tokens: TokenRepository,
-    private val syncService: SyncService,
     private val runs: RunRepository,
     private val clock: Clock,
     private val zone: ZoneId,
@@ -43,18 +38,13 @@ class TrainingLoadService(
 
     private suspend fun compute(zones: HrZones): TrainingLoadResult {
         if (tokens.find() == null) return TrainingLoadResult.NotConnected
-        return when (syncService.syncIfDue()) {
-            SyncOutcome.ReauthRequired -> TrainingLoadResult.ReauthRequired
-            is SyncOutcome.Done -> {
-                val stored = runs.findAll()
-                val today = LocalDate.now(clock.withZone(zone))
-                val loads = TrainingLoadCalculator.dailyLoads(stored, zones, today)
-                TrainingLoadResult.Ready(
-                    load = TrainingLoadCalculator.compute(stored, loads, today),
-                    ramp = RampRate.compute(loads, today),
-                    zones = zones,
-                )
-            }
-        }
+        val stored = runs.findAll()
+        val today = LocalDate.now(clock.withZone(zone))
+        val loads = TrainingLoadCalculator.dailyLoads(stored, zones, today)
+        return TrainingLoadResult.Ready(
+            load = TrainingLoadCalculator.compute(stored, loads, today),
+            ramp = RampRate.compute(loads, today),
+            zones = zones,
+        )
     }
 }

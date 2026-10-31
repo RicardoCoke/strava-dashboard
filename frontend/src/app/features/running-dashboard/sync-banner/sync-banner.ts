@@ -1,21 +1,30 @@
 import { formatDate } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
-import { SyncInfo } from '../../../core/api/running-dashboard.models';
+import { SyncBannerState } from '../../../core/sync/sync.store';
 
 const LOCALE = 'en-US';
 
-export function syncBannerText(sync: SyncInfo): string | null {
-  switch (sync.status) {
+/** The banner text for a sync state (feature 009, R8), or null for no banner. */
+export function syncBannerText(state: SyncBannerState): string | null {
+  if (state === 'none') {
+    return null;
+  }
+  if (state === 'failed') {
+    return "Couldn't check the Strava sync. Showing saved data.";
+  }
+  switch (state.status) {
+    case 'syncing':
+      return 'Syncing with Strava…';
     case 'rateLimited': {
-      const time = sync.retryAfter ? formatDate(sync.retryAfter, 'HH:mm', LOCALE) : 'a while';
-      return `Strava rate limit reached. Showing saved data; it will refresh after ${time}.`;
+      const time = state.retryAfter ? formatDate(state.retryAfter, 'HH:mm', LOCALE) : 'a while';
+      return `Strava rate limit reached. Showing saved data; syncing resumes after ${time}.`;
     }
     case 'stravaUnavailable':
-      return sync.lastSyncedAt
-        ? `Couldn't reach Strava. Showing data saved at ${formatDate(sync.lastSyncedAt, 'd MMM y, HH:mm', LOCALE)}.`
-        : "Couldn't reach Strava. No data saved yet.";
+      return state.lastSyncedAt
+        ? `Couldn't sync with Strava. Showing data saved at ${formatDate(state.lastSyncedAt, 'd MMM y, HH:mm', LOCALE)}.`
+        : "Couldn't sync with Strava. No data saved yet.";
     case 'partial':
-      return `Still importing runs from Strava (${sync.runsPendingDetail} remaining). Reload in a while to see the rest.`;
+      return `Still importing runs from Strava (${state.runsPendingDetail} remaining). This continues automatically.`;
     case 'ok':
       return null;
   }
@@ -31,6 +40,6 @@ export function syncBannerText(sync: SyncInfo): string | null {
   `,
 })
 export class SyncBanner {
-  readonly sync = input.required<SyncInfo>();
-  protected readonly text = computed(() => syncBannerText(this.sync()));
+  readonly state = input.required<SyncBannerState>();
+  protected readonly text = computed(() => syncBannerText(this.state()));
 }

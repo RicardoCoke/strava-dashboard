@@ -12,6 +12,7 @@ import app.stravadashboard.persistence.DatabaseFactory
 import app.stravadashboard.persistence.ExposedRunRepository
 import app.stravadashboard.testsupport.TEST_ZONE
 import app.stravadashboard.testsupport.summary
+import app.stravadashboard.testsupport.syncAndWait
 import app.stravadashboard.testsupport.testConfig
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -117,7 +118,7 @@ class TrainingLoadRoutesTest {
     private fun listCalls(): Int = stravaRequests.count { it.url.encodedPath == "/api/v3/athlete/activities" }
 
     @Test
-    fun `R9 - reuses concurrent sync`() =
+    fun `009 R1 - read endpoints make no Strava calls when a sync is due`() =
         app(config(LthrSetting.Valid(Bpm(175)))) {
             val browser = connectedBrowser()
             val statuses =
@@ -127,7 +128,7 @@ class TrainingLoadRoutesTest {
                         .awaitAll()
                 }
             assertEquals(listOf(HttpStatusCode.OK, HttpStatusCode.OK), statuses)
-            assertEquals(1, listCalls())
+            assertEquals(0, listCalls())
         }
 
     @Test
@@ -136,6 +137,7 @@ class TrainingLoadRoutesTest {
         app(config) {
             val browser = connectedBrowser().also { seedRun(config) }
             rateLimited = true
+            browser.syncAndWait()
             val response = browser.get("/api/training-load")
             assertEquals(HttpStatusCode.OK, response.status)
             assertEquals(
@@ -237,14 +239,4 @@ class TrainingLoadRoutesTest {
             assertEquals(-6.0, values["form"])
         }
     }
-
-    @Test
-    fun `R9 - reauth required maps to 401`() =
-        app(config(LthrSetting.Valid(Bpm(175)))) {
-            val browser = connectedBrowser()
-            revoked = true
-            val response = browser.get("/api/training-load")
-            assertEquals(HttpStatusCode.Unauthorized, response.status)
-            assertEquals("strava_reauth_required", response.json()["error"]?.jsonPrimitive?.content)
-        }
 }

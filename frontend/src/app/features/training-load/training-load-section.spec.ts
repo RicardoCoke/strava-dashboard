@@ -105,9 +105,7 @@ describe('TrainingLoadSection', () => {
 
   it('R13 - empty still importing', () => {
     respond(trainingLoad({ runsCounted: 0, runsPendingHeartRate: 12 }));
-    expect(text()).toContain(
-      'Heart-rate data is still importing: 12 runs to go. Reload in a while.',
-    );
+    expect(text()).toContain('Heart-rate data is still importing: 12 runs to go.');
     expect(element().querySelector('app-training-load-chart')).toBeNull();
   });
 

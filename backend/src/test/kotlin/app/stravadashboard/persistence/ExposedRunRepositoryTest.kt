@@ -148,6 +148,11 @@ class ExposedRunRepositoryTest {
 
         assertEquals(NOW, state.listCursor)
         assertNull(state.historyStart)
+        assertNull(state.lastAttemptAt)
+        runBlocking {
+            ExposedSyncStateRepository(migrated).save(state.copy(lastAttemptAt = NOW))
+            assertEquals(NOW, ExposedSyncStateRepository(migrated).get().lastAttemptAt)
+        }
         transaction(migrated) { assertTrue(RunHrHistogramsTable.selectAll().empty()) }
         DatabaseFactory.connect(path) // a second start must not add the column again
     }

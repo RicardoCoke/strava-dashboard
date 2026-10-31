@@ -11,6 +11,7 @@ import app.stravadashboard.testsupport.NOW
 import app.stravadashboard.testsupport.TEST_ZONE
 import app.stravadashboard.testsupport.fixedClock
 import app.stravadashboard.testsupport.summary
+import app.stravadashboard.testsupport.syncAndWait
 import app.stravadashboard.testsupport.testConfig
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -244,6 +245,7 @@ class RoutesTest {
     private suspend fun ApplicationTestBuilder.connectedDashboardBody(): String {
         val browser = browser()
         browser.connect()
+        browser.syncAndWait()
         val response = browser.get("/api/dashboard/running")
         assertEquals(HttpStatusCode.OK, response.status)
         return response.bodyAsText()
@@ -260,10 +262,9 @@ class RoutesTest {
             val root = Json.parseToJsonElement(connectedDashboardBody()).jsonObject
 
             assertEquals(
-                setOf("sync", "weeklyDistance", "heartRateTrend", "workoutPaceComparison", "weekComparison"),
+                setOf("weeklyDistance", "heartRateTrend", "workoutPaceComparison", "weekComparison"),
                 root.keys,
             )
-            assertEquals(setOf("status", "lastSyncedAt", "retryAfter", "runsPendingDetail"), root.obj("sync").keys)
             assertEquals(9, root.obj("weeklyDistance").arr("weeks").size)
             assertEquals(
                 setOf("weekStart", "weekEnd", "label", "distanceKm", "runCount", "isCurrentWeek"),
@@ -341,7 +342,7 @@ class RoutesTest {
         }
 
     @Test
-    fun `R3 - failed refresh deletes tokens and returns strava_reauth_required`() {
+    fun `R3 - failed refresh in background sync deletes tokens and returns strava_reauth_required`() {
         var connected = false
         app(handler = { request ->
             when {
@@ -353,7 +354,7 @@ class RoutesTest {
             val browser = browser()
             browser.connect()
 
-            val response = browser.get("/api/dashboard/running")
+            val response = browser.syncAndWait()
 
             assertEquals(HttpStatusCode.Unauthorized, response.status)
             val body = Json.parseToJsonElement(response.bodyAsText()).jsonObject

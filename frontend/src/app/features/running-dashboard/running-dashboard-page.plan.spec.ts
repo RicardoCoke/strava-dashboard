@@ -4,6 +4,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { dashboard, stubCharts } from '../../testing/dashboard-fixtures';
 import { trainingPlan } from '../../testing/training-plan-fixtures';
 import { stubTrainingLoadSection } from '../../testing/training-load-stub';
+import { stubSyncStore } from '../../testing/sync-store-stub';
 import { stubVo2maxSection } from '../../testing/vo2max-stub';
 import { RunningDashboardPage } from './running-dashboard-page';
 
@@ -17,6 +18,7 @@ describe('RunningDashboardPage with the marathon build section', () => {
     });
     stubCharts();
     stubVo2maxSection();
+    stubSyncStore();
     stubTrainingLoadSection();
     fixture = TestBed.createComponent(RunningDashboardPage);
     http = TestBed.inject(HttpTestingController);
@@ -32,13 +34,13 @@ describe('RunningDashboardPage with the marathon build section', () => {
     expect([dashboardRequest.request.method, planRequest.request.method]).toEqual(['GET', 'GET']);
 
     const children = Array.from(element().children).map((child) => child.tagName.toLowerCase());
-    expect(children.slice(0, 2)).toEqual(['h1', 'app-calendar-like-build']);
+    expect(children.slice(0, 3)).toEqual(['h1', 'app-sync-banner', 'app-calendar-like-build']);
 
     dashboardRequest.flush(dashboard());
     planRequest.flush(trainingPlan());
     fixture.detectChanges();
     const order = Array.from(element().children).map((child) => child.tagName.toLowerCase());
-    expect(order.indexOf('app-calendar-like-build')).toBeLessThan(order.indexOf('app-sync-banner'));
+    expect(order.indexOf('app-sync-banner')).toBeLessThan(order.indexOf('app-calendar-like-build'));
     expect(order.indexOf('app-calendar-like-build')).toBeLessThan(
       order.indexOf('app-headline-tiles'),
     );

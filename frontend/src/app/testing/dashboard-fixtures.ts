@@ -108,12 +108,6 @@ export function dashboard(
   overrides: Partial<RunningDashboardResponse> = {},
 ): RunningDashboardResponse {
   return {
-    sync: {
-      status: 'ok',
-      lastSyncedAt: '2026-10-29T08:12:03Z',
-      retryAfter: null,
-      runsPendingDetail: 0,
-    },
     weeklyDistance: {
       weeks: [
         week(),

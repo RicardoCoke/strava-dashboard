@@ -20,8 +20,6 @@ fun Route.trainingLoadRoutes(
         }
         when (val result = service.get()) {
             TrainingLoadResult.NotConnected -> call.respond(HttpStatusCode.Unauthorized, ErrorResponse.NOT_CONNECTED)
-            TrainingLoadResult.ReauthRequired ->
-                call.respond(HttpStatusCode.Unauthorized, ErrorResponse.REAUTH_REQUIRED)
             TrainingLoadResult.NotConfigured ->
                 call.respond(HttpStatusCode.NotFound, ErrorResponse.TRAINING_LOAD_NOT_CONFIGURED)
             TrainingLoadResult.InvalidConfig ->

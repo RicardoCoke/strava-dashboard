@@ -7,38 +7,19 @@ import app.stravadashboard.domain.HrTypeTrend
 import app.stravadashboard.domain.PaceComparisonResult
 import app.stravadashboard.domain.PaceTypeComparison
 import app.stravadashboard.domain.PaceWindowStat
-import app.stravadashboard.domain.SyncInfo
 import app.stravadashboard.domain.WeekTotal
 import app.stravadashboard.domain.model.RunType
-import app.stravadashboard.domain.ports.SyncStatus
-import java.time.Instant
 import java.time.format.DateTimeFormatter
-import java.time.temporal.ChronoUnit
 import java.util.Locale
 
 private val WEEK_LABEL: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM", Locale.ENGLISH)
 
 fun DashboardResult.Ready.toDto(): RunningDashboardResponse =
     RunningDashboardResponse(
-        sync = sync.toDto(),
         weeklyDistance = WeeklyDistanceDto(weeks.map { it.toDto() }),
         heartRateTrend = heartRate.toDto(),
         workoutPaceComparison = pace.toDto(),
         weekComparison = weekComparison.toDto(),
-    )
-
-private fun SyncInfo.toDto(): SyncInfoDto =
-    SyncInfoDto(
-        status =
-            when (status) {
-                SyncStatus.OK -> "ok"
-                SyncStatus.PARTIAL -> "partial"
-                SyncStatus.RATE_LIMITED -> "rateLimited"
-                SyncStatus.STRAVA_UNAVAILABLE -> "stravaUnavailable"
-            },
-        lastSyncedAt = lastSyncedAt?.toIsoSeconds(),
-        retryAfter = retryAfter?.toIsoSeconds(),
-        runsPendingDetail = runsPendingDetail,
     )
 
 private fun WeekTotal.toDto(): WeekTotalDto =
@@ -107,5 +88,3 @@ private fun PaceTypeComparison.toDto(): PaceTypeComparisonDto =
 private fun PaceWindowStat.toDto(): PaceWindowStatDto = PaceWindowStatDto(averageRepPace.value, runCount)
 
 internal fun DateWindow.toDto(): DateWindowDto = DateWindowDto(start.toString(), end.toString())
-
-private fun Instant.toIsoSeconds(): String = truncatedTo(ChronoUnit.SECONDS).toString()
