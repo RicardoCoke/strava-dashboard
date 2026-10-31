@@ -4,9 +4,11 @@ import app.stravadashboard.domain.SyncPolicy.pendingCount
 import app.stravadashboard.domain.ports.RunRepository
 import app.stravadashboard.domain.ports.SyncStateRepository
 import app.stravadashboard.domain.ports.SyncStatus
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import org.slf4j.LoggerFactory
 import java.time.Clock
 import java.time.Duration
 import java.util.concurrent.atomic.AtomicBoolean
@@ -56,19 +58,47 @@ class BackgroundSync(
         val due = idle.nextSyncIn == Duration.ZERO
         if (!due || !running.compareAndSet(false, true)) return if (due) status() else idle
         reauthRequired = false
-        job =
-            scope.launch {
-                try {
-                    reauthRequired = syncService.syncIfDue() == SyncOutcome.ReauthRequired
-                } finally {
-                    running.set(false)
-                }
-            }
-        return status()
+        job = scope.launch { runJob() }
+        // Built from the state already read: the job may finish before another read, and a start must say "syncing".
+        return SyncSnapshot(idle.info.copy(status = SyncStatus.SYNCING, retryAfter = null), null)
+    }
+
+    /**
+     * [SyncService] handles Strava failures itself; this is the last net for anything else (a locked database, say),
+     * so the job never ends without a status and only the exception's class name is logged (AC5.4).
+     */
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun runJob() {
+        try {
+            reauthRequired = syncService.syncIfDue() == SyncOutcome.ReauthRequired
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            log.warn("Background sync failed unexpectedly: {}", e::class.simpleName)
+            recordUnavailable()
+        } finally {
+            running.set(false)
+        }
+    }
+
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    private suspend fun recordUnavailable() {
+        try {
+            val now = clock.instant()
+            syncState.save(syncState.get().copy(lastStatus = SyncStatus.STRAVA_UNAVAILABLE, lastAttemptAt = now))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            log.warn("Could not record the failed sync: {}", e::class.simpleName)
+        }
     }
 
     /** Waits for the running job, if any (tests and shutdown). */
     internal suspend fun join() {
         job?.join()
+    }
+
+    private companion object {
+        val log = LoggerFactory.getLogger(BackgroundSync::class.java)
     }
 }

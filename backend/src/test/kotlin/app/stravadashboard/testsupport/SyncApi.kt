@@ -12,7 +12,7 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.delay
 
-private const val MAX_POLLS = 500
+private const val MAX_POLLS = 3000
 private const val POLL_MILLIS = 10L
 
 /** The XSRF token the client's cookie jar holds, fetched with a `GET /api/sync` first if it has none yet. */

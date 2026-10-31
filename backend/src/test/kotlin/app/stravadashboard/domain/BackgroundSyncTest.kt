@@ -128,9 +128,11 @@ class BackgroundSyncTest {
     fun `R2 - status is syncing while running and finished status afterwards`() =
         run {
             source.stored(1, 2)
+            runs.upsertSummaries(listOf(1L, 2L).map { summary(it, NOW.minus(Duration.ofDays(it))) })
             sync.startIfDue()
             source.entered.await()
             assertEquals(SyncStatus.SYNCING, sync.status().info.status)
+            assertEquals(2, sync.status().info.runsPendingDetail)
 
             source.release.complete(Unit)
             sync.join()

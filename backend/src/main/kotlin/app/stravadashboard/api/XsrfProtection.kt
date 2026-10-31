@@ -48,7 +48,8 @@ val XsrfProtection =
 fun ApplicationCall.hasValidXsrfToken(): Boolean {
     val cookie = request.cookies[XSRF_COOKIE, CookieEncoding.RAW]
     val header = request.headers[XSRF_HEADER]
-    return cookie != null && header != null && MessageDigest.isEqual(cookie.toByteArray(), header.toByteArray())
+    if (cookie.isNullOrBlank() || header == null) return false
+    return MessageDigest.isEqual(cookie.toByteArray(), header.toByteArray())
 }
 
 private fun newToken(): String {

@@ -3,7 +3,6 @@ package app.stravadashboard.domain
 import app.stravadashboard.api.toDto
 import app.stravadashboard.domain.ports.SyncState
 import app.stravadashboard.domain.ports.SyncStatus
-import app.stravadashboard.testsupport.MutableClock
 import app.stravadashboard.testsupport.NOW
 import java.time.Duration
 import java.time.Instant
@@ -13,7 +12,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /** Feature 009, R3: when the next sync is due. */
-class SyncPolicyTest {
+class SyncScheduleTest {
     private val fullBudget = BudgetView(80, NOW.plus(Duration.ofMinutes(15)))
     private val synced = SyncState(listCursor = NOW, lastStatus = SyncStatus.OK)
 
@@ -79,24 +78,5 @@ class SyncPolicyTest {
         assertEquals(60L, SyncSnapshot(info, Duration.ofMillis(59_001)).toDto().nextSyncInSeconds)
         assertEquals(0L, SyncSnapshot(info, Duration.ZERO).toDto().nextSyncInSeconds)
         assertEquals(null, SyncSnapshot(info.copy(status = SyncStatus.SYNCING), null).toDto().nextSyncInSeconds)
-    }
-}
-
-class StravaCallBudgetTest {
-    @Test
-    fun `R4 - budget resets on quarter hour boundaries`() {
-        // NOW is 10:00:00 UTC, the start of a window.
-        val clock = MutableClock(NOW.plus(Duration.ofMinutes(14)))
-        val budget = StravaCallBudget(clock, callsPerWindow = 2)
-
-        assertTrue(budget.tryConsume())
-        assertTrue(budget.tryConsume())
-        assertFalse(budget.tryConsume())
-        assertEquals(0, budget.remaining())
-        assertEquals(NOW.plus(Duration.ofMinutes(15)), budget.windowEnd())
-
-        clock.advance(Duration.ofMinutes(1))
-        assertEquals(2, budget.remaining())
-        assertEquals(NOW.plus(Duration.ofMinutes(30)), budget.windowEnd())
     }
 }

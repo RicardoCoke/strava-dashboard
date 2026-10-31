@@ -144,7 +144,10 @@ class SyncService(
                 syncState.save(saved.copy(lastAttemptAt = now))
                 SyncOutcome.Done(SyncInfo(SyncStatus.RATE_LIMITED, state.lastSuccessfulSyncAt, failure.until, pending))
             }
-            SourceResult.ReauthRequired -> SyncOutcome.ReauthRequired
+            SourceResult.ReauthRequired -> {
+                syncState.save(state.copy(lastAttemptAt = now))
+                SyncOutcome.ReauthRequired
+            }
             else -> {
                 syncState.save(state.copy(lastStatus = SyncStatus.STRAVA_UNAVAILABLE, lastAttemptAt = now))
                 SyncOutcome.Done(SyncInfo(SyncStatus.STRAVA_UNAVAILABLE, state.lastSuccessfulSyncAt, null, pending))
@@ -181,25 +184,30 @@ class SyncService(
         return ListPass.Complete
     }
 
-    /** Detail and stream calls, sharing one cap and what is left of the budget, in priority order. */
+    /**
+     * Detail and stream calls in priority order, sharing one cap. Each takes one unit of the budget first; when it
+     * runs out the batch ends, and the pending runs carry on in the next window.
+     */
     private suspend fun activityCalls(now: Instant): SourceResult<Nothing>? {
-        var remaining = minOf(MAX_ACTIVITY_CALLS_PER_SYNC, budget.remaining())
+        var remaining = MAX_ACTIVITY_CALLS_PER_SYNC
+        var failure: SourceResult<Nothing>? = null
         for (phase in SyncPhase.entries) {
-            val calls = SyncPolicy.plan(phase, runs.findAll(), now).take(remaining)
-            remaining -= calls.size
-            val failure =
-                calls.firstNotNullOfOrNull { call ->
-                    budget.tryConsume()
-                    val workout = call.streamFor
+            for (call in SyncPolicy.plan(phase, runs.findAll(), now).take(remaining)) {
+                if (failure != null || !budget.tryConsume()) {
+                    remaining = 0
+                    break
+                }
+                remaining--
+                val workout = call.streamFor
+                failure =
                     when {
                         call.heartRate -> fetchHrStream(call.run, now)
                         workout != null -> fetchStream(call.run, workout, now)
                         else -> fetchDetail(call.run, now)
                     }
-                }
-            if (failure != null) return failure
+            }
         }
-        return null
+        return failure
     }
 
     /** A 404 means the activity was deleted on Strava, so it is removed locally too. */

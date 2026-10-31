@@ -74,16 +74,24 @@ class SyncRoutesTest {
             else -> respond("""{"id":1,"laps":[]}""", HttpStatusCode.OK, jsonHeaders)
         }
 
-    private fun app(block: suspend ApplicationTestBuilder.() -> Unit) =
-        testApplication {
-            val engine =
-                MockEngine { request ->
-                    stravaRequests += request
-                    strava(request)
-                }
-            application { module(testConfig(), fixedClock(now), TEST_ZONE, engine) }
-            block()
+    /** Secure cookies follow the redirect URI scheme, as in production. */
+    private fun config(secureCookies: Boolean) =
+        testConfig().let {
+            if (secureCookies) it.copy(stravaRedirectUri = "https://dashboard.test/auth/strava/callback") else it
         }
+
+    private fun app(
+        secureCookies: Boolean = false,
+        block: suspend ApplicationTestBuilder.() -> Unit,
+    ) = testApplication {
+        val engine =
+            MockEngine { request ->
+                stravaRequests += request
+                strava(request)
+            }
+        application { module(config(secureCookies), fixedClock(now), TEST_ZONE, engine) }
+        block()
+    }
 
     private fun ApplicationTestBuilder.browser(): HttpClient =
         createClient {
@@ -221,6 +229,19 @@ class SyncRoutesTest {
             assertTrue("SameSite=Strict" in cookie)
             assertTrue("HttpOnly" !in cookie)
             assertTrue("Secure" !in cookie)
+        }
+
+    @Test
+    fun `R6 - xsrf cookie is Secure when secure cookies are configured`() =
+        app(secureCookies = true) {
+            val cookie =
+                client
+                    .get(
+                        "/api/sync",
+                    ).headers
+                    .getAll(HttpHeaders.SetCookie)
+                    ?.single { it.startsWith("XSRF-TOKEN=") }
+            assertTrue("Secure" in assertNotNull(cookie))
         }
 
     @Test
