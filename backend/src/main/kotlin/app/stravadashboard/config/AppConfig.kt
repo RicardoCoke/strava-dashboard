@@ -19,6 +19,8 @@ data class AppConfig(
     /** Path to the training-plan CSV (feature 004), or null when no plan is configured. */
     val trainingPlanCsvPath: String? = null,
     val trainingPlanStartDate: LocalDate = DEFAULT_TRAINING_PLAN_START,
+    /** Lactate-threshold heart rate for the training load chart (feature 005). */
+    val lthr: LthrSetting = LthrSetting.NotConfigured,
 ) {
     val sessionSecret: ByteArray get() = HexFormat.of().parseHex(sessionSecretHex)
 
@@ -26,8 +28,15 @@ data class AppConfig(
 
     override fun toString(): String {
         val plan = if (trainingPlanCsvPath == null) "<unset>" else "<set>"
+        val lthrText =
+            when (lthr) {
+                LthrSetting.NotConfigured -> "<unset>"
+                LthrSetting.Invalid -> "<invalid>"
+                is LthrSetting.Valid -> "<set>"
+            }
         return "AppConfig(host=$host, port=$port, stravaRedirectUri=$stravaRedirectUri, dbPath=$dbPath, " +
-            "trainingPlanCsv=$plan, trainingPlanStartDate=$trainingPlanStartDate, secrets=<redacted>)"
+            "trainingPlanCsv=$plan, trainingPlanStartDate=$trainingPlanStartDate, lthr=$lthrText, " +
+            "secrets=<redacted>)"
     }
 
     companion object {
@@ -52,6 +61,7 @@ data class AppConfig(
                 trainingPlanStartDate =
                     env["TRAINING_PLAN_START_DATE"]?.takeIf { it.isNotBlank() }?.let(::validStartDate)
                         ?: DEFAULT_TRAINING_PLAN_START,
+                lthr = LthrSetting.parse(env["LTHR_BPM"]),
             )
 
         private fun validStartDate(text: String): LocalDate {

@@ -1,6 +1,7 @@
 package app.stravadashboard.strava
 
 import app.stravadashboard.domain.model.ActivityId
+import app.stravadashboard.domain.model.HeartRateStream
 import app.stravadashboard.domain.ports.SourceResult
 import app.stravadashboard.domain.ports.StoredTokens
 import app.stravadashboard.domain.ports.TokenRepository
@@ -110,6 +111,54 @@ class StravaClientTest {
         assertEquals(5, stream.times.size)
         assertEquals("time,velocity_smooth", requests.single().url.parameters["keys"])
         assertEquals("true", requests.single().url.parameters["key_by_type"])
+    }
+
+    @Test
+    fun `005 R3 - HR stream request asks only time and heartrate`() {
+        val result =
+            runBlocking {
+                source { respond(resource("streams-heartrate.json"), HttpStatusCode.OK, json) }
+                    .heartRateStream(ActivityId(9))
+            }
+
+        val stream = assertIs<SourceResult.Success<HeartRateStream>>(result).value
+        assertEquals(listOf(140, 140, 160, 180), stream.bpm.map { it.value })
+        assertEquals("/api/v3/activities/9/streams", requests.single().url.encodedPath)
+        assertEquals("time,heartrate", requests.single().url.parameters["keys"])
+        assertEquals("true", requests.single().url.parameters["key_by_type"])
+    }
+
+    @Test
+    fun `005 R3 - 404 or missing heartrate maps to not found`() {
+        val missing = resource("streams-heartrate-missing.json")
+        listOf(
+            source { respond("{}", HttpStatusCode.NotFound, json) },
+            source { respond(missing, HttpStatusCode.OK, json) },
+            source { respond("""{"time":{"data":[0,1,2]},"heartrate":{"data":[140,150]}}""", HttpStatusCode.OK, json) },
+            source { respond("""{"time":{"data":[0]},"heartrate":{"data":[140]}}""", HttpStatusCode.OK, json) },
+        ).forEach { assertEquals(SourceResult.NotFound, runBlocking { it.heartRateStream(ActivityId(9)) }) }
+    }
+
+    @Test
+    fun `005 R3 - 401 on HR stream refreshes once`() {
+        var streamCalls = 0
+        val result =
+            runBlocking {
+                source { request ->
+                    if (request.url.encodedPath == "/oauth/token") {
+                        refreshed()
+                    } else {
+                        streamCalls++
+                        if (streamCalls == 1) {
+                            respond("{}", HttpStatusCode.Unauthorized, json)
+                        } else {
+                            respond(resource("streams-heartrate.json"), HttpStatusCode.OK, json)
+                        }
+                    }
+                }.heartRateStream(ActivityId(9))
+            }
+        assertIs<SourceResult.Success<HeartRateStream>>(result)
+        assertEquals(2, streamCalls)
     }
 
     @Test
@@ -306,6 +355,8 @@ class StravaClientTest {
                         "/oauth/token" -> refreshed()
                         "/api/v3/athlete/activities" -> respond(resource("activities.json"), HttpStatusCode.OK, json)
                         "/api/v3/activities/111/streams" -> respond(resource("streams.json"), HttpStatusCode.OK, json)
+                        "/api/v3/activities/222/streams" ->
+                            respond(resource("streams-heartrate.json"), HttpStatusCode.OK, json)
                         else -> respond(resource("activity-detail.json"), HttpStatusCode.OK, json)
                     }
                 }
@@ -313,24 +364,30 @@ class StravaClientTest {
                 src.listActivities(NOW, 1, 200)
                 src.activityDetail(ActivityId(111))
                 src.speedStream(ActivityId(111))
+                src.heartRateStream(ActivityId(222))
             }
         } finally {
             root.detachAppender(appender)
         }
 
         val logged = appender.list.joinToString("\n") { it.formattedMessage + (it.throwableProxy?.message ?: "") }
-        listOf(
-            "access-old",
-            "access-new",
-            "refresh-old",
-            "refresh-new",
-            "Bearer",
-            "Invented tempo",
-            "Treadmill notes",
-            "3.917",
-        ).forEach {
-            assertFalse(it in logged, "log leaked '$it'")
-        }
+        (SECRETS_AND_TEXT + STREAM_VALUES).forEach { assertFalse(it in logged, "log leaked '$it'") }
         assertTrue(requests.isNotEmpty())
+    }
+
+    private companion object {
+        val SECRETS_AND_TEXT =
+            listOf(
+                "access-old",
+                "access-new",
+                "refresh-old",
+                "refresh-new",
+                "Bearer",
+                "Invented tempo",
+                "Treadmill notes",
+            )
+
+        /** Speed and heart-rate values from the stream fixtures (feature 005 adds the bpm list). */
+        val STREAM_VALUES = listOf("3.917", "140, 140, 160, 180", "140,140,160,180")
     }
 }

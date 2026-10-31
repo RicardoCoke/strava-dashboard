@@ -26,7 +26,16 @@ describe('dark theme palette', () => {
       worse: '#ff6b4a',
       treadmill: '#a78bfa',
       grid: 'rgba(255, 255, 255, 0.06)',
+      fitness: '#00f19f',
+      fatigue: '#a78bfa',
+      form: '#f2f4f5',
     });
+  });
+
+  it('005 R14 - palette has load colours from existing values', () => {
+    expect(palette.fitness).toBe(palette.accent);
+    expect(palette.fatigue).toBe(palette.treadmill);
+    expect(palette.form).toBe(palette.text);
   });
 
   it('002 R10 - text colours reach 4.5 to 1 on all surfaces', () => {

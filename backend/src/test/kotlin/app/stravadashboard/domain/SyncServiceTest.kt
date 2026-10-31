@@ -1,11 +1,16 @@
 package app.stravadashboard.domain
 
+import app.stravadashboard.domain.model.Bpm
+import app.stravadashboard.domain.model.HeartRateStream
+import app.stravadashboard.domain.model.HrHistogramResult
+import app.stravadashboard.domain.model.HrHistogramStatus
 import app.stravadashboard.domain.model.MetersPerSecond
 import app.stravadashboard.domain.model.Seconds
 import app.stravadashboard.domain.model.SpeedStream
 import app.stravadashboard.domain.model.StreamPaceStatus
 import app.stravadashboard.domain.ports.ActivityDetail
 import app.stravadashboard.domain.ports.SourceResult
+import app.stravadashboard.domain.ports.SyncState
 import app.stravadashboard.domain.ports.SyncStatus
 import app.stravadashboard.persistence.DatabaseFactory
 import app.stravadashboard.persistence.ExposedRunRepository
@@ -37,7 +42,9 @@ class SyncServiceTest {
     private val clock = MutableClock()
     private val service = SyncService(source, runs, syncState, clock, TEST_ZONE)
 
-    private val backfillStart = Instant.parse("2026-05-28T00:00:00Z")
+    // History start for today 2026-10-29 is 2026-03-19 (6 months + 41 days back); the list starts the day before.
+    private val backfillStart = Instant.parse("2026-03-18T00:00:00Z")
+    private val firstKeptDay = Instant.parse("2026-03-19T00:00:00Z")
 
     private fun daysAgo(days: Long): Instant = NOW.minus(Duration.ofDays(days))
 
@@ -49,8 +56,8 @@ class SyncServiceTest {
     }
 
     @Test
-    fun `R4 - first sync imports five months with pagination`() {
-        source.activities = (1..250L).map { summary(it, backfillStart.plus(Duration.ofMinutes(it * 60))) }
+    fun `R2 - first sync imports from history start with pagination`() {
+        source.activities = (1..250L).map { summary(it, firstKeptDay.plus(Duration.ofHours(it))) }
 
         sync()
 
@@ -62,7 +69,7 @@ class SyncServiceTest {
 
     @Test
     fun `R4 - interrupted import restarts from backfill start`() {
-        source.activities = (1..250L).map { summary(it, backfillStart.plus(Duration.ofHours(it))) }
+        source.activities = (1..250L).map { summary(it, firstKeptDay.plus(Duration.ofHours(it))) }
         source.failFromCall = 2
         source.failure = SourceResult.RateLimited(NOW.plus(Duration.ofMinutes(5)))
 
@@ -119,7 +126,10 @@ class SyncServiceTest {
 
         sync()
 
-        assertEquals(listOf("detail:2", "detail:3", "detail:1"), source.activityCalls)
+        assertEquals(
+            listOf("detail:2", "detail:3", "detail:1"),
+            source.activityCalls.filter { it.startsWith("detail") },
+        )
         val stored = runBlocking { runs.findAll() }.single { it.id.value == 2L }
         assertEquals("A description", stored.description)
         assertEquals(listOf(kmLap(0, 300)), stored.laps)
@@ -132,7 +142,7 @@ class SyncServiceTest {
 
         sync()
 
-        assertEquals(listOf("detail:1", "stream:1"), source.activityCalls)
+        assertEquals(listOf("detail:1", "stream:1", "hrstream:1"), source.activityCalls)
         val stored = runBlocking { runs.findAll() }.single().streamPace
         assertEquals("5x6min", stored?.typeKey)
         assertEquals(StreamPaceStatus.COMPUTED, stored?.status)
@@ -162,7 +172,8 @@ class SyncServiceTest {
     @Test
     fun `R4 - detail and stream calls share cap of 80 in priority order`() {
         // 60 workouts: 60 detail calls first, then only 20 of the 60 stream calls fit.
-        source.activities = (1..60L).map { summary(it, daysAgo(30).plus(Duration.ofHours(it)), name = "5x6min") }
+        source.activities =
+            (1..60L).map { summary(it, daysAgo(30).plus(Duration.ofHours(it)), name = "5x6min", heartRate = null) }
 
         val info = sync()
 
@@ -233,7 +244,7 @@ class SyncServiceTest {
 
     @Test
     fun `R4 - remaining calls report partial status`() {
-        source.activities = (1..100L).map { summary(it, daysAgo(20).plus(Duration.ofHours(it))) }
+        source.activities = (1..100L).map { summary(it, daysAgo(20).plus(Duration.ofHours(it)), heartRate = null) }
 
         val first = sync()
         assertEquals(SyncStatus.PARTIAL, first.status)
@@ -293,6 +304,122 @@ class SyncServiceTest {
         assertEquals(SyncStatus.STRAVA_UNAVAILABLE, info.status)
         assertEquals(lastSynced, info.lastSyncedAt)
         assertEquals(1, runBlocking { runs.findAll() }.size)
+    }
+
+    private fun hrStream(): HeartRateStream =
+        HeartRateStream(listOf(0, 1, 2, 3).map(::Seconds), listOf(140, 140, 160, 180).map(::Bpm))
+
+    @Test
+    fun `R2 - prune keeps the warm-up history`() {
+        source.activities =
+            listOf(
+                summary(1, Instant.parse("2026-03-18T07:00:00Z")),
+                summary(2, Instant.parse("2026-03-19T07:00:00Z")),
+            )
+        sync()
+        assertEquals(listOf(2L), runBlocking { runs.findAll() }.map { it.id.value })
+    }
+
+    @Test
+    fun `R2 - pre-005 database re-lists from history start once`() {
+        source.activities = listOf(summary(1, daysAgo(2)), summary(2, Instant.parse("2026-04-01T07:00:00Z")))
+        val cursor = daysAgo(2)
+        runBlocking { syncState.save(SyncState(listCursor = cursor, lastSuccessfulSyncAt = NOW)) }
+        clock.advance(Duration.ofMinutes(20))
+
+        sync()
+
+        assertEquals(listOf(backfillStart), source.listAfters)
+        assertEquals(backfillStart, runBlocking { syncState.get() }.historyStart)
+        assertEquals(setOf(1L, 2L), runBlocking { runs.findAll() }.map { it.id.value }.toSet())
+
+        source.listAfters.clear()
+        clock.advance(Duration.ofMinutes(20))
+        sync()
+        assertEquals(listOf(Instant.parse("2026-10-22T10:40:00Z")), source.listAfters)
+    }
+
+    @Test
+    fun `R3 - streams heart rate once for runs with HR and stores only the histogram`() {
+        source.activities = listOf(summary(1, daysAgo(2)), summary(2, daysAgo(1), heartRate = null))
+        source.hrStreams[1] = hrStream()
+
+        sync()
+
+        assertEquals(listOf("hrstream:1"), source.activityCalls.filter { it.startsWith("hrstream") })
+        val stored = runBlocking { runs.findAll() }.associateBy { it.id.value }
+        assertEquals(HrHistogramStatus.COMPUTED, stored.getValue(1).hrHistogram?.status)
+        assertEquals(
+            mapOf(140 to 2, 160 to 1),
+            stored
+                .getValue(1)
+                .hrHistogram
+                ?.histogram
+                ?.secondsByBpm,
+        )
+        assertNull(stored.getValue(2).hrHistogram)
+
+        source.calls.clear()
+        clock.advance(Duration.ofMinutes(20))
+        sync()
+        assertTrue(source.calls.none { it.startsWith("hrstream") })
+    }
+
+    @Test
+    fun `R3 - 404 or missing heartrate stores UNAVAILABLE and is not retried`() {
+        source.activities = listOf(summary(1, daysAgo(2)))
+        sync()
+        val stored = runBlocking { runs.findAll() }.single().hrHistogram
+        assertEquals(HrHistogramResult(HrHistogramStatus.UNAVAILABLE, null), stored)
+
+        source.calls.clear()
+        clock.advance(Duration.ofMinutes(20))
+        sync()
+        assertTrue(source.calls.none { it.startsWith("hrstream") })
+    }
+
+    @Test
+    fun `R3 - HR streams share the call cap newest first and count as pending`() {
+        source.activities = (1..50L).map { summary(it, daysAgo(20).plus(Duration.ofHours(it))) }
+
+        val first = sync()
+
+        assertEquals(80, source.activityCalls.size)
+        assertTrue(source.activityCalls.take(50).all { it.startsWith("detail") })
+        assertEquals(listOf("hrstream:50", "hrstream:49"), source.activityCalls.drop(50).take(2))
+        assertEquals(SyncStatus.PARTIAL, first.status)
+        assertEquals(20, first.runsPendingDetail)
+
+        source.calls.clear()
+        clock.advance(Duration.ofMinutes(1))
+        val second = sync()
+        assertEquals(20, source.activityCalls.count { it.startsWith("hrstream") })
+        assertEquals(SyncStatus.OK, second.status)
+    }
+
+    @Test
+    fun `R3 - 429 on HR stream stops sync and leaves the run pending`() {
+        val until = NOW.plus(Duration.ofMinutes(15))
+        source.activities = listOf(summary(1, daysAgo(2)))
+        source.failFromCall = 3
+        source.failure = SourceResult.RateLimited(until)
+
+        val info = sync()
+
+        assertEquals(listOf("list:1", "detail:1", "hrstream:1"), source.calls)
+        assertEquals(SyncStatus.RATE_LIMITED, info.status)
+        assertNull(runBlocking { runs.findAll() }.single().hrHistogram)
+        assertEquals(1, info.runsPendingDetail)
+    }
+
+    @Test
+    fun `R3 - network failure on HR stream leaves the run pending`() {
+        source.activities = listOf(summary(1, daysAgo(2)))
+        source.failFromCall = 3
+        source.failure = SourceResult.Unavailable
+
+        assertEquals(SyncStatus.STRAVA_UNAVAILABLE, sync().status)
+        assertNull(runBlocking { runs.findAll() }.single().hrHistogram)
     }
 
     @Test

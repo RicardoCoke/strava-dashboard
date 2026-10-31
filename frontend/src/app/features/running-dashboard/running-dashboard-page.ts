@@ -15,6 +15,7 @@ import { RingSpinner } from '../../shared/spinner/ring-spinner';
 import { BuildCalendarSection } from '../calendar-like-build/build-calendar-section/build-calendar-section';
 import { CalendarLikeBuild } from '../calendar-like-build/calendar-like-build';
 import { TrainingPlanStore } from '../calendar-like-build/training-plan.store';
+import { TrainingLoadSection } from '../training-load/training-load-section';
 import { HeadlineTiles } from './headline-tiles/headline-tiles';
 import { HeartRateTrendChart } from './heart-rate-trend-chart/heart-rate-trend-chart';
 import { SyncBanner } from './sync-banner/sync-banner';
@@ -36,6 +37,7 @@ function hasNoRuns(data: RunningDashboardResponse): boolean {
   selector: 'app-running-dashboard-page',
   imports: [
     CalendarLikeBuild,
+    TrainingLoadSection,
     BuildCalendarSection,
     RingSpinner,
     SyncBanner,

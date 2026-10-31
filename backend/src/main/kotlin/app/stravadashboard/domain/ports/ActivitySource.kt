@@ -1,6 +1,7 @@
 package app.stravadashboard.domain.ports
 
 import app.stravadashboard.domain.model.ActivityId
+import app.stravadashboard.domain.model.HeartRateStream
 import app.stravadashboard.domain.model.Lap
 import app.stravadashboard.domain.model.Meters
 import app.stravadashboard.domain.model.SpeedStream
@@ -52,4 +53,7 @@ interface ActivitySource {
     suspend fun activityDetail(id: ActivityId): SourceResult<ActivityDetail>
 
     suspend fun speedStream(id: ActivityId): SourceResult<SpeedStream>
+
+    /** `time` and `heartrate` only; no usable heart-rate data counts as [SourceResult.NotFound]. */
+    suspend fun heartRateStream(id: ActivityId): SourceResult<HeartRateStream>
 }
