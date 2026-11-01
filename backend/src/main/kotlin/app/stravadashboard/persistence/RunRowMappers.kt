@@ -1,6 +1,8 @@
 package app.stravadashboard.persistence
 
 import app.stravadashboard.domain.model.ActivityId
+import app.stravadashboard.domain.model.HrDriftResult
+import app.stravadashboard.domain.model.HrDriftStatus
 import app.stravadashboard.domain.model.HrHistogram
 import app.stravadashboard.domain.model.HrHistogramResult
 import app.stravadashboard.domain.model.HrHistogramStatus
@@ -58,11 +60,21 @@ internal fun ResultRow.toHrHistogram(): HrHistogramResult =
         histogram = this[RunHrHistogramsTable.histogram]?.let(::decodeHrHistogram),
     )
 
+/** Stored as `computed` / `too_short` / `no_data`. */
+internal fun HrDriftStatus.toDbValue(): String = name.lowercase()
+
+internal fun ResultRow.toHrDrift(): HrDriftResult =
+    HrDriftResult(
+        status = HrDriftStatus.valueOf(this[RunHrDriftsTable.status].uppercase()),
+        driftPct = this[RunHrDriftsTable.driftPct],
+    )
+
 /** Only Runs are stored, so the sport type is always [RUN_SPORT_TYPE]. Laps are null until the detail is fetched. */
 internal fun ResultRow.toRun(
     laps: List<Lap>,
     streamPace: StreamPaceResult?,
     hrHistogram: HrHistogramResult?,
+    hrDrift: HrDriftResult? = null,
 ): RunActivity {
     val detailFetchedAt = this[RunsTable.detailFetchedAt]?.let(Instant::ofEpochSecond)
     return RunActivity(
@@ -80,5 +92,6 @@ internal fun ResultRow.toRun(
         streamPace = streamPace,
         hrHistogram = hrHistogram,
         movingTime = this[RunsTable.movingTimeS]?.let(::Seconds),
+        hrDrift = hrDrift,
     )
 }

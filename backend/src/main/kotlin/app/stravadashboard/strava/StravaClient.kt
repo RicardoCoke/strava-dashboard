@@ -38,6 +38,10 @@ class StravaClient(
     /** Only `time` and `heartrate` (feature 005); location streams are never requested. */
     internal suspend fun heartRateStreams(id: Long): StravaResult<StreamSetDto> = streams(id, "time,heartrate")
 
+    /** Speed, heart rate and the moving flag for long-run drift (feature 013); location streams are never requested. */
+    internal suspend fun driftStreams(id: Long): StravaResult<StreamSetDto> =
+        streams(id, "time,velocity_smooth,heartrate,moving")
+
     private suspend fun streams(
         id: Long,
         keys: String,

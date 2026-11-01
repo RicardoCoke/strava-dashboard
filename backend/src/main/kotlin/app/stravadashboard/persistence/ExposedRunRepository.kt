@@ -1,6 +1,7 @@
 package app.stravadashboard.persistence
 
 import app.stravadashboard.domain.model.ActivityId
+import app.stravadashboard.domain.model.HrDriftResult
 import app.stravadashboard.domain.model.HrHistogramResult
 import app.stravadashboard.domain.model.RunActivity
 import app.stravadashboard.domain.model.StreamPaceResult
@@ -96,15 +97,31 @@ class ExposedRunRepository(
         }
     }
 
+    override suspend fun saveHrDrift(
+        id: ActivityId,
+        result: HrDriftResult,
+        computedAt: Instant,
+    ) {
+        database.query {
+            RunHrDriftsTable.upsert {
+                it[runId] = id.value
+                it[status] = result.status.toDbValue()
+                it[driftPct] = result.driftPct
+                it[RunHrDriftsTable.computedAt] = computedAt.epochSecond
+            }
+        }
+    }
+
     override suspend fun findAll(): List<RunActivity> =
         database.query {
             val laps = RunLapsTable.selectAll().groupBy({ it[RunLapsTable.runId] }, { it.toLap() })
             val paces = RunStreamPacesTable.selectAll().associate { it[RunStreamPacesTable.runId] to it.toStreamPace() }
             val histograms =
                 RunHrHistogramsTable.selectAll().associate { it[RunHrHistogramsTable.runId] to it.toHrHistogram() }
+            val drifts = RunHrDriftsTable.selectAll().associate { it[RunHrDriftsTable.runId] to it.toHrDrift() }
             RunsTable.selectAll().map { row ->
                 val id = row[RunsTable.id]
-                row.toRun(laps[id].orEmpty().sortedBy { it.index }, paces[id], histograms[id])
+                row.toRun(laps[id].orEmpty().sortedBy { it.index }, paces[id], histograms[id], drifts[id])
             }
         }
 
@@ -134,17 +151,19 @@ class ExposedRunRepository(
             RunLapsTable.deleteAll()
             RunStreamPacesTable.deleteAll()
             RunHrHistogramsTable.deleteAll()
+            RunHrDriftsTable.deleteAll()
             RunsTable.deleteAll()
         }
     }
+}
 
-    /** Deletes child rows explicitly too, so this doesn't depend on SQLite foreign-key enforcement. */
-    private fun Transaction.deleteRunsWhere(predicate: () -> Op<Boolean>) {
-        val ids = RunsTable.select(RunsTable.id).where(predicate()).map { it[RunsTable.id] }
-        if (ids.isEmpty()) return
-        RunLapsTable.deleteWhere { runId inList ids }
-        RunStreamPacesTable.deleteWhere { runId inList ids }
-        RunHrHistogramsTable.deleteWhere { runId inList ids }
-        RunsTable.deleteWhere { RunsTable.id inList ids }
-    }
+/** Deletes child rows explicitly too, so this doesn't depend on SQLite foreign-key enforcement. */
+private fun Transaction.deleteRunsWhere(predicate: () -> Op<Boolean>) {
+    val ids = RunsTable.select(RunsTable.id).where(predicate()).map { it[RunsTable.id] }
+    if (ids.isEmpty()) return
+    RunLapsTable.deleteWhere { runId inList ids }
+    RunStreamPacesTable.deleteWhere { runId inList ids }
+    RunHrHistogramsTable.deleteWhere { runId inList ids }
+    RunHrDriftsTable.deleteWhere { runId inList ids }
+    RunsTable.deleteWhere { RunsTable.id inList ids }
 }

@@ -5,6 +5,7 @@ import { dashboard, emptyDashboard, stubCharts } from '../../testing/dashboard-f
 import { trainingLoad } from '../../testing/training-load-fixtures';
 import { trainingPlan } from '../../testing/training-plan-fixtures';
 import { vo2max } from '../../testing/vo2max-fixtures';
+import { stubLongRunDriftSection } from '../../testing/long-run-drift-stub';
 import { SyncStoreStub, stubSyncStore, syncStatus } from '../../testing/sync-store-stub';
 import { RunningDashboardPage } from './running-dashboard-page';
 
@@ -18,6 +19,7 @@ describe('RunningDashboardPage with the VO2max card', () => {
       providers: [provideHttpClient(), provideHttpClientTesting()],
     });
     stubCharts();
+    stubLongRunDriftSection();
     sync = stubSyncStore();
     fixture = TestBed.createComponent(RunningDashboardPage);
     http = TestBed.inject(HttpTestingController);

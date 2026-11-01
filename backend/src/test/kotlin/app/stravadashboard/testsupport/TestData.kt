@@ -2,6 +2,7 @@ package app.stravadashboard.testsupport
 
 import app.stravadashboard.config.AppConfig
 import app.stravadashboard.domain.model.ActivityId
+import app.stravadashboard.domain.model.HrDriftResult
 import app.stravadashboard.domain.model.HrHistogramResult
 import app.stravadashboard.domain.model.Lap
 import app.stravadashboard.domain.model.Meters
@@ -45,6 +46,7 @@ fun run(
     hrHistogram: HrHistogramResult? = null,
     // A detail fetched by this version (008) always has a moving time; null only when laps are null.
     movingSeconds: Int? = if (laps == null) null else 3000,
+    hrDrift: HrDriftResult? = null,
 ): RunActivity =
     RunActivity(
         id = ActivityId(id),
@@ -61,6 +63,7 @@ fun run(
         streamPace = streamPace,
         hrHistogram = hrHistogram,
         movingTime = movingSeconds?.let(::Seconds),
+        hrDrift = hrDrift,
     )
 
 @Suppress("LongParameterList")

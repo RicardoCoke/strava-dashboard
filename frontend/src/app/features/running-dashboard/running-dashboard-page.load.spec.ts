@@ -5,6 +5,7 @@ import { dashboard, stubCharts } from '../../testing/dashboard-fixtures';
 import { trainingLoad } from '../../testing/training-load-fixtures';
 import { trainingPlan } from '../../testing/training-plan-fixtures';
 import { stubSyncStore } from '../../testing/sync-store-stub';
+import { stubLongRunDriftSection } from '../../testing/long-run-drift-stub';
 import { stubVo2maxSection } from '../../testing/vo2max-stub';
 import { RunningDashboardPage } from './running-dashboard-page';
 
@@ -18,6 +19,7 @@ describe('RunningDashboardPage with the training load card', () => {
     });
     stubCharts();
     stubVo2maxSection();
+    stubLongRunDriftSection();
     stubSyncStore();
     fixture = TestBed.createComponent(RunningDashboardPage);
     http = TestBed.inject(HttpTestingController);
