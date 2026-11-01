@@ -230,8 +230,8 @@ No schema change. Uses existing `runs` columns: `distance_m`, `moving_time_s`, `
 - Route / page: no new route. The card is rendered inside the existing running dashboard page (`/`) in `.cards`, directly after `<app-heart-rate-trend-chart>`.
 - Components (new folder `features/efficiency-factor/`):
   - `EfficiencyFactorSection` (`app-efficiency-factor-section`). Container: injects `EfficiencyFactorService`, holds a `signal<EfficiencyFactorState>`, and quietly reloads on `SyncStore.dataVersion` (optional inject, same pattern as `Vo2maxSection`). Renders the tile, chart and footnote.
-  - `EfficiencyFactorChart` (`app-efficiency-factor-chart`). Presentational: `input.required<EfficiencyFactorResponse>()`, renders the shared `ChartComponent` with `buildEfficiencyFactorOptions(data)`.
-  - `efficiency-factor.options.ts`: pure `buildEfficiencyFactorOptions(data): EChartsOption` and `efPointTooltip(point): string`.
+  - `EfficiencyFactorChart` (`app-efficiency-factor-chart`). Presentational: `input.required<EfPoint[]>()` (the points only), renders the shared `ChartComponent` with `buildEfficiencyFactorOptions(points)`.
+  - `efficiency-factor.options.ts`: pure `buildEfficiencyFactorOptions(points): EChartsOption` and `efPointTooltip(point): string`.
   - `efficiency-factor.view.ts`: pure helpers `efStateFromError`, `currentCaption`, `changeText`, `changeTone`, `footnoteText`, `emptyText`. Formatting reuses `shared/format` (`formatTwoDecimals`, `formatSignedOneDecimal`, `formatDayMonth`, `formatDayMonthYear`, `formatPace`, `toneForChange`).
 - Service & TS interfaces: `core/api/efficiency-factor.service.ts` (`getEfficiencyFactor(): Observable<EfficiencyFactorResponse>` → `GET /api/efficiency-factor`) and `core/api/efficiency-factor.models.ts`:
 ```ts

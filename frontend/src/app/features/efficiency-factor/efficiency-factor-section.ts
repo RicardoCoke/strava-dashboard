@@ -84,8 +84,12 @@ export class EfficiencyFactorSection implements OnInit {
     this.load();
   }
 
-  /** A quiet reload keeps the current content while it runs and if it fails. */
-  private load({ quiet } = { quiet: false }): void {
+  /**
+   * A quiet reload keeps the current content while it runs and if it fails. It is only quiet when there is
+   * content to keep: one that replaces a first load or a Retry still in flight shows its errors as usual.
+   */
+  private load(options = { quiet: false }): void {
+    const quiet = options.quiet && this.state().kind === 'loaded';
     if (!quiet) {
       this.state.set({ kind: 'loading' });
     }

@@ -1,8 +1,10 @@
 package app.stravadashboard.domain.efficiency
 
-import app.stravadashboard.api.roundEfficiency
 import app.stravadashboard.domain.model.RunActivity
 import app.stravadashboard.testsupport.run
+import java.math.BigDecimal
+import java.math.RoundingMode
+import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
 import kotlin.test.Test
@@ -89,7 +91,9 @@ class EfficiencyFactorCalculatorTest {
     @Test
     fun `R1 - point date uses start_date_local`() {
         val late = LocalDateTime.of(2026, 5, 1, 23, 30)
-        assertEquals(day(5, 1), compute(listOf(easy(1, day(5, 1), startLocal = late))).points.single().date)
+        // 23:30 local at UTC-2 is already 2 May in UTC.
+        val run = easy(1, day(5, 1), startLocal = late).copy(startUtc = Instant.parse("2026-05-02T01:30:00Z"))
+        assertEquals(day(5, 1), compute(listOf(run)).points.single().date)
     }
 
     @Test
@@ -99,7 +103,7 @@ class EfficiencyFactorCalculatorTest {
                 easy(1, day(10, 20), ef = 1.7, startLocal = day(10, 20).atTime(18, 0)),
                 easy(2, day(10, 20), ef = 1.5, startLocal = day(10, 20).atTime(7, 0)),
             )
-        assertEquals(listOf(1.5, 1.7), compute(runs).points.map { roundEfficiency(it.efficiency) })
+        assertEquals(listOf(1.5, 1.7), compute(runs).points.map { round3(it.efficiency) })
     }
 
     @Test
@@ -109,7 +113,7 @@ class EfficiencyFactorCalculatorTest {
                 run(id = 1, distanceMeters = 10_000.0, movingSeconds = 3000, heartRate = 125.0),
                 run(id = 2, distanceMeters = 12_345.0, movingSeconds = 3725, heartRate = 141.3, date = day(10, 30)),
             )
-        assertEquals(listOf(1.6, 1.407), compute(runs).points.map { roundEfficiency(it.efficiency) })
+        assertEquals(listOf(1.6, 1.407), compute(runs).points.map { round3(it.efficiency) })
     }
 
     @Test
@@ -130,7 +134,7 @@ class EfficiencyFactorCalculatorTest {
             compute(
                 listOf(easy(1, day(10, 1), 1.5), easy(2, day(10, 10), 1.6), easy(3, day(10, 20), 1.7)),
             ).points
-        assertEquals(listOf(null, null, 1.6), points.map { it.rollingEfficiency?.let(::roundEfficiency) })
+        assertEquals(listOf(null, null, 1.6), points.map { it.rollingEfficiency?.let(::round3) })
     }
 
     @Test
@@ -143,7 +147,7 @@ class EfficiencyFactorCalculatorTest {
                 easy(4, day(10, 18), 1.7),
             )
         val last = compute(runs).points.last()
-        assertEquals(1.633, last.rollingEfficiency?.let(::roundEfficiency))
+        assertEquals(1.633, last.rollingEfficiency?.let(::round3))
         assertEquals(3, last.rollingRunCount)
     }
 
@@ -190,7 +194,7 @@ class EfficiencyFactorCalculatorTest {
             compute(listOf(easy(1, date.minusDays(10)), easy(2, date.minusDays(5)), easy(3, date))).current
 
         val current = assertNotNull(lastOn(day(10, 29)))
-        assertEquals(1.6, roundEfficiency(current.efficiency))
+        assertEquals(1.6, round3(current.efficiency))
         assertEquals(day(10, 29), current.date)
         assertEquals(3, current.runCount)
         assertNull(lastOn(day(10, 3)))
@@ -243,6 +247,8 @@ class EfficiencyFactorCalculatorTest {
         ef: Double,
         firstId: Long = 1,
     ): List<RunActivity> = (0L..2L).map { easy(firstId + it, date.minusDays(2 - it), ef) }
+
+    private fun round3(value: Double): Double = BigDecimal.valueOf(value).setScale(3, RoundingMode.HALF_UP).toDouble()
 
     private companion object {
         const val HR = 125.0

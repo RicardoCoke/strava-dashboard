@@ -7,6 +7,7 @@ import app.stravadashboard.domain.ports.ActivityDetail
 import app.stravadashboard.module
 import app.stravadashboard.persistence.DatabaseFactory
 import app.stravadashboard.persistence.ExposedRunRepository
+import app.stravadashboard.persistence.ExposedTokenRepository
 import app.stravadashboard.testsupport.TEST_ZONE
 import app.stravadashboard.testsupport.summary
 import app.stravadashboard.testsupport.testConfig
@@ -158,6 +159,18 @@ class EfficiencyFactorRoutesTest {
                 response.bodyAsText(),
             )
         }
+
+    @Test
+    fun `R7 - 401 not_connected with a session but no stored token`() {
+        val config = testConfig()
+        app(config) {
+            val browser = connectedBrowser()
+            runBlocking { ExposedTokenRepository(DatabaseFactory.connect(config.dbPath)).delete() }
+            val response = browser.get("/api/efficiency-factor")
+            assertEquals(HttpStatusCode.Unauthorized, response.status)
+            assertEquals("not_connected", response.json()["error"]?.jsonPrimitive?.content)
+        }
+    }
 
     @Test
     fun `R7 - no Strava request is made`() {

@@ -120,6 +120,18 @@ describe('EfficiencyFactorSection', () => {
     expect(text()).not.toContain('Not enough data yet for a change');
   });
 
+  it('014 R8 - a sync during the first load still shows a failure', () => {
+    sync.finish();
+    fixture.detectChanges();
+    const [first, reload] = http.match('/api/efficiency-factor');
+    expect(first.cancelled).toBe(true);
+    reload.flush({ error: 'internal_error', message: 'x' }, { status: 500, statusText: 'Error' });
+    fixture.detectChanges();
+    expect(element().querySelector('[role="alert"]')?.textContent).toContain(
+      "Couldn't load the efficiency factor.",
+    );
+  });
+
   it('014 R8 - reloads quietly after a sync', () => {
     respond(efficiencyFactor());
     sync.finish();

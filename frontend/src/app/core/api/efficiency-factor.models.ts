@@ -53,6 +53,7 @@ function isEfPoint(value: unknown): value is EfPoint {
     typeof value['efficiency'] === 'number' &&
     (value['rollingEfficiency'] === null || typeof value['rollingEfficiency'] === 'number') &&
     typeof value['distanceKm'] === 'number' &&
+    typeof value['movingTimeSeconds'] === 'number' &&
     typeof value['paceSecondsPerKm'] === 'number' &&
     typeof value['averageHeartRateBpm'] === 'number'
   );
@@ -65,6 +66,8 @@ export function isEfficiencyFactorResponse(value: unknown): value is EfficiencyF
   }
   const { current, change } = value;
   return (
+    typeof value['windowStart'] === 'string' &&
+    typeof value['windowEnd'] === 'string' &&
     (current === null ||
       (isObject(current) &&
         typeof current['efficiency'] === 'number' &&
@@ -73,7 +76,10 @@ export function isEfficiencyFactorResponse(value: unknown): value is EfficiencyF
     (change === null ||
       (isObject(change) &&
         typeof change['percent'] === 'number' &&
-        typeof change['fromDate'] === 'string')) &&
+        typeof change['fromDate'] === 'string' &&
+        typeof change['fromEfficiency'] === 'number' &&
+        typeof change['toDate'] === 'string' &&
+        typeof change['toEfficiency'] === 'number')) &&
     Array.isArray(value['points']) &&
     value['points'].every(isEfPoint) &&
     typeof value['runsPendingDetail'] === 'number'
