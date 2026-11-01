@@ -6,6 +6,7 @@ import { trainingPlan } from '../../testing/training-plan-fixtures';
 import { stubTrainingLoadSection } from '../../testing/training-load-stub';
 import { stubRaceDayFormSection } from '../../testing/race-day-form-stub';
 import { stubSyncStore } from '../../testing/sync-store-stub';
+import { stubLongRunDriftSection } from '../../testing/long-run-drift-stub';
 import { stubVo2maxSection } from '../../testing/vo2max-stub';
 import { RunningDashboardPage } from './running-dashboard-page';
 
@@ -19,6 +20,7 @@ describe('RunningDashboardPage with the marathon build section', () => {
     });
     stubCharts();
     stubVo2maxSection();
+    stubLongRunDriftSection();
     stubSyncStore();
     stubTrainingLoadSection();
     stubRaceDayFormSection();

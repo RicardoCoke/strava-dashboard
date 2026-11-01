@@ -2,6 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { dashboard, stubCharts } from '../../testing/dashboard-fixtures';
+import { stubLongRunDriftSection } from '../../testing/long-run-drift-stub';
 import { stubPlanSection } from '../../testing/plan-section-stub';
 import { raceDayForm } from '../../testing/race-day-form-fixtures';
 import { stubSyncStore } from '../../testing/sync-store-stub';
@@ -20,6 +21,7 @@ describe('RunningDashboardPage with the race-day form card', () => {
     });
     stubCharts();
     stubVo2maxSection();
+    stubLongRunDriftSection();
     stubTrainingLoadSection();
     stubPlanSection();
     stubSyncStore();
