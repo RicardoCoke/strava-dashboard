@@ -3,6 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { dashboard, stubCharts } from '../../testing/dashboard-fixtures';
 import { stubLongRunDriftSection } from '../../testing/long-run-drift-stub';
+import { stubMarathonPaceSection } from '../../testing/marathon-pace-stub';
 import { stubRaceDayFormSection } from '../../testing/race-day-form-stub';
 import { stubSyncStore } from '../../testing/sync-store-stub';
 import { trainingLoad } from '../../testing/training-load-fixtures';
@@ -23,6 +24,7 @@ describe('RunningDashboardPage with the resting HR & HRV card', () => {
     stubVo2maxSection();
     stubRaceDayFormSection();
     stubLongRunDriftSection();
+    stubMarathonPaceSection();
     stubSyncStore();
     fixture = TestBed.createComponent(RunningDashboardPage);
     http = TestBed.inject(HttpTestingController);

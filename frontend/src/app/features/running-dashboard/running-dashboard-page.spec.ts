@@ -8,6 +8,7 @@ import { stubRaceDayFormSection } from '../../testing/race-day-form-stub';
 import { SyncStoreStub, stubSyncStore, syncStatus } from '../../testing/sync-store-stub';
 import { stubLongRunDriftSection } from '../../testing/long-run-drift-stub';
 import { stubVo2maxSection } from '../../testing/vo2max-stub';
+import { stubMarathonPaceSection } from '../../testing/marathon-pace-stub';
 import { stubWellnessSection } from '../../testing/wellness-stub';
 import { RunningDashboardPage } from './running-dashboard-page';
 
@@ -26,6 +27,7 @@ describe('RunningDashboardPage', () => {
     stubWellnessSection();
     sync = stubSyncStore();
     stubTrainingLoadSection();
+    stubMarathonPaceSection();
     stubRaceDayFormSection();
     stubPlanSection();
     fixture = TestBed.createComponent(RunningDashboardPage);

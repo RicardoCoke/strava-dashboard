@@ -7,6 +7,7 @@ import { trainingPlan } from '../../testing/training-plan-fixtures';
 import { vo2max } from '../../testing/vo2max-fixtures';
 import { stubLongRunDriftSection } from '../../testing/long-run-drift-stub';
 import { SyncStoreStub, stubSyncStore, syncStatus } from '../../testing/sync-store-stub';
+import { stubMarathonPaceSection } from '../../testing/marathon-pace-stub';
 import { stubRaceDayFormSection } from '../../testing/race-day-form-stub';
 import { stubWellnessSection } from '../../testing/wellness-stub';
 import { RunningDashboardPage } from './running-dashboard-page';
@@ -25,6 +26,7 @@ describe('RunningDashboardPage with the VO2max card', () => {
     stubRaceDayFormSection();
     stubWellnessSection();
     sync = stubSyncStore();
+    stubMarathonPaceSection();
     fixture = TestBed.createComponent(RunningDashboardPage);
     http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
