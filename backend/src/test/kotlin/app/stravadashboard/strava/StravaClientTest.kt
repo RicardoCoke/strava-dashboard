@@ -2,6 +2,10 @@ package app.stravadashboard.strava
 
 import app.stravadashboard.domain.model.ActivityId
 import app.stravadashboard.domain.model.HeartRateStream
+import app.stravadashboard.domain.model.Meters
+import app.stravadashboard.domain.model.MetersPerSecond
+import app.stravadashboard.domain.model.Seconds
+import app.stravadashboard.domain.model.Split
 import app.stravadashboard.domain.ports.ActivityDetail
 import app.stravadashboard.domain.ports.SourceResult
 import app.stravadashboard.domain.ports.StoredTokens
@@ -110,6 +114,32 @@ class StravaClientTest {
         val detail = assertIs<SourceResult.Success<ActivityDetail>>(result).value
         assertEquals(3000, detail.movingTime.value)
         assertEquals(listOf(140.0, null), detail.laps.map { it.averageHeartRateBpm })
+    }
+
+    @Test
+    fun `016 R1 - detail maps per-km splits`() {
+        val result =
+            runBlocking {
+                source { respond(resource("activity-detail.json"), HttpStatusCode.OK, json) }
+                    .activityDetail(ActivityId(111))
+            }
+        val splits = assertIs<SourceResult.Success<ActivityDetail>>(result).value.splits
+        assertEquals(
+            listOf(
+                Split(1, Meters(1000.0), Seconds(300), Meters(12.5), 141.5, MetersPerSecond(3.41)),
+                Split(2, Meters(1000.0), Seconds(250)),
+            ),
+            splits,
+        )
+    }
+
+    @Test
+    fun `016 R1 - detail without splits_metric has no splits`() {
+        val result =
+            runBlocking {
+                source { respond("""{"id":1,"laps":[]}""", HttpStatusCode.OK, json) }.activityDetail(ActivityId(1))
+            }
+        assertEquals(emptyList<Split>(), assertIs<SourceResult.Success<ActivityDetail>>(result).value.splits)
     }
 
     @Test

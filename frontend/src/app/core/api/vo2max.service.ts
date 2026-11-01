@@ -10,4 +10,9 @@ export class Vo2maxService {
   getVo2max(): Observable<Vo2maxResponse> {
     return this.http.get<Vo2maxResponse>('/api/vo2max');
   }
+
+  /** The hill- and drift-adjusted estimate (feature 016); the body is checked by the caller. */
+  getNormalizedVo2max(): Observable<unknown> {
+    return this.http.get<unknown>('/api/vo2max/normalized');
+  }
 }

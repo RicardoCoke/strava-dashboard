@@ -1,3 +1,7 @@
+import {
+  NormalizedVo2maxResponse,
+  NormalizedWeekVo2max,
+} from '../core/api/normalized-vo2max.models';
 import { Vo2maxResponse, WeekVo2max } from '../core/api/vo2max.models';
 
 // Invented VO2max data for frontend tests (today = Sat 2026-10-31).
@@ -57,6 +61,60 @@ export function emptyVo2max(overrides: Partial<Vo2maxResponse> = {}): Vo2maxResp
     current: null,
     predictions: [],
     weeks: vo2maxWeeks().map((week) => ({ ...week, vo2max: null, runCount: 0 })),
+    ...overrides,
+  });
+}
+
+/** The normalized series: 1.5 higher than [vo2maxWeeks], with the original as the comparison value. */
+export function normalizedVo2maxWeeks(): NormalizedWeekVo2max[] {
+  return vo2maxWeeks().map((week) => ({
+    ...week,
+    vo2max: week.vo2max === null ? null : week.vo2max + 1.5,
+    originalVo2max: week.vo2max,
+  }));
+}
+
+export function normalizedVo2max(
+  overrides: Partial<NormalizedVo2maxResponse> = {},
+): NormalizedVo2maxResponse {
+  return {
+    ...vo2max(),
+    current: {
+      vo2max: 54.2,
+      basis: 'last7Days',
+      periodStart: '2026-10-26',
+      periodEnd: '2026-11-01',
+      runCount: 4,
+    },
+    predictions: [
+      { key: '5k', label: '5K', timeSeconds: 1117, note: null },
+      { key: '10k', label: '10K', timeSeconds: 2318, note: null },
+      { key: 'half', label: 'Half marathon', timeSeconds: 5134, note: null },
+      {
+        key: 'marathon',
+        label: 'Marathon',
+        timeSeconds: 10701,
+        note: 'Marathon predictions from VO2max tend to be optimistic.',
+      },
+    ],
+    weeks: normalizedVo2maxWeeks(),
+    ...overrides,
+  };
+}
+
+/** No qualifying normalized runs at all. */
+export function emptyNormalizedVo2max(
+  overrides: Partial<NormalizedVo2maxResponse> = {},
+): NormalizedVo2maxResponse {
+  return normalizedVo2max({
+    current: null,
+    predictions: [],
+    weeks: normalizedVo2maxWeeks().map((week) => ({
+      ...week,
+      vo2max: null,
+      runCount: 0,
+      originalVo2max: null,
+    })),
     ...overrides,
   });
 }

@@ -1,6 +1,6 @@
 # Spec: Normalized VO2max (hill- and drift-adjusted)
 
-**Feature ID:** 016 · **Status:** Draft · **Intent:** [intent.md](./intent.md) · **Date:** 2026-11-01
+**Feature ID:** 016 · **Status:** Approved · **Intent:** [intent.md](./intent.md) · **Date:** 2026-11-01
 
 ## Summary
 The detail call the sync already makes (`GET /activities/{id}`) also stores the run's per-km splits (`splits_metric`): distance, moving time, elevation difference, average heart rate and Strava's grade-adjusted speed. Stored outdoor runs with heart rate whose detail came from before this feature get one more detail call, under the existing 009 budget.

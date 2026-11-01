@@ -25,6 +25,9 @@ object RunsTable : Table("runs") {
 
     /** Written only by the detail call (feature 008); null for details stored before it. */
     val movingTimeS = integer("moving_time_s").nullable()
+
+    /** Set to true only by the detail call since feature 016; null for details stored before it. */
+    val splitsSaved = bool("splits_saved").nullable()
     override val primaryKey = PrimaryKey(id)
 }
 
@@ -35,6 +38,18 @@ object RunLapsTable : Table("run_laps") {
     val distanceM = double("distance_m")
     val averageHeartrate = double("average_heartrate").nullable()
     override val primaryKey = PrimaryKey(runId, lapIndex)
+}
+
+/** Per-km splits from the detail call (feature 016). */
+object RunSplitsTable : Table("run_splits") {
+    val runId = long("run_id").references(RunsTable.id, onDelete = ReferenceOption.CASCADE)
+    val splitIndex = integer("split_index")
+    val distanceM = double("distance_m")
+    val movingTimeS = integer("moving_time_s")
+    val elevationDifferenceM = double("elevation_difference_m").nullable()
+    val averageHeartrate = double("average_heartrate").nullable()
+    val gradeAdjustedSpeedMps = double("grade_adjusted_speed_mps").nullable()
+    override val primaryKey = PrimaryKey(runId, splitIndex)
 }
 
 object RunStreamPacesTable : Table("run_stream_paces") {

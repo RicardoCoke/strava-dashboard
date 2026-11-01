@@ -7,6 +7,7 @@ import app.stravadashboard.domain.model.Lap
 import app.stravadashboard.domain.model.Meters
 import app.stravadashboard.domain.model.Seconds
 import app.stravadashboard.domain.model.SpeedStream
+import app.stravadashboard.domain.model.Split
 import java.time.Instant
 import java.time.LocalDateTime
 
@@ -25,6 +26,7 @@ data class ActivityDetail(
     val description: String?,
     val laps: List<Lap>,
     val movingTime: Seconds = Seconds(0),
+    val splits: List<Split> = emptyList(),
 )
 
 /** Outcome of a call to the activity source. Expected failures are values, not exceptions. */

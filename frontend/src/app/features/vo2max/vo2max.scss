@@ -68,3 +68,36 @@
     margin: 0.15rem 0;
   }
 }
+
+.vo2max-tabs {
+  display: flex;
+  gap: 0.25rem;
+  margin: 0 0 1rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.vo2max-tab {
+  padding: 0.4rem 0.75rem;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  margin-bottom: -1px;
+  background: none;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--color-text-muted);
+  cursor: pointer;
+
+  &[aria-selected='true'] {
+    border-bottom-color: var(--color-accent);
+    color: var(--color-text);
+  }
+}
+
+.vo2max-note {
+  margin: 0 0 0.75rem;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
