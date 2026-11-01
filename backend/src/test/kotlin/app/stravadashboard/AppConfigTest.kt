@@ -57,6 +57,20 @@ class AppConfigTest {
     }
 
     @Test
+    fun `015 R1 - intervals key is optional, trimmed and redacted`() {
+        listOf(null, "", "   ").forEach { value ->
+            val env = if (value == null) required else required + ("INTERVALS_ICU_API_KEY" to value)
+            val config = AppConfig.fromEnvironment(env)
+            assertNull(config.intervalsApiKey)
+            assertTrue("intervalsApiKey=<unset>" in config.toString())
+        }
+        val config = AppConfig.fromEnvironment(required + ("INTERVALS_ICU_API_KEY" to "  invented-key  "))
+        assertEquals("invented-key", config.intervalsApiKey)
+        assertTrue("intervalsApiKey=<set>" in config.toString())
+        assertFalse("invented-key" in config.toString())
+    }
+
+    @Test
     fun `004 R1 - training plan path optional`() {
         assertNull(AppConfig.fromEnvironment(required).trainingPlanCsvPath)
         assertNull(AppConfig.fromEnvironment(required + ("TRAINING_PLAN_CSV" to "  ")).trainingPlanCsvPath)

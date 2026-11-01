@@ -8,6 +8,7 @@ import { trainingPlan } from '../../testing/training-plan-fixtures';
 import { stubVo2maxSection } from '../../testing/vo2max-stub';
 import { stubRaceDayFormSection } from '../../testing/race-day-form-stub';
 import { stubLongRunDriftSection } from '../../testing/long-run-drift-stub';
+import { stubWellnessSection } from '../../testing/wellness-stub';
 import { RunningDashboardPage } from './running-dashboard-page';
 
 describe('RunningDashboardPage with the marathon pace card', () => {
@@ -24,6 +25,7 @@ describe('RunningDashboardPage with the marathon pace card', () => {
     stubTrainingLoadSection();
     stubRaceDayFormSection();
     stubLongRunDriftSection();
+    stubWellnessSection();
     fixture = TestBed.createComponent(RunningDashboardPage);
     http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();

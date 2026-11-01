@@ -22,4 +22,7 @@ export const palette = {
   form: '#f2f4f5',
   // The race-day form ready band (feature 011): the accent at 12 %.
   readyBand: 'rgba(0, 241, 159, 0.12)',
+  // Resting HR and HRV lines (feature 015), reusing the values above.
+  restingHr: '#a78bfa',
+  hrv: '#00f19f',
 } as const;

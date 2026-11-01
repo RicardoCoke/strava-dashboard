@@ -9,6 +9,7 @@ import { stubLongRunDriftSection } from '../../testing/long-run-drift-stub';
 import { stubVo2maxSection } from '../../testing/vo2max-stub';
 import { stubMarathonPaceSection } from '../../testing/marathon-pace-stub';
 import { stubRaceDayFormSection } from '../../testing/race-day-form-stub';
+import { stubWellnessSection } from '../../testing/wellness-stub';
 import { RunningDashboardPage } from './running-dashboard-page';
 
 describe('RunningDashboardPage with the training load card', () => {
@@ -23,6 +24,7 @@ describe('RunningDashboardPage with the training load card', () => {
     stubRaceDayFormSection();
     stubVo2maxSection();
     stubLongRunDriftSection();
+    stubWellnessSection();
     stubSyncStore();
     stubMarathonPaceSection();
     fixture = TestBed.createComponent(RunningDashboardPage);

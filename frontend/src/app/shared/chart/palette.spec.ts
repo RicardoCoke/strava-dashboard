@@ -31,6 +31,8 @@ describe('dark theme palette', () => {
       fatigue: '#a78bfa',
       form: '#f2f4f5',
       readyBand: 'rgba(0, 241, 159, 0.12)',
+      restingHr: '#a78bfa',
+      hrv: '#00f19f',
     });
   });
 
@@ -42,6 +44,11 @@ describe('dark theme palette', () => {
     expect(palette.fitness).toBe(palette.accent);
     expect(palette.fatigue).toBe(palette.treadmill);
     expect(palette.form).toBe(palette.text);
+  });
+
+  it('015 R10 - palette has resting HR and HRV colours from existing values', () => {
+    expect(palette.restingHr).toBe(palette.treadmill);
+    expect(palette.hrv).toBe(palette.accent);
   });
 
   it('002 R10 - text colours reach 4.5 to 1 on all surfaces', () => {
