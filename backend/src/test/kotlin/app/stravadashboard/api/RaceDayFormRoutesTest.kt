@@ -233,4 +233,27 @@ class RaceDayFormRoutesTest {
             assertEquals("2026-09-06", raceDate())
         }
     }
+
+    @Test
+    fun `R11 - plan edit changes projection on next request`() {
+        val config = config()
+        app(config) {
+            val browser = connectedBrowser().also { seedEasyRuns(config) }
+            val wednesday =
+                suspend {
+                    browser
+                        .get("/api/race-day-form")
+                        .json()
+                        .getValue("days")
+                        .jsonArray
+                        .map { it.jsonObject }
+                        .single { it["date"]?.jsonPrimitive?.content == "2026-12-02" }
+                }
+            // Race week Wednesday: 40 easy minutes at the learned rate of 1.0.
+            assertEquals("40.0", wednesday()["load"]?.jsonPrimitive?.content)
+            plan.file =
+                PlanFile.Content(sixteenWeekPlanText().replace("EASY;72,00;40;;20;;40;", "EASY;72,00;40;;20;;30;"))
+            assertEquals("30.0", wednesday()["load"]?.jsonPrimitive?.content)
+        }
+    }
 }

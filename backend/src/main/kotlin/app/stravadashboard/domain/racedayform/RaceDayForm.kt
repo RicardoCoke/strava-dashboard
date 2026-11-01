@@ -12,14 +12,20 @@ enum class DayKind { ACTUAL, PLANNED }
 enum class ProjectionStatus { PROJECTED, NOT_ENOUGH_RUNS }
 
 /**
- * Load per moving minute learned from the user's runs. [easyPaceSecondsPerKm] is the average pace of the sampled
+ * Load per moving minute learned from the user's runs. [easyPace] is the average pace of the sampled
  * easy runs, the fallback when the plan has no easy pace.
  */
 data class LoadRates(
     val easyPerMinute: Double,
     val subtPerMinute: Double,
     val subtEstimated: Boolean,
-    val easyPaceSecondsPerKm: Double?,
+    val easyPace: EasyPace?,
+)
+
+/** An easy pace in seconds per km, kept fractional (an average or the middle of a range). */
+@JvmInline
+value class EasyPace(
+    val secondsPerKm: Double,
 )
 
 sealed interface RatesResult {

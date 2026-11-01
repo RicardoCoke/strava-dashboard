@@ -2,6 +2,7 @@ package app.stravadashboard.domain.racedayform
 
 import app.stravadashboard.domain.model.RunActivity
 import app.stravadashboard.domain.trainingload.TrainingLoadCalculator
+import app.stravadashboard.domain.trainingplan.PlanRace
 import java.time.DayOfWeek
 import java.time.LocalDate
 import kotlin.test.Test
@@ -129,6 +130,39 @@ class RaceDayFormProjectorTest {
         val noRuns = RaceDayFormProjector.project(emptyList(), ZONES, calendar(), RACE_DATE.plusDays(1))
         assertEquals(0.0, assertNotNull(noRuns.raceDay).peakFitness)
         assertEquals(RACE_DATE.plusDays(1).minusMonths(6), noRuns.raceDay?.peakDate)
+    }
+
+    @Test
+    fun `R1 - race long before the chart has no race day`() {
+        val today = RACE_DATE.plusDays(50)
+        val result = project(easyHistory().map { it.copy(startLocal = it.startLocal.plusDays(50)) }, today)
+        assertTrue(RACE_DATE < result.chartStart)
+        assertNull(result.raceDay)
+    }
+
+    @Test
+    fun `R1 - other races are normal planned days`() {
+        val tenK = PlanRace(distanceKm = 10.0, isMarathon = false, label = "10K")
+        val result =
+            RaceDayFormProjector.project(
+                easyHistory(),
+                ZONES,
+                calendar { day -> planDay(day, easyMinutes = 40).copy(race = tenK.takeIf { day == DayOfWeek.SUNDAY }) },
+                TODAY_011,
+            )
+        val sundayRace = result.day("2026-11-15")
+        assertEquals(DayKind.PLANNED, sundayRace.kind)
+        assertEquals(48.0, sundayRace.load, 1e-9) // 40 minutes × 1.2, like any other day
+        assertEquals(RACE_DATE, result.raceDate)
+    }
+
+    @Test
+    fun `R2 - skipped sessions use actual load`() {
+        val result = project(easyHistory()) { PlanDayOrRest.Easy(50) }
+        // Every day is planned at 50 minutes, but nothing was run on 20 Oct.
+        assertEquals(DayKind.ACTUAL, result.day("2026-10-20").kind)
+        assertEquals(0.0, result.day("2026-10-20").load)
+        assertTrue(result.days.filter { it.kind == DayKind.ACTUAL }.all { it.load == 0.0 || it.load == 60.0 })
     }
 
     /** A planned weekday: rest or a number of easy minutes. */

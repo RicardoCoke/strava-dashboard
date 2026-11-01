@@ -144,14 +144,54 @@ describe('RaceDayFormSection (011)', () => {
     expect(element().querySelector('.race-tile')).not.toBeNull();
   });
 
-  it('R16 - no advice words in any state', () => {
-    const texts: string[] = [text()];
-    fail(404, { error: 'race_day_form_missing_plan_and_lthr', message: 'x' });
-    texts.push(text());
-    for (const body of [raceDayForm({ subtEstimated: true }), notEnoughRunsForm()]) {
+  it('R16 - not configured texts for each missing setting', () => {
+    const texts = {
+      race_day_form_missing_plan:
+        'Race-day form needs a training plan. Set TRAINING_PLAN_CSV in .env.',
+      race_day_form_missing_lthr:
+        'Race-day form needs a threshold heart rate. Set LTHR_BPM in .env, then restart the backend.',
+      race_day_form_missing_plan_and_lthr:
+        'Race-day form needs a training plan and a threshold heart rate. Set TRAINING_PLAN_CSV and LTHR_BPM in .env, then restart the backend.',
+    };
+    http.expectOne('/api/race-day-form').flush(null);
+    for (const [error, expected] of Object.entries(texts)) {
       fixture = TestBed.createComponent(RaceDayFormSection);
       fixture.detectChanges();
-      respond(body);
+      fail(404, { error, message: 'x' });
+      expect(element().querySelector('p.empty')?.textContent?.trim()).toBe(expected);
+    }
+  });
+
+  it('R16 - no advice words in any state', () => {
+    const texts: string[] = [text()];
+    http.expectOne('/api/race-day-form').flush(null);
+    const states: [number, object | RaceDayFormResponse][] = [
+      [404, { error: 'race_day_form_missing_plan', message: 'x' }],
+      [404, { error: 'race_day_form_missing_lthr', message: 'x' }],
+      [404, { error: 'race_day_form_missing_plan_and_lthr', message: 'x' }],
+      [
+        422,
+        { error: 'race_day_form_invalid_config', message: 'The training plan file has a problem.' },
+      ],
+      [
+        422,
+        {
+          error: 'race_day_form_invalid_config',
+          message: 'LTHR_BPM is not a whole number between 100 and 220.',
+        },
+      ],
+      [503, { error: 'race_day_form_plan_unavailable', message: 'x' }],
+      [200, raceDayForm({ subtEstimated: true })],
+      [200, notEnoughRunsForm()],
+    ];
+    for (const [status, body] of states) {
+      fixture = TestBed.createComponent(RaceDayFormSection);
+      fixture.detectChanges();
+      if (status === 200) {
+        respond(body as RaceDayFormResponse);
+      } else {
+        fail(status, body);
+      }
       texts.push(text());
     }
     texts.forEach((value) => expect(value).not.toMatch(ADVICE_WORDS));

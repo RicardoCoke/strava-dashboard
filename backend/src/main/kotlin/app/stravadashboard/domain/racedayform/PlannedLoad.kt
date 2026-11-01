@@ -15,13 +15,13 @@ object PlannedLoad {
     fun of(
         day: PlanDay?,
         rates: LoadRates,
-        easyPace: Double?,
+        easyPace: EasyPace?,
     ): Double =
         when {
             day == null -> 0.0
             day.totalMinutes > 0 -> day.easyMinutes * rates.easyPerMinute + day.subtMinutes * rates.subtPerMinute
             easyPace != null && day.distance.value > 0 ->
-                day.distance.value * easyPace / SECONDS_PER_MINUTE * rates.easyPerMinute
+                day.distance.value * easyPace.secondsPerKm / SECONDS_PER_MINUTE * rates.easyPerMinute
             else -> 0.0
         }
 
@@ -29,13 +29,13 @@ object PlannedLoad {
     fun easyPace(
         paces: List<TargetPace>,
         rates: LoadRates,
-    ): Double? {
+    ): EasyPace? {
         val easy = paces.find { it.key == EASY_PACE_KEY }
         val min = easy?.min
         val max = easy?.max
         val fromPlan =
             easy?.target?.value?.toDouble()
                 ?: if (min != null && max != null) (min.value + max.value) / 2.0 else null
-        return fromPlan ?: rates.easyPaceSecondsPerKm
+        return fromPlan?.let(::EasyPace) ?: rates.easyPace
     }
 }

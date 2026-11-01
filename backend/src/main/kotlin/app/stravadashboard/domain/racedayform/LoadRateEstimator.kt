@@ -2,6 +2,7 @@ package app.stravadashboard.domain.racedayform
 
 import app.stravadashboard.domain.RunClassifier
 import app.stravadashboard.domain.model.HrHistogramStatus
+import app.stravadashboard.domain.model.METERS_PER_KM
 import app.stravadashboard.domain.model.RunActivity
 import app.stravadashboard.domain.model.RunType
 import app.stravadashboard.domain.trainingload.HrZones
@@ -17,7 +18,6 @@ object LoadRateEstimator {
     const val MIN_RATE_RUNS = 3
     const val SUBT_FALLBACK_FACTOR = TrimpCalculator.SUBT_WEIGHT.toDouble() / TrimpCalculator.EASY_WEIGHT
     private const val SECONDS_PER_MINUTE = 60.0
-    private const val METERS_PER_KM = 1000.0
 
     private data class Sample(
         val run: RunActivity,
@@ -41,7 +41,7 @@ object LoadRateEstimator {
                 easyPerMinute = easyRate,
                 subtPerMinute = subtRate ?: (easyRate * SUBT_FALLBACK_FACTOR),
                 subtEstimated = subtRate == null,
-                easyPaceSecondsPerKm = averagePace(easy),
+                easyPace = averagePace(easy),
             ),
         )
     }
@@ -77,8 +77,8 @@ object LoadRateEstimator {
         return maxOf(0.0, (load - easyRate * easyPart) / work.sum())
     }
 
-    private fun averagePace(easy: List<Sample>): Double? {
+    private fun averagePace(easy: List<Sample>): EasyPace? {
         val km = easy.sumOf { it.run.distance.value } / METERS_PER_KM
-        return if (km > 0) easy.sumOf { it.minutes * SECONDS_PER_MINUTE } / km else null
+        return if (km > 0) EasyPace(easy.sumOf { it.minutes * SECONDS_PER_MINUTE } / km) else null
     }
 }
