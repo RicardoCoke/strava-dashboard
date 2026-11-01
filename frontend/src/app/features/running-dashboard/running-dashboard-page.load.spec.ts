@@ -6,6 +6,7 @@ import { trainingLoad } from '../../testing/training-load-fixtures';
 import { trainingPlan } from '../../testing/training-plan-fixtures';
 import { stubSyncStore } from '../../testing/sync-store-stub';
 import { stubVo2maxSection } from '../../testing/vo2max-stub';
+import { stubRaceDayFormSection } from '../../testing/race-day-form-stub';
 import { RunningDashboardPage } from './running-dashboard-page';
 
 describe('RunningDashboardPage with the training load card', () => {
@@ -17,6 +18,7 @@ describe('RunningDashboardPage with the training load card', () => {
       providers: [provideHttpClient(), provideHttpClientTesting()],
     });
     stubCharts();
+    stubRaceDayFormSection();
     stubVo2maxSection();
     stubSyncStore();
     fixture = TestBed.createComponent(RunningDashboardPage);

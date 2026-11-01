@@ -1,0 +1,38 @@
+:host {
+  display: block;
+  margin-bottom: 1rem;
+}
+
+.race-form-problem {
+  margin: 0 0 0.25rem;
+  color: var(--color-text);
+}
+
+.race-form-error {
+  text-align: center;
+
+  p {
+    margin: 0 0 0.75rem;
+    color: var(--color-text);
+  }
+}
+
+.race-tile {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+.race-caption {
+  margin: 0.15rem 0 0.75rem;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.band-caption {
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+}

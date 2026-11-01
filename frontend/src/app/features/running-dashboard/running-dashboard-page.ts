@@ -17,6 +17,7 @@ import { RingSpinner } from '../../shared/spinner/ring-spinner';
 import { BuildCalendarSection } from '../calendar-like-build/build-calendar-section/build-calendar-section';
 import { CalendarLikeBuild } from '../calendar-like-build/calendar-like-build';
 import { TrainingPlanStore } from '../calendar-like-build/training-plan.store';
+import { RaceDayFormSection } from '../race-day-form/race-day-form-section';
 import { TrainingLoadSection } from '../training-load/training-load-section';
 import { Vo2maxSection } from '../vo2max/vo2max-section';
 import { HeadlineTiles } from './headline-tiles/headline-tiles';
@@ -41,6 +42,7 @@ function hasNoRuns(data: RunningDashboardResponse): boolean {
   imports: [
     CalendarLikeBuild,
     TrainingLoadSection,
+    RaceDayFormSection,
     Vo2maxSection,
     BuildCalendarSection,
     RingSpinner,
