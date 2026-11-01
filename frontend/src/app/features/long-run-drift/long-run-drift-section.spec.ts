@@ -63,6 +63,25 @@ describe('LongRunDriftSection', () => {
     expect(element().querySelector('[role="alert"]')).not.toBeNull();
   });
 
+  it('R6 - malformed point shows error', () => {
+    respond({ ...longRunDrift(), points: [{}] });
+    expect(element().querySelector('[role="alert"]')).not.toBeNull();
+  });
+
+  it('R6 - a newer reload cancels one still in flight', () => {
+    respond(longRunDrift());
+    sync.finish();
+    fixture.detectChanges();
+    const first = http.expectOne('/api/long-run-drift');
+    sync.finish();
+    fixture.detectChanges();
+    const second = http.expectOne('/api/long-run-drift');
+    expect(first.cancelled).toBe(true);
+    second.flush(longRunDrift({ latest: { date: '2026-10-31', driftPct: 2.1, zone: 'good' } }));
+    fixture.detectChanges();
+    expect(text()).toContain('Latest: +2.1% · 31 Oct');
+  });
+
   it('R6 - shows no long runs empty state', () => {
     respond(emptyLongRunDrift());
     expect(text()).toContain('No long runs in the last 5 months');

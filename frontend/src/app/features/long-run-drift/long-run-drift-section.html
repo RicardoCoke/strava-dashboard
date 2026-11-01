@@ -34,11 +34,11 @@
           }
         }
         @if (empty() !== 'none') {
-          @if (pending(); as pending) {
-            <p class="drift-note drift-pending">{{ pending }}</p>
-          }
           @if (excluded(); as excluded) {
             <p class="drift-note drift-excluded">{{ excluded }}</p>
+          }
+          @if (pending(); as pending) {
+            <p class="drift-note drift-pending">{{ pending }}</p>
           }
         }
       }

@@ -8,7 +8,7 @@ import {
   signal,
 } from '@angular/core';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
-import { skip } from 'rxjs';
+import { Subscription, skip } from 'rxjs';
 import { isLongRunDriftResponse } from '../../core/api/long-run-drift.models';
 import { LongRunDriftService } from '../../core/api/long-run-drift.service';
 import { SyncStore } from '../../core/sync/sync.store';
@@ -34,6 +34,7 @@ import {
 export class LongRunDriftSection implements OnInit {
   private readonly service = inject(LongRunDriftService);
   private readonly destroyRef = inject(DestroyRef);
+  private request?: Subscription;
 
   protected readonly state = signal<LongRunDriftState>({ kind: 'loading' });
   protected readonly data = computed(() => {
@@ -84,7 +85,9 @@ export class LongRunDriftSection implements OnInit {
     if (!quiet) {
       this.state.set({ kind: 'loading' });
     }
-    this.service
+    // A newer load replaces one still in flight, so an older response can't overwrite a newer one.
+    this.request?.unsubscribe();
+    this.request = this.service
       .getLongRunDrift()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({

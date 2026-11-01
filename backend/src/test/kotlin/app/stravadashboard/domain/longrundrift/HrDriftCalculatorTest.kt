@@ -66,6 +66,8 @@ class HrDriftCalculatorTest {
             HrDriftResult(HrDriftStatus.TOO_SHORT, null),
             HrDriftCalculator.compute(stream(Segment(3600, 3.0, 150))),
         )
+        // A single usable interval is too short, not missing data.
+        assertEquals(HrDriftStatus.TOO_SHORT, HrDriftCalculator.compute(stream(Segment(2, 3.0, 150))).status)
     }
 
     @Test

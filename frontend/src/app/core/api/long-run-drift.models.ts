@@ -49,6 +49,18 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+const ZONES: readonly unknown[] = ['good', 'watch', 'poor'];
+
+function isDriftPoint(value: unknown): value is DriftPoint {
+  return (
+    isObject(value) &&
+    typeof value['date'] === 'string' &&
+    typeof value['driftPct'] === 'number' &&
+    ZONES.includes(value['zone']) &&
+    typeof value['distanceKm'] === 'number'
+  );
+}
+
 /** A light shape check, so an unexpected 200 body shows the error state instead of breaking the card. */
 export function isLongRunDriftResponse(value: unknown): value is LongRunDriftResponse {
   if (!isObject(value)) {
@@ -62,6 +74,7 @@ export function isLongRunDriftResponse(value: unknown): value is LongRunDriftRes
     (latest === null || isObject(latest)) &&
     (lastFourAverage === null || isObject(lastFourAverage)) &&
     Array.isArray(value['points']) &&
+    value['points'].every(isDriftPoint) &&
     isObject(excluded) &&
     typeof excluded['total'] === 'number' &&
     typeof value['pendingCount'] === 'number'

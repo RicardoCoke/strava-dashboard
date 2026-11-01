@@ -42,8 +42,8 @@ object HrDriftCalculator {
         val intervals = usableIntervals(stream)
         val usable = intervals.sumOf { it.seconds }
         val (first, second) = split(intervals, usable)
-        val noData =
-            intervals.none { it.speed > 0 } || first.seconds == 0.0 || second.seconds == 0.0 || first.avgSpeed == 0.0
+        // With a single usable interval the second half is empty; that case is TOO_SHORT, which skips the division.
+        val noData = intervals.none { it.speed > 0 } || first.seconds == 0.0 || first.avgSpeed == 0.0
         return when {
             noData -> HrDriftResult(HrDriftStatus.NO_DATA, null)
             usable < MIN_USABLE_SECONDS -> HrDriftResult(HrDriftStatus.TOO_SHORT, null)
