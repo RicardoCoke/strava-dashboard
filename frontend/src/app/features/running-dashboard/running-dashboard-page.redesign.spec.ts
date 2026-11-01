@@ -7,6 +7,7 @@ import { stubTrainingLoadSection } from '../../testing/training-load-stub';
 import { stubRaceDayFormSection } from '../../testing/race-day-form-stub';
 import { SyncStoreStub, stubSyncStore, syncStatus } from '../../testing/sync-store-stub';
 import { stubLongRunDriftSection } from '../../testing/long-run-drift-stub';
+import { stubEfficiencyFactorSection } from '../../testing/efficiency-factor-stub';
 import { stubVo2maxSection } from '../../testing/vo2max-stub';
 import { RunningDashboardPage } from './running-dashboard-page';
 
@@ -24,6 +25,7 @@ describe('RunningDashboardPage redesign', () => {
     });
     stubCharts();
     stubVo2maxSection();
+    stubEfficiencyFactorSection();
     stubLongRunDriftSection();
     sync = stubSyncStore();
     stubTrainingLoadSection();

@@ -25,6 +25,7 @@ describe('dark theme palette', () => {
       secondary: '#6f8299',
       worse: '#ff6b4a',
       treadmill: '#a78bfa',
+      longRun: '#f5b942',
       caution: '#ffc857',
       grid: 'rgba(255, 255, 255, 0.06)',
       fitness: '#00f19f',
@@ -56,7 +57,7 @@ describe('dark theme palette', () => {
   });
 
   it('002 R10 - chart colours reach 3 to 1 on surface', () => {
-    [palette.secondary, palette.accent, palette.treadmill].forEach((fg) =>
+    [palette.secondary, palette.accent, palette.treadmill, palette.longRun].forEach((fg) =>
       expect(contrast(fg, palette.surface)).toBeGreaterThanOrEqual(3),
     );
   });

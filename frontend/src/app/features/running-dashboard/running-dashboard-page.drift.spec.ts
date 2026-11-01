@@ -6,6 +6,7 @@ import { stubPlanSection } from '../../testing/plan-section-stub';
 import { stubRaceDayFormSection } from '../../testing/race-day-form-stub';
 import { stubSyncStore } from '../../testing/sync-store-stub';
 import { stubTrainingLoadSection } from '../../testing/training-load-stub';
+import { stubEfficiencyFactorSection } from '../../testing/efficiency-factor-stub';
 import { stubVo2maxSection } from '../../testing/vo2max-stub';
 import { RunningDashboardPage } from './running-dashboard-page';
 
@@ -19,6 +20,7 @@ describe('RunningDashboardPage with the long-run drift card', () => {
     });
     stubCharts();
     stubVo2maxSection();
+    stubEfficiencyFactorSection();
     stubRaceDayFormSection();
     stubSyncStore();
     stubTrainingLoadSection();
@@ -37,6 +39,7 @@ describe('RunningDashboardPage with the long-run drift card', () => {
       'app-weekly-distance-chart',
       'app-heart-rate-trend-chart',
       'app-long-run-drift-section',
+      'app-efficiency-factor-section',
       'app-workout-pace-comparison-chart',
     ]);
     expect(cards?.querySelector('app-long-run-drift-section h2')?.textContent).toBe(

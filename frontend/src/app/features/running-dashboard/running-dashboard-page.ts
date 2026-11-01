@@ -17,6 +17,7 @@ import { RingSpinner } from '../../shared/spinner/ring-spinner';
 import { BuildCalendarSection } from '../calendar-like-build/build-calendar-section/build-calendar-section';
 import { CalendarLikeBuild } from '../calendar-like-build/calendar-like-build';
 import { TrainingPlanStore } from '../calendar-like-build/training-plan.store';
+import { EfficiencyFactorSection } from '../efficiency-factor/efficiency-factor-section';
 import { LongRunDriftSection } from '../long-run-drift/long-run-drift-section';
 import { RaceDayFormSection } from '../race-day-form/race-day-form-section';
 import { TrainingLoadSection } from '../training-load/training-load-section';
@@ -52,6 +53,7 @@ function hasNoRuns(data: RunningDashboardResponse): boolean {
     WeeklyDistanceChart,
     HeartRateTrendChart,
     LongRunDriftSection,
+    EfficiencyFactorSection,
     WorkoutPaceComparisonChart,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,

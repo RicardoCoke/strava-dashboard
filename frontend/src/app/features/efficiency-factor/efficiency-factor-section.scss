@@ -1,0 +1,60 @@
+:host {
+  display: block;
+}
+
+.ef-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  p {
+    margin: 0;
+  }
+}
+
+.ef-error {
+  text-align: center;
+
+  p {
+    margin: 0 0 0.75rem;
+    color: var(--color-text);
+  }
+}
+
+.ef-tile {
+  margin: 0 0 0.75rem;
+
+  p {
+    margin: 0;
+  }
+}
+
+.ef-current {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+
+.ef-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+
+.ef-unit,
+.ef-caption,
+.ef-note {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.ef-change {
+  margin-top: 0.25rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.footnote p {
+  margin: 0;
+}

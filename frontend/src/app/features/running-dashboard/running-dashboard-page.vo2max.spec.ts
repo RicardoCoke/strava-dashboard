@@ -5,6 +5,7 @@ import { dashboard, emptyDashboard, stubCharts } from '../../testing/dashboard-f
 import { trainingLoad } from '../../testing/training-load-fixtures';
 import { trainingPlan } from '../../testing/training-plan-fixtures';
 import { vo2max } from '../../testing/vo2max-fixtures';
+import { stubEfficiencyFactorSection } from '../../testing/efficiency-factor-stub';
 import { stubLongRunDriftSection } from '../../testing/long-run-drift-stub';
 import { SyncStoreStub, stubSyncStore, syncStatus } from '../../testing/sync-store-stub';
 import { stubRaceDayFormSection } from '../../testing/race-day-form-stub';
@@ -21,6 +22,7 @@ describe('RunningDashboardPage with the VO2max card', () => {
     });
     stubCharts();
     stubLongRunDriftSection();
+    stubEfficiencyFactorSection();
     stubRaceDayFormSection();
     sync = stubSyncStore();
     fixture = TestBed.createComponent(RunningDashboardPage);

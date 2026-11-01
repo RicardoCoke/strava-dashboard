@@ -79,7 +79,7 @@ For each point dated `d`, the rolling set is every qualifying run (R1 rules) wit
 - **AC7.5** Given the response, then it contains no activity names, descriptions, ids, coordinates or tokens.
 
 ### R8 — Placement and loading
-- **AC8.1** Given the dashboard has loaded with runs, then `app-efficiency-factor-section` is the next sibling element after `app-heart-rate-trend-chart` inside `.cards`.
+- **AC8.1** Given the dashboard has loaded with runs, then `app-efficiency-factor-section` is the next sibling element after `app-long-run-drift-section` inside `.cards`, which itself directly follows `app-heart-rate-trend-chart`. (Amended at build time: feature 013 merged first and put its drift card directly after the HR card, so the EF card follows it to keep the HR cards grouped without breaking 013's placement.)
 - **AC8.2** Given the card is created, then it makes exactly one `GET /api/efficiency-factor` request. Its loading, failure or empty state does not affect the other cards.
 - **AC8.3** Given `SyncStore.dataVersion` changes after a finished sync, then the card reloads quietly: it keeps its current content while loading and if the reload fails.
 
@@ -349,7 +349,7 @@ Edited (frontend, shared, keep minimal):
 | AC7.1, AC7.4, AC7.5 | backend route | `R7 - efficiency factor JSON shape` |
 | AC7.2 | backend route | `R7 - 401 not_connected without session or token` |
 | AC7.3 | backend route | `R7 - no Strava request is made` |
-| AC8.1 | frontend component | `014 R8 - efficiency card directly after the HR by type card` |
+| AC8.1, AC8.2 | frontend component | `014 R8 - efficiency card follows the HR cards and makes one request` |
 | AC8.2 | frontend component | `014 R8 - one efficiency-factor request` |
 | AC8.3 | frontend component | `014 R8 - reloads quietly after a sync` |
 | — | frontend service | `014 R7 - getEfficiencyFactor calls GET /api/efficiency-factor` |

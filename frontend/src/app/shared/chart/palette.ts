@@ -13,6 +13,8 @@ export const palette = {
   secondary: '#6f8299',
   worse: '#ff6b4a',
   treadmill: '#a78bfa',
+  // Long runs in the efficiency factor chart (feature 014).
+  longRun: '#f5b942',
   // The "watch" drift zone (feature 013).
   caution: '#ffc857',
   grid: 'rgba(255, 255, 255, 0.06)',
