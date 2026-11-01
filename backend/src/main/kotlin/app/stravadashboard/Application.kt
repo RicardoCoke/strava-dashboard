@@ -3,6 +3,7 @@ package app.stravadashboard
 import app.stravadashboard.api.ErrorResponse
 import app.stravadashboard.api.XsrfProtection
 import app.stravadashboard.api.healthRoutes
+import app.stravadashboard.api.raceDayFormRoutes
 import app.stravadashboard.api.runningDashboardRoutes
 import app.stravadashboard.api.syncRoutes
 import app.stravadashboard.api.trainingLoadRoutes
@@ -18,6 +19,7 @@ import app.stravadashboard.domain.RunningDashboardService
 import app.stravadashboard.domain.StravaCallBudget
 import app.stravadashboard.domain.SyncService
 import app.stravadashboard.domain.ports.TrainingPlanSource
+import app.stravadashboard.domain.racedayform.RaceDayFormService
 import app.stravadashboard.domain.trainingload.TrainingLoadService
 import app.stravadashboard.domain.trainingplan.TrainingPlanService
 import app.stravadashboard.domain.vo2max.Vo2maxService
@@ -99,10 +101,7 @@ fun Application.module(
     val stravaClient = StravaClient(http, StravaTokenProvider(tokens, oauth, clock), clock)
     val budget = StravaCallBudget(clock)
     val syncService = SyncService(StravaActivitySource(stravaClient), runs, syncState, clock, zone, budget)
-    // Background syncs run in a child scope of the application, so they are cancelled when it stops.
-    val syncScope = CoroutineScope(coroutineContext + SupervisorJob(coroutineContext[Job]))
-    monitor.subscribe(ApplicationStopped) { syncScope.cancel() }
-    val backgroundSync = BackgroundSync(syncService, runs, syncState, budget, clock, syncScope)
+    val backgroundSync = BackgroundSync(syncService, runs, syncState, budget, clock, backgroundSyncScope())
     val dashboardService = RunningDashboardService(tokens, runs, clock, zone)
     val connectService = ConnectService(oauth, tokens, runs, syncState)
     val planService = TrainingPlanService(trainingPlanSource, config.trainingPlanStartDate, clock, zone)
@@ -116,8 +115,16 @@ fun Application.module(
         syncRoutes(tokens, backgroundSync)
         trainingPlanRoutes(tokens, planService)
         trainingLoadRoutes(tokens, loadService)
+        raceDayFormRoutes(tokens, RaceDayFormService(config.lthr, tokens, runs, planService, clock, zone))
         vo2maxRoutes(tokens, vo2maxService)
     }
+}
+
+/** Background syncs run in a child scope of the application, so they are cancelled when it stops. */
+private fun Application.backgroundSyncScope(): CoroutineScope {
+    val scope = CoroutineScope(coroutineContext + SupervisorJob(coroutineContext[Job]))
+    monitor.subscribe(ApplicationStopped) { scope.cancel() }
+    return scope
 }
 
 private fun Application.installSessions(config: AppConfig) {

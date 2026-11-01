@@ -4,6 +4,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { dashboard, emptyDashboard, paceType, stubCharts } from '../../testing/dashboard-fixtures';
 import { stubPlanSection } from '../../testing/plan-section-stub';
 import { stubTrainingLoadSection } from '../../testing/training-load-stub';
+import { stubRaceDayFormSection } from '../../testing/race-day-form-stub';
 import { SyncStoreStub, stubSyncStore, syncStatus } from '../../testing/sync-store-stub';
 import { stubVo2maxSection } from '../../testing/vo2max-stub';
 import { RunningDashboardPage } from './running-dashboard-page';
@@ -21,6 +22,7 @@ describe('RunningDashboardPage', () => {
     stubVo2maxSection();
     sync = stubSyncStore();
     stubTrainingLoadSection();
+    stubRaceDayFormSection();
     stubPlanSection();
     fixture = TestBed.createComponent(RunningDashboardPage);
     http = TestBed.inject(HttpTestingController);
