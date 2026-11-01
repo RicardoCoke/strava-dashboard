@@ -1,6 +1,7 @@
 package app.stravadashboard.strava
 
 import app.stravadashboard.domain.model.ActivityId
+import app.stravadashboard.domain.model.DriftStream
 import app.stravadashboard.domain.model.HeartRateStream
 import app.stravadashboard.domain.model.SpeedStream
 import app.stravadashboard.domain.ports.ActivityDetail
@@ -30,6 +31,10 @@ class StravaActivitySource(
     /** A stream without usable heart-rate data counts as not found, like a 404. */
     override suspend fun heartRateStream(id: ActivityId): SourceResult<HeartRateStream> =
         client.heartRateStreams(id.value).toSource { it.toHeartRateStream() }.notFoundIfNull()
+
+    /** A stream without usable speed or heart-rate data counts as not found, like a 404. */
+    override suspend fun driftStream(id: ActivityId): SourceResult<DriftStream> =
+        client.driftStreams(id.value).toSource { it.toDriftStream() }.notFoundIfNull()
 
     private fun <T : Any> SourceResult<T?>.notFoundIfNull(): SourceResult<T> =
         when (this) {

@@ -25,6 +25,7 @@ describe('dark theme palette', () => {
       secondary: '#6f8299',
       worse: '#ff6b4a',
       treadmill: '#a78bfa',
+      caution: '#ffc857',
       grid: 'rgba(255, 255, 255, 0.06)',
       fitness: '#00f19f',
       fatigue: '#a78bfa',
@@ -45,10 +46,11 @@ describe('dark theme palette', () => {
 
   it('002 R10 - text colours reach 4.5 to 1 on all surfaces', () => {
     const surfaces = [palette.background, palette.surface, palette.surfaceRaised];
-    [palette.text, palette.textMuted, palette.accent, palette.worse].forEach((fg) =>
-      surfaces.forEach((bg) =>
-        expect(contrast(fg, bg), `${fg} on ${bg}`).toBeGreaterThanOrEqual(4.5),
-      ),
+    [palette.text, palette.textMuted, palette.accent, palette.worse, palette.caution].forEach(
+      (fg) =>
+        surfaces.forEach((bg) =>
+          expect(contrast(fg, bg), `${fg} on ${bg}`).toBeGreaterThanOrEqual(4.5),
+        ),
     );
     expect(contrast(palette.background, palette.accent)).toBeGreaterThanOrEqual(4.5);
   });

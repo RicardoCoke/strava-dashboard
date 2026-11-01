@@ -39,6 +39,12 @@ internal data class StreamSetDto(
     val time: IntStreamDto? = null,
     @SerialName("velocity_smooth") val velocitySmooth: DoubleStreamDto? = null,
     val heartrate: IntStreamDto? = null,
+    val moving: BooleanStreamDto? = null,
+)
+
+@Serializable
+internal data class BooleanStreamDto(
+    val data: List<Boolean> = emptyList(),
 )
 
 @Serializable
