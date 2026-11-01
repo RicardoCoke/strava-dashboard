@@ -92,7 +92,7 @@ For each metric, "latest" is the most recent day in the window with a value for 
 - **AC8.5** `source.lastFetchedAt` is the ISO-8601 UTC instant of `lastSuccessAt`, or `null`. `source.status` is `"ok"` when `lastStatus = OK`, `"pending"` when there was no attempt yet, and `"keyRejected"`, `"rateLimited"` or `"unavailable"` for the other statuses.
 
 ### R9 — The card
-- **AC9.1** Given the dashboard page, then `<app-wellness-section />` is rendered directly after `<app-training-load-section />`, with the heading "Resting HR & HRV" (`h2`).
+- **AC9.1** Given the dashboard page, then `<app-wellness-section />` is rendered directly after `<app-race-day-form-section />` (feature 011), which follows `<app-training-load-section />` (placement changed with the user during the merge of 011), with the heading "Resting HR & HRV" (`h2`).
 - **AC9.2** Loading: until the first response arrives, it shows "Loading resting HR & HRV…" (`role="status"`).
 - **AC9.3** Error: given a non-401, non-404 error, or a 200 body that fails `isWellnessResponse`, it shows "Couldn't load resting HR & HRV." and a Retry button that reloads. A 401 shows nothing new (the interceptor navigates to `/connect`).
 - **AC9.4** Empty: given `daysWithData === 0`, it shows no chart and one line based on `source.status`. `pending`: "Waiting for the first sync from Intervals.icu." `ok`: "No resting HR or HRV in the last 12 weeks." `keyRejected`: "Intervals.icu rejected the API key. Check INTERVALS_ICU_API_KEY, then restart the backend." `rateLimited` or `unavailable`: "Couldn't reach Intervals.icu. It will retry at the next sync."

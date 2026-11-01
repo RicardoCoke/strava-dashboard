@@ -35,6 +35,7 @@ object DatabaseFactory {
                 RunLapsTable,
                 RunStreamPacesTable,
                 RunHrHistogramsTable,
+                RunHrDriftsTable,
                 SyncStateTable,
                 WellnessDaysTable,
                 WellnessStateTable,

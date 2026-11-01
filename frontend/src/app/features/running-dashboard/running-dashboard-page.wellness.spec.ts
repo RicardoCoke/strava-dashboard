@@ -2,6 +2,8 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { dashboard, stubCharts } from '../../testing/dashboard-fixtures';
+import { stubLongRunDriftSection } from '../../testing/long-run-drift-stub';
+import { stubRaceDayFormSection } from '../../testing/race-day-form-stub';
 import { stubSyncStore } from '../../testing/sync-store-stub';
 import { trainingLoad } from '../../testing/training-load-fixtures';
 import { trainingPlan } from '../../testing/training-plan-fixtures';
@@ -19,6 +21,8 @@ describe('RunningDashboardPage with the resting HR & HRV card', () => {
     });
     stubCharts();
     stubVo2maxSection();
+    stubRaceDayFormSection();
+    stubLongRunDriftSection();
     stubSyncStore();
     fixture = TestBed.createComponent(RunningDashboardPage);
     http = TestBed.inject(HttpTestingController);
@@ -29,10 +33,10 @@ describe('RunningDashboardPage with the resting HR & HRV card', () => {
   const text = () => element().textContent?.replace(/\s+/g, ' ') ?? '';
   const tags = () => Array.from(element().children).map((child) => child.tagName.toLowerCase());
 
-  it('R9 - wellness card sits after training load', () => {
+  it('R9 - wellness card sits after training load and race-day form', () => {
     const order = tags();
     expect(order.indexOf('app-wellness-section')).toBe(
-      order.indexOf('app-training-load-section') + 1,
+      order.indexOf('app-race-day-form-section') + 1,
     );
     http.expectOne('/api/dashboard/running').flush(dashboard());
     http.expectOne('/api/training-plan').flush(trainingPlan());
