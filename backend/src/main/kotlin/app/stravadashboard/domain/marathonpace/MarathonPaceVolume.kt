@@ -1,5 +1,6 @@
 package app.stravadashboard.domain.marathonpace
 
+import app.stravadashboard.domain.DateWindow
 import app.stravadashboard.domain.WeeklyDistance
 import app.stravadashboard.domain.model.Lap
 import app.stravadashboard.domain.model.METERS_PER_KM
@@ -29,8 +30,7 @@ data class MpWeek(
 
 data class MpSummary(
     val totalMpKm: Double,
-    val thisWeekStart: LocalDate,
-    val thisWeekEnd: LocalDate,
+    val thisWeek: DateWindow,
     val thisWeekMpKm: Double,
     val thisWeekTotalKm: Double,
     val thisWeekSharePercent: Int?,
@@ -132,8 +132,7 @@ object MarathonPaceVolume {
             }
         return MpSummary(
             totalMpKm = totalMp.toKmOneDecimal(),
-            thisWeekStart = weekStart,
-            thisWeekEnd = weekEnd,
+            thisWeek = DateWindow(weekStart, weekEnd),
             thisWeekMpKm = Meters(mpMeters).toKmOneDecimal(),
             thisWeekTotalKm = Meters(totalMeters).toKmOneDecimal(),
             thisWeekSharePercent = share,

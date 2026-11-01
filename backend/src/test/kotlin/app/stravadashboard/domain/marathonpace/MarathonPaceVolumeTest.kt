@@ -170,8 +170,8 @@ class MarathonPaceVolumeTest {
         val summary = compute(*(earlier + outdoor + treadmill).toTypedArray()).summary
         // 10 × 3 464 m + 6 400 m = 41 040 m.
         assertEquals(41.0, summary.totalMpKm)
-        assertEquals(LocalDate.of(2026, 10, 26), summary.thisWeekStart)
-        assertEquals(LocalDate.of(2026, 11, 1), summary.thisWeekEnd)
+        assertEquals(LocalDate.of(2026, 10, 26), summary.thisWeek.start)
+        assertEquals(LocalDate.of(2026, 11, 1), summary.thisWeek.end)
         assertEquals(6.4, summary.thisWeekMpKm)
         assertEquals(26.0, summary.thisWeekTotalKm)
         assertEquals(25, summary.thisWeekSharePercent)
@@ -208,7 +208,7 @@ class MarathonPaceVolumeTest {
         val inBuild = mpRun(1, LocalDate.of(2026, 9, 1), 4000.0)
         val after = mpRun(2, LocalDate.of(2026, 12, 15), 3000.0)
         val summary = compute(inBuild, after, on = LocalDate.of(2026, 12, 16)).summary
-        assertEquals(LocalDate.of(2026, 12, 14), summary.thisWeekStart)
+        assertEquals(LocalDate.of(2026, 12, 14), summary.thisWeek.start)
         assertEquals(3.0, summary.thisWeekMpKm)
         assertEquals(4.0, summary.totalMpKm)
     }

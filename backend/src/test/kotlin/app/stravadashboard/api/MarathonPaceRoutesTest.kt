@@ -8,6 +8,7 @@ import app.stravadashboard.domain.ports.ActivityDetail
 import app.stravadashboard.module
 import app.stravadashboard.persistence.DatabaseFactory
 import app.stravadashboard.persistence.ExposedRunRepository
+import app.stravadashboard.persistence.ExposedTokenRepository
 import app.stravadashboard.testsupport.TEST_ZONE
 import app.stravadashboard.testsupport.kmLap
 import app.stravadashboard.testsupport.summary
@@ -158,6 +159,21 @@ class MarathonPaceRoutesTest {
                 response.bodyAsText(),
             )
         }
+
+    @Test
+    fun `R5 - session without stored tokens gives 401`() {
+        val config = config(MarathonPaceSetting.Valid(SecondsPerKm(255)))
+        app(config) {
+            val browser = connectedBrowser().also { seedRuns(config) }
+            runBlocking { ExposedTokenRepository(DatabaseFactory.connect(config.dbPath)).delete() }
+            val response = browser.get("/api/marathon-pace")
+            assertEquals(HttpStatusCode.Unauthorized, response.status)
+            assertEquals(
+                """{"error":"not_connected","message":"Connect your Strava account."}""",
+                response.bodyAsText(),
+            )
+        }
+    }
 
     @Test
     fun `R5 - not configured gives 404`() =

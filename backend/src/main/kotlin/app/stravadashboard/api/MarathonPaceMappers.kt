@@ -43,8 +43,8 @@ private fun MpWeek.toDto(): MpWeekDto =
 private fun MpSummary.toDto(): MpSummaryDto =
     MpSummaryDto(
         totalMpKm = totalMpKm,
-        thisWeekStart = thisWeekStart.toString(),
-        thisWeekEnd = thisWeekEnd.toString(),
+        thisWeekStart = thisWeek.start.toString(),
+        thisWeekEnd = thisWeek.end.toString(),
         thisWeekMpKm = thisWeekMpKm,
         thisWeekTotalKm = thisWeekTotalKm,
         thisWeekSharePercent = thisWeekSharePercent,
