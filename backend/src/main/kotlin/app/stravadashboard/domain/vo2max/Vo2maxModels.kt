@@ -4,7 +4,7 @@ import app.stravadashboard.domain.model.Bpm
 import app.stravadashboard.domain.model.Seconds
 import java.time.LocalDate
 
-enum class SegmentMethod { WHOLE_RUN, REP_LAPS }
+enum class SegmentMethod { WHOLE_RUN, REP_LAPS, EARLY_SPLITS }
 
 /** The pace + heart-rate part of one run that the VO2max estimate uses. [pace] is unrounded seconds per km. */
 data class Segment(

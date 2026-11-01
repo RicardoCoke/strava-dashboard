@@ -54,6 +54,7 @@ class ExposedRunRepository(
                 it[description] = detail.description
                 it[detailFetchedAt] = fetchedAt.epochSecond
                 it[movingTimeS] = detail.movingTime.value
+                it[splitsSaved] = true
             }
             RunLapsTable.deleteWhere { runId eq id.value }
             RunLapsTable.batchInsert(detail.laps) { lap ->
@@ -62,6 +63,16 @@ class ExposedRunRepository(
                 this[RunLapsTable.elapsedTimeS] = lap.elapsed.value
                 this[RunLapsTable.distanceM] = lap.distance.value
                 this[RunLapsTable.averageHeartrate] = lap.averageHeartRateBpm
+            }
+            RunSplitsTable.deleteWhere { runId eq id.value }
+            RunSplitsTable.batchInsert(detail.splits) { split ->
+                this[RunSplitsTable.runId] = id.value
+                this[RunSplitsTable.splitIndex] = split.index
+                this[RunSplitsTable.distanceM] = split.distance.value
+                this[RunSplitsTable.movingTimeS] = split.movingTime.value
+                this[RunSplitsTable.elevationDifferenceM] = split.elevationDifference?.value
+                this[RunSplitsTable.averageHeartrate] = split.averageHeartRateBpm
+                this[RunSplitsTable.gradeAdjustedSpeedMps] = split.gradeAdjustedSpeed?.value
             }
         }
     }
@@ -119,9 +130,12 @@ class ExposedRunRepository(
             val histograms =
                 RunHrHistogramsTable.selectAll().associate { it[RunHrHistogramsTable.runId] to it.toHrHistogram() }
             val drifts = RunHrDriftsTable.selectAll().associate { it[RunHrDriftsTable.runId] to it.toHrDrift() }
+            val splits = RunSplitsTable.selectAll().groupBy({ it[RunSplitsTable.runId] }, { it.toSplit() })
             RunsTable.selectAll().map { row ->
                 val id = row[RunsTable.id]
-                row.toRun(laps[id].orEmpty().sortedBy { it.index }, paces[id], histograms[id], drifts[id])
+                val splitsSaved = row[RunsTable.splitsSaved] == true
+                val runSplits = splits[id].orEmpty().sortedBy { it.index }.takeIf { splitsSaved }
+                row.toRun(laps[id].orEmpty().sortedBy { it.index }, paces[id], histograms[id], drifts[id], runSplits)
             }
         }
 
@@ -149,6 +163,7 @@ class ExposedRunRepository(
     override suspend fun deleteAll() {
         database.query {
             RunLapsTable.deleteAll()
+            RunSplitsTable.deleteAll()
             RunStreamPacesTable.deleteAll()
             RunHrHistogramsTable.deleteAll()
             RunHrDriftsTable.deleteAll()
@@ -162,6 +177,7 @@ private fun Transaction.deleteRunsWhere(predicate: () -> Op<Boolean>) {
     val ids = RunsTable.select(RunsTable.id).where(predicate()).map { it[RunsTable.id] }
     if (ids.isEmpty()) return
     RunLapsTable.deleteWhere { runId inList ids }
+    RunSplitsTable.deleteWhere { runId inList ids }
     RunStreamPacesTable.deleteWhere { runId inList ids }
     RunHrHistogramsTable.deleteWhere { runId inList ids }
     RunHrDriftsTable.deleteWhere { runId inList ids }

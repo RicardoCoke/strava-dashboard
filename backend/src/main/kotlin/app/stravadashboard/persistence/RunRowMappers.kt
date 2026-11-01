@@ -12,6 +12,7 @@ import app.stravadashboard.domain.model.RUN_SPORT_TYPE
 import app.stravadashboard.domain.model.RunActivity
 import app.stravadashboard.domain.model.Seconds
 import app.stravadashboard.domain.model.SecondsPerKm
+import app.stravadashboard.domain.model.Split
 import app.stravadashboard.domain.model.StreamPaceResult
 import app.stravadashboard.domain.model.StreamPaceStatus
 import org.jetbrains.exposed.sql.ResultRow
@@ -75,6 +76,7 @@ internal fun ResultRow.toRun(
     streamPace: StreamPaceResult?,
     hrHistogram: HrHistogramResult?,
     hrDrift: HrDriftResult? = null,
+    splits: List<Split>? = null,
 ): RunActivity {
     val detailFetchedAt = this[RunsTable.detailFetchedAt]?.let(Instant::ofEpochSecond)
     return RunActivity(
@@ -93,5 +95,6 @@ internal fun ResultRow.toRun(
         hrHistogram = hrHistogram,
         movingTime = this[RunsTable.movingTimeS]?.let(::Seconds),
         hrDrift = hrDrift,
+        splits = splits,
     )
 }

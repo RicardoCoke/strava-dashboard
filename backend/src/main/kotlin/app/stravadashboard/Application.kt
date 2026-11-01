@@ -6,6 +6,7 @@ import app.stravadashboard.api.efficiencyFactorRoutes
 import app.stravadashboard.api.healthRoutes
 import app.stravadashboard.api.longRunDriftRoutes
 import app.stravadashboard.api.marathonPaceRoutes
+import app.stravadashboard.api.normalizedVo2maxRoutes
 import app.stravadashboard.api.raceDayFormRoutes
 import app.stravadashboard.api.runningDashboardRoutes
 import app.stravadashboard.api.syncRoutes
@@ -30,6 +31,7 @@ import app.stravadashboard.domain.racedayform.RaceDayFormService
 import app.stravadashboard.domain.trainingload.TrainingLoadService
 import app.stravadashboard.domain.trainingplan.TrainingPlanService
 import app.stravadashboard.domain.vo2max.Vo2maxService
+import app.stravadashboard.domain.vo2max.normalized.NormalizedVo2maxService
 import app.stravadashboard.domain.wellness.WellnessService
 import app.stravadashboard.domain.wellness.WellnessSync
 import app.stravadashboard.intervals.IntervalsClient
@@ -128,6 +130,7 @@ fun Application.module(
         trainingLoadRoutes(tokens, loadService)
         raceDayFormRoutes(tokens, RaceDayFormService(config.lthr, tokens, runs, planService, clock, zone))
         vo2maxRoutes(tokens, vo2maxService)
+        normalizedVo2maxRoutes(tokens, NormalizedVo2maxService(config.maxHr, tokens, runs, clock, zone))
         longRunDriftRoutes(tokens, LongRunDriftService(tokens, runs, clock, zone))
         efficiencyFactorRoutes(tokens, EfficiencyFactorService(tokens, runs, clock, zone))
         marathonPaceRoutes(tokens, marathonPaceService)

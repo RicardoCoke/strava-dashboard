@@ -4,9 +4,11 @@ import app.stravadashboard.domain.model.Bpm
 import app.stravadashboard.domain.model.HeartRateStream
 import app.stravadashboard.domain.model.HrHistogramResult
 import app.stravadashboard.domain.model.HrHistogramStatus
+import app.stravadashboard.domain.model.Meters
 import app.stravadashboard.domain.model.MetersPerSecond
 import app.stravadashboard.domain.model.Seconds
 import app.stravadashboard.domain.model.SpeedStream
+import app.stravadashboard.domain.model.Split
 import app.stravadashboard.domain.model.StreamPaceStatus
 import app.stravadashboard.domain.ports.ActivityDetail
 import app.stravadashboard.domain.ports.ActivitySummary
@@ -378,6 +380,122 @@ class SyncServiceTest {
         assertEquals(listOf("list:1", "detail:1"), source.calls)
         assertEquals(SyncStatus.RATE_LIMITED, info.status)
         assertEquals(1, info.runsPendingDetail)
+    }
+
+    /** Stores runs as a pre-016 store would have them: detail (with moving time) fetched, but no splits saved. */
+    private fun storePre016Details(vararg summaries: ActivitySummary) {
+        runBlocking {
+            runs.upsertSummaries(summaries.toList())
+            summaries.forEach { runs.saveDetail(it.id, ActivityDetail(null, emptyList(), Seconds(3000)), daysAgo(1)) }
+        }
+        transaction(database) { exec("UPDATE runs SET splits_saved = NULL") }
+    }
+
+    @Test
+    fun `016 R1 - old outdoor details with HR are refetched once for splits`() {
+        val old = summary(1, daysAgo(10))
+        val fresh = summary(2, daysAgo(2))
+        storePre016Details(old)
+        source.activities = listOf(old, fresh)
+        val splits = listOf(Split(1, Meters(1000.0), Seconds(300), Meters(5.0), 150.0, MetersPerSecond(3.4)))
+        source.details[1] = ActivityDetail(null, emptyList(), Seconds(3000), splits)
+
+        sync()
+
+        assertEquals(listOf("detail:2", "detail:1"), source.activityCalls.filter { it.startsWith("detail") })
+        assertEquals(splits, runBlocking { runs.findAll() }.single { it.id.value == 1L }.splits)
+
+        source.calls.clear()
+        clock.advance(Duration.ofMinutes(20))
+        sync()
+        assertTrue(source.activityCalls.none { it == "detail:1" })
+    }
+
+    @Test
+    fun `016 R1 - no splits refetch for treadmill or no HR`() {
+        val treadmill = summary(1, daysAgo(10), trainer = true)
+        val noHr = summary(2, daysAgo(9), heartRate = null)
+        storePre016Details(treadmill, noHr)
+        source.activities = listOf(treadmill, noHr)
+
+        sync()
+
+        assertTrue(source.activityCalls.none { it.startsWith("detail") })
+    }
+
+    @Test
+    fun `016 R1 - splits refetch counts as pending and 429 stops sync writing nothing`() {
+        storePre016Details(summary(1, daysAgo(10)))
+        source.activities = emptyList()
+        source.failFromCall = 2
+        source.failure = SourceResult.RateLimited(NOW.plus(Duration.ofMinutes(15)))
+
+        val info = sync()
+
+        assertEquals(listOf("list:1", "detail:1"), source.calls)
+        assertEquals(SyncStatus.RATE_LIMITED, info.status)
+        assertEquals(1, info.runsPendingDetail)
+        assertNull(runBlocking { runs.findAll() }.single().splits)
+    }
+
+    @Test
+    fun `016 R1 - lap heart rate refetch comes before splits refetch`() {
+        // Run 1 (older) waits for lap heart rate; run 2 (newer) only for splits. Both helpers update every row,
+        // so run 1 is stored first: it then needs both refetches, run 2 only splits.
+        storeOldDetails(summary(1, daysAgo(10)))
+        storePre016Details(summary(2, daysAgo(3)))
+        source.activities = emptyList()
+
+        sync()
+
+        assertEquals(listOf("detail:1", "detail:2"), source.activityCalls.filter { it.startsWith("detail") })
+    }
+
+    @Test
+    fun `016 R1 - 404 on splits refetch deletes the run`() {
+        storePre016Details(summary(1, daysAgo(10)))
+        source.activities = emptyList()
+        source.failFromCall = 2
+        source.failure = SourceResult.NotFound
+
+        sync()
+
+        assertEquals(emptyList(), runBlocking { runs.findAll() })
+    }
+
+    @Test
+    fun `016 R1 - revoked access on splits refetch requires reauth and writes nothing`() {
+        storePre016Details(summary(1, daysAgo(10)))
+        source.activities = emptyList()
+        source.failFromCall = 2
+        source.failure = SourceResult.ReauthRequired
+
+        assertIs<SyncOutcome.ReauthRequired>(runBlocking { service.syncIfDue() })
+        assertNull(runBlocking { runs.findAll() }.single().splits)
+    }
+
+    @Test
+    fun `016 R1 - unavailable on splits refetch leaves the run pending`() {
+        storePre016Details(summary(1, daysAgo(10)))
+        source.activities = emptyList()
+        source.failFromCall = 2
+
+        val info = sync()
+
+        assertEquals(SyncStatus.STRAVA_UNAVAILABLE, info.status)
+        assertEquals(1, info.runsPendingDetail)
+        assertNull(runBlocking { runs.findAll() }.single().splits)
+    }
+
+    @Test
+    fun `016 R1 - each run is planned once across detail groups`() {
+        storeOldDetails(summary(1, daysAgo(10)))
+        transaction(database) { exec("UPDATE runs SET splits_saved = NULL") }
+        source.activities = emptyList()
+
+        sync()
+
+        assertEquals(listOf("detail:1"), source.activityCalls.filter { it.startsWith("detail") })
     }
 
     @Test

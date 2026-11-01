@@ -21,7 +21,7 @@ fun Vo2maxReport.toDto(): Vo2maxResponse =
         runsPendingDetail = runsPendingDetail,
     )
 
-private fun CurrentVo2max.toDto(): CurrentVo2maxDto =
+internal fun CurrentVo2max.toDto(): CurrentVo2maxDto =
     CurrentVo2maxDto(
         vo2max = roundOneDecimal(vo2max),
         basis =
@@ -34,7 +34,7 @@ private fun CurrentVo2max.toDto(): CurrentVo2maxDto =
         runCount = runCount,
     )
 
-private fun RacePrediction.toDto(): RacePredictionDto =
+internal fun RacePrediction.toDto(): RacePredictionDto =
     RacePredictionDto(
         key = distance.key,
         label = distance.label,

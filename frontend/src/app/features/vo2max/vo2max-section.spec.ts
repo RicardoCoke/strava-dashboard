@@ -21,6 +21,7 @@ describe('Vo2maxSection', () => {
   });
 
   const element = () => fixture.nativeElement as HTMLElement;
+  const vo2Panel = () => element().querySelector('[data-panel="vo2"]');
   const text = () => element().textContent?.replace(/\s+/g, ' ') ?? '';
   const all = (selector: string) =>
     Array.from(element().querySelectorAll(selector)).map((node) =>
@@ -64,7 +65,7 @@ describe('Vo2maxSection', () => {
       `VO2max settings have a problem: ${message}`,
     );
     expect(text()).toContain('Set MAX_HR_BPM in .env (for example 194), or leave it empty');
-    expect(element().querySelector('button')).toBeNull();
+    expect(vo2Panel()?.querySelector('button')).toBeNull();
   });
 
   it('R13 - error with retry', () => {
@@ -162,11 +163,10 @@ describe('Vo2maxSection', () => {
 
   it('R13 - normal order', () => {
     respond(vo2max({ weeks: vo2maxWeeks() }));
-    const order = Array.from(element().querySelector('section')?.children ?? []).map(
+    const order = Array.from(vo2Panel()?.children ?? []).map(
       (child) => child.tagName.toLowerCase() + (child.className ? `.${child.className}` : ''),
     );
     expect(order).toEqual([
-      'h2',
       'p.vo2max-current',
       'p.vo2max-caption',
       'app-race-prediction-tiles',

@@ -33,6 +33,7 @@ object DatabaseFactory {
                 StravaTokensTable,
                 RunsTable,
                 RunLapsTable,
+                RunSplitsTable,
                 RunStreamPacesTable,
                 RunHrHistogramsTable,
                 RunHrDriftsTable,
@@ -44,6 +45,7 @@ object DatabaseFactory {
             addColumnIfMissing(SyncStateTable.tableName, SyncStateTable.lastAttemptAt.name, "INTEGER")
             addColumnIfMissing(RunsTable.tableName, RunsTable.movingTimeS.name, "INTEGER")
             addColumnIfMissing(RunLapsTable.tableName, RunLapsTable.averageHeartrate.name, "REAL")
+            addColumnIfMissing(RunsTable.tableName, RunsTable.splitsSaved.name, "BOOLEAN")
         }
         return database
     }

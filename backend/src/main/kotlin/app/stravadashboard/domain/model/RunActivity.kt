@@ -14,6 +14,19 @@ data class Lap(
     val averageHeartRateBpm: Double? = null,
 )
 
+/**
+ * One per-km split of a run's detail (feature 016). Optional fields are null when Strava leaves them out;
+ * [gradeAdjustedSpeed] is Strava's grade-adjusted speed for the split.
+ */
+data class Split(
+    val index: Int,
+    val distance: Meters,
+    val movingTime: Seconds,
+    val elevationDifference: Meters? = null,
+    val averageHeartRateBpm: Double? = null,
+    val gradeAdjustedSpeed: MetersPerSecond? = null,
+)
+
 enum class StreamPaceStatus { COMPUTED, UNAVAILABLE }
 
 /** Derived rep pace from a speed stream, valid only while the run's type key still equals [typeKey]. */
@@ -45,6 +58,8 @@ data class RunActivity(
     val movingTime: Seconds? = null,
     /** Null until the long-run drift stream call has been made (feature 013). */
     val hrDrift: HrDriftResult? = null,
+    /** Null for a detail stored before feature 016; empty when the detail had no splits. */
+    val splits: List<Split>? = null,
 ) {
     val localDate: LocalDate get() = startLocal.toLocalDate()
     val isRun: Boolean get() = sportType == RUN_SPORT_TYPE

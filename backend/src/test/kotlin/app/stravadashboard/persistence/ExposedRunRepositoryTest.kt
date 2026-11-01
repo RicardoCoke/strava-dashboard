@@ -6,8 +6,11 @@ import app.stravadashboard.domain.model.ActivityId
 import app.stravadashboard.domain.model.HrHistogram
 import app.stravadashboard.domain.model.HrHistogramResult
 import app.stravadashboard.domain.model.HrHistogramStatus
+import app.stravadashboard.domain.model.Meters
+import app.stravadashboard.domain.model.MetersPerSecond
 import app.stravadashboard.domain.model.Seconds
 import app.stravadashboard.domain.model.SecondsPerKm
+import app.stravadashboard.domain.model.Split
 import app.stravadashboard.domain.model.StreamPaceResult
 import app.stravadashboard.domain.model.StreamPaceStatus
 import app.stravadashboard.domain.ports.ActivityDetail
@@ -200,6 +203,85 @@ class ExposedRunRepositoryTest {
         assertNull(stored.movingTime)
         assertEquals(listOf<Double?>(null), stored.laps?.map { it.averageHeartRateBpm })
         DatabaseFactory.connect(path) // a second start must not add the columns again
+    }
+
+    private val splits =
+        listOf(
+            Split(1, Meters(1000.0), Seconds(300), Meters(12.0), 150.0, MetersPerSecond(3.5)),
+            Split(2, Meters(1000.0), Seconds(310)),
+        )
+
+    @Test
+    fun `016 R1 - detail stores per-km splits, summary upsert keeps them`() =
+        runBlocking {
+            runs.upsertSummaries(listOf(summary(1, NOW)))
+            assertNull(runs.findAll().single().splits)
+
+            runs.saveDetail(ActivityId(1), ActivityDetail(null, emptyList(), Seconds(3000), splits), NOW)
+            runs.upsertSummaries(listOf(summary(1, NOW, name = "Renamed")))
+
+            assertEquals(splits, runs.findAll().single().splits)
+        }
+
+    @Test
+    fun `016 R1 - detail without splits stores empty list`() =
+        runBlocking {
+            runs.upsertSummaries(listOf(summary(1, NOW)))
+            runs.saveDetail(ActivityId(1), ActivityDetail(null, emptyList(), Seconds(3000)), NOW)
+            assertEquals(emptyList<Split>(), runs.findAll().single().splits)
+        }
+
+    @Test
+    fun `016 R1 - saving detail again replaces splits`() =
+        runBlocking {
+            runs.upsertSummaries(listOf(summary(1, NOW)))
+            runs.saveDetail(ActivityId(1), ActivityDetail(null, emptyList(), Seconds(3000), splits), NOW)
+            runs.saveDetail(ActivityId(1), ActivityDetail(null, emptyList(), Seconds(3000), splits.take(1)), NOW)
+            assertEquals(splits.take(1), runs.findAll().single().splits)
+        }
+
+    @Test
+    fun `016 R1 - splits deleted with run, prune and deleteAll`() =
+        runBlocking {
+            runs.upsertSummaries(
+                listOf(summary(1, NOW), summary(2, NOW), summary(3, Instant.parse("2026-01-01T07:00:00Z"))),
+            )
+            listOf(1L, 2L, 3L).forEach {
+                runs.saveDetail(ActivityId(it), ActivityDetail(null, emptyList(), Seconds(3000), splits), NOW)
+            }
+            runs.delete(listOf(ActivityId(1)))
+            runs.pruneBefore(LocalDate.of(2026, 3, 1))
+            assertEquals(setOf(2L), splitRunIds())
+            runs.deleteAll()
+            assertEquals(emptySet(), splitRunIds())
+        }
+
+    private fun splitRunIds(): Set<Long> =
+        transaction(database) { RunSplitsTable.selectAll().map { it[RunSplitsTable.runId] }.toSet() }
+
+    @Test
+    fun `016 R1 - migration adds splits_saved and run_splits keeping rows`() {
+        val path = tempDbPath()
+        val old = Database.connect("jdbc:sqlite:$path", "org.sqlite.JDBC")
+        transaction(old) {
+            exec(
+                "CREATE TABLE runs (id BIGINT PRIMARY KEY, name TEXT NOT NULL, start_date_utc BIGINT NOT NULL, " +
+                    "start_date_local TEXT NOT NULL, distance_m DOUBLE PRECISION NOT NULL, average_heartrate " +
+                    "DOUBLE PRECISION NULL, trainer BOOLEAN NOT NULL, description TEXT NULL, " +
+                    "detail_fetched_at BIGINT NULL, moving_time_s INT NULL)",
+            )
+            exec(
+                "INSERT INTO runs VALUES (1, 'Old run', ${NOW.epochSecond}, '2026-10-29T07:00:00', 10000.0, 150.0, " +
+                    "0, NULL, ${NOW.epochSecond}, 3000)",
+            )
+        }
+
+        val stored = runBlocking { ExposedRunRepository(DatabaseFactory.connect(path)).findAll() }.single()
+
+        assertEquals("Old run", stored.name)
+        assertEquals(Seconds(3000), stored.movingTime)
+        assertNull(stored.splits)
+        DatabaseFactory.connect(path) // a second start must not add the column again
     }
 
     @Test

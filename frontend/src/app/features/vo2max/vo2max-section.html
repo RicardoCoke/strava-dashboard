@@ -1,61 +1,108 @@
 <section class="card vo2max" aria-labelledby="vo2max-heading">
   <h2 id="vo2max-heading">VO2max</h2>
-
-  @switch (state().kind) {
-    @case ('loading') {
-      <p class="empty" role="status">Loading VO2max…</p>
-    }
-    @case ('invalidConfig') {
-      <p class="vo2max-problem" role="alert">
-        VO2max settings have a problem: {{ invalidMessage() }}
-      </p>
-      <p class="empty">
-        Set MAX_HR_BPM in .env (for example 194), or leave it empty, then restart the backend.
-      </p>
-    }
-    @case ('error') {
-      <div class="vo2max-error" role="alert">
-        <p>Couldn't load VO2max.</p>
-        <button type="button" class="retry" (click)="retry()">Retry</button>
-      </div>
-    }
-    @case ('loaded') {
-      @if (data(); as data) {
-        @switch (empty()) {
-          @case ('none') {
-            <p class="vo2max-empty">No qualifying runs in the last 6 months</p>
-            <p class="empty">
-              Runs count with heart rate and at least 20 minutes. Treadmill runs need paces in the
-              description. Distance-rep workouts (e.g. 6x1km) are not counted.
-            </p>
-          }
-          @case ('importing') {
-            <p class="empty">{{ pendingText() }}</p>
-          }
-          @default {
-            @if (current(); as current) {
-              <p class="vo2max-current">
-                <span class="vo2max-label">VO2max</span>
-                <span class="vo2max-value">{{ current.value }}</span>
-                <span class="vo2max-unit">ml/kg/min</span>
-              </p>
-              <p class="vo2max-caption">{{ current.caption }}</p>
-              <app-race-prediction-tiles [predictions]="data.predictions" />
-            } @else {
-              <p class="vo2max-caption">
-                No qualifying runs in the last 4 weeks, so there is no current estimate or race
-                prediction.
-              </p>
-            }
-            <app-vo2max-chart [weeks]="data.weeks" />
-            <div class="footnote">
-              @for (line of footnote(); track line) {
-                <p>{{ line }}</p>
+  <div class="vo2max-tabs" role="tablist" aria-label="VO2max estimate">
+    <button
+      type="button"
+      role="tab"
+      id="vo2max-tab-vo2"
+      class="vo2max-tab"
+      [attr.aria-controls]="activeTab() === 'vo2' ? 'vo2max-panel-vo2' : null"
+      [attr.aria-selected]="activeTab() === 'vo2'"
+      [attr.tabindex]="activeTab() === 'vo2' ? 0 : -1"
+      (click)="selectTab('vo2')"
+      (keydown)="onTabKeydown($event)"
+    >
+      Vo2
+    </button>
+    <button
+      type="button"
+      role="tab"
+      id="vo2max-tab-normalized"
+      class="vo2max-tab"
+      [attr.aria-controls]="activeTab() === 'normalized' ? 'vo2max-panel-normalized' : null"
+      [attr.aria-selected]="activeTab() === 'normalized'"
+      [attr.tabindex]="activeTab() === 'normalized' ? 0 : -1"
+      (click)="selectTab('normalized')"
+      (keydown)="onTabKeydown($event)"
+    >
+      Normalized Vo2
+    </button>
+  </div>
+  @if (activeTab() === 'vo2') {
+    <div
+      class="vo2max-panel"
+      role="tabpanel"
+      id="vo2max-panel-vo2"
+      aria-labelledby="vo2max-tab-vo2"
+      data-panel="vo2"
+    >
+      @switch (state().kind) {
+        @case ('loading') {
+          <p class="empty" role="status">Loading VO2max…</p>
+        }
+        @case ('invalidConfig') {
+          <p class="vo2max-problem" role="alert">
+            VO2max settings have a problem: {{ invalidMessage() }}
+          </p>
+          <p class="empty">
+            Set MAX_HR_BPM in .env (for example 194), or leave it empty, then restart the backend.
+          </p>
+        }
+        @case ('error') {
+          <div class="vo2max-error" role="alert">
+            <p>Couldn't load VO2max.</p>
+            <button type="button" class="retry" (click)="retry()">Retry</button>
+          </div>
+        }
+        @case ('loaded') {
+          @if (data(); as data) {
+            @switch (empty()) {
+              @case ('none') {
+                <p class="vo2max-empty">No qualifying runs in the last 6 months</p>
+                <p class="empty">
+                  Runs count with heart rate and at least 20 minutes. Treadmill runs need paces in
+                  the description. Distance-rep workouts (e.g. 6x1km) are not counted.
+                </p>
               }
-            </div>
+              @case ('importing') {
+                <p class="empty">{{ pendingText() }}</p>
+              }
+              @default {
+                @if (current(); as current) {
+                  <p class="vo2max-current">
+                    <span class="vo2max-label">VO2max</span>
+                    <span class="vo2max-value">{{ current.value }}</span>
+                    <span class="vo2max-unit">ml/kg/min</span>
+                  </p>
+                  <p class="vo2max-caption">{{ current.caption }}</p>
+                  <app-race-prediction-tiles [predictions]="data.predictions" />
+                } @else {
+                  <p class="vo2max-caption">
+                    No qualifying runs in the last 4 weeks, so there is no current estimate or race
+                    prediction.
+                  </p>
+                }
+                <app-vo2max-chart [weeks]="data.weeks" />
+                <div class="footnote">
+                  @for (line of footnote(); track line) {
+                    <p>{{ line }}</p>
+                  }
+                </div>
+              }
+            }
           }
         }
       }
-    }
+    </div>
+  } @else {
+    <div
+      class="vo2max-panel"
+      role="tabpanel"
+      id="vo2max-panel-normalized"
+      aria-labelledby="vo2max-tab-normalized"
+      data-panel="normalized"
+    >
+      <app-normalized-vo2max-panel [state]="normalizedState()" (retry)="retryNormalized()" />
+    </div>
   }
 </section>

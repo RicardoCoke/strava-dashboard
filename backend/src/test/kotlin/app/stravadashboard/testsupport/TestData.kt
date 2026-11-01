@@ -9,6 +9,7 @@ import app.stravadashboard.domain.model.Meters
 import app.stravadashboard.domain.model.RUN_SPORT_TYPE
 import app.stravadashboard.domain.model.RunActivity
 import app.stravadashboard.domain.model.Seconds
+import app.stravadashboard.domain.model.Split
 import app.stravadashboard.domain.model.StreamPaceResult
 import app.stravadashboard.domain.ports.ActivitySummary
 import java.nio.file.Files
@@ -47,6 +48,8 @@ fun run(
     // A detail fetched by this version (008) always has a moving time; null only when laps are null.
     movingSeconds: Int? = if (laps == null) null else 3000,
     hrDrift: HrDriftResult? = null,
+    // A detail fetched by this version (016) always stores its splits (empty when Strava sent none).
+    splits: List<Split>? = if (laps == null) null else emptyList(),
 ): RunActivity =
     RunActivity(
         id = ActivityId(id),
@@ -64,6 +67,7 @@ fun run(
         hrHistogram = hrHistogram,
         movingTime = movingSeconds?.let(::Seconds),
         hrDrift = hrDrift,
+        splits = splits,
     )
 
 @Suppress("LongParameterList")

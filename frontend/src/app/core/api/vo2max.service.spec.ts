@@ -1,7 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { emptyVo2max, vo2max } from '../../testing/vo2max-fixtures';
+import { emptyVo2max, normalizedVo2max, vo2max } from '../../testing/vo2max-fixtures';
 import { Vo2maxResponse, isVo2maxResponse } from './vo2max.models';
 import { Vo2maxService } from './vo2max.service';
 
@@ -20,6 +20,23 @@ describe('Vo2maxService', () => {
     request.flush(vo2max());
 
     expect(received?.weeks.length).toBe(27);
+    http.verify();
+  });
+
+  it('R7 - getNormalizedVo2max calls /api/vo2max/normalized', () => {
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    });
+    const service = TestBed.inject(Vo2maxService);
+    const http = TestBed.inject(HttpTestingController);
+    let received: unknown;
+
+    service.getNormalizedVo2max().subscribe((data) => (received = data));
+    const request = http.expectOne('/api/vo2max/normalized');
+    expect(request.request.method).toBe('GET');
+    request.flush(normalizedVo2max());
+
+    expect(received).toEqual(normalizedVo2max());
     http.verify();
   });
 

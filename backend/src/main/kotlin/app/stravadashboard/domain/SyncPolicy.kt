@@ -31,6 +31,10 @@ internal fun needsHrStream(run: RunActivity): Boolean = run.averageHeartRateBpm 
 internal fun needsLapHeartRate(run: RunActivity): Boolean =
     run.averageHeartRateBpm != null && run.detailFetchedAt != null && run.movingTime == null
 
+/** An outdoor run with heart rate whose detail predates feature 016, so it has no per-km splits yet. */
+internal fun needsSplits(run: RunActivity): Boolean =
+    run.averageHeartRateBpm != null && !run.trainer && run.detailFetchedAt != null && run.splits == null
+
 /** The pure rules of [SyncService]: when a sync is due and which calls it makes. */
 internal object SyncPolicy {
     const val MAX_ACTIVITY_CALLS_PER_SYNC = 80
@@ -44,13 +48,14 @@ internal object SyncPolicy {
     val RECHECK_MIN_AGE: Duration = Duration.ofHours(1)
 
     /**
-     * Runs waiting for a detail call (first or the 008 lap-HR refetch), outdoor workouts waiting for a streams call,
-     * runs waiting for HR streams, or long runs waiting for drift streams.
+     * Runs waiting for a detail call (first, the 008 lap-HR refetch or the 016 splits refetch), outdoor workouts
+     * waiting for a streams call, runs waiting for HR streams, or long runs waiting for drift streams.
      */
     fun pendingCount(all: List<RunActivity>): Int =
         all.count {
             it.detailFetchedAt == null ||
                 needsLapHeartRate(it) ||
+                needsSplits(it) ||
                 RepPaceCalculator.needsStream(it) ||
                 needsHrStream(it) ||
                 needsDriftStream(it)
@@ -64,7 +69,11 @@ internal object SyncPolicy {
         val newestFirst = all.sortedByDescending { it.startUtc }
         return when (phase) {
             SyncPhase.MISSING_DETAILS ->
-                (newestFirst.filter { it.detailFetchedAt == null } + newestFirst.filter(::needsLapHeartRate))
+                (
+                    newestFirst.filter { it.detailFetchedAt == null } +
+                        newestFirst.filter(::needsLapHeartRate) +
+                        newestFirst.filter(::needsSplits)
+                ).distinctBy { it.id }
                     .map { ActivityCall(it) }
             SyncPhase.MISSING_STREAMS ->
                 newestFirst.filter(RepPaceCalculator::needsStream).mapNotNull { run ->

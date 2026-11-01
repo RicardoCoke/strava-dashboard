@@ -23,6 +23,18 @@ internal data class DetailedActivityDto(
     val description: String? = null,
     val laps: List<LapDto> = emptyList(),
     @SerialName("moving_time") val movingTime: Int = 0,
+    @SerialName("splits_metric") val splitsMetric: List<SplitDto> = emptyList(),
+)
+
+/** One entry of `splits_metric` (per-km splits, feature 016). Other split fields are ignored. */
+@Serializable
+internal data class SplitDto(
+    val split: Int,
+    val distance: Double,
+    @SerialName("moving_time") val movingTime: Int,
+    @SerialName("elevation_difference") val elevationDifference: Double? = null,
+    @SerialName("average_heartrate") val averageHeartrate: Double? = null,
+    @SerialName("average_grade_adjusted_speed") val averageGradeAdjustedSpeed: Double? = null,
 )
 
 @Serializable

@@ -1,4 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
+import { NormalizedVo2maxResponse } from '../../core/api/normalized-vo2max.models';
 import { CurrentVo2max, Vo2maxResponse } from '../../core/api/vo2max.models';
 import { formatDayMonth } from '../../shared/format/dates';
 
@@ -70,4 +71,34 @@ export function emptyKind(data: Vo2maxResponse): EmptyKind | null {
     return 'noCurrent';
   }
   return data.runsPendingDetail > 0 ? 'importing' : 'none';
+}
+
+/** The "Normalized Vo2" tab's state; `idle` until the tab is first opened (feature 016). */
+export type NormalizedVo2maxState =
+  | { kind: 'idle' }
+  | { kind: 'loading' }
+  | { kind: 'invalidConfig'; message: string }
+  | { kind: 'error' }
+  | { kind: 'loaded'; data: NormalizedVo2maxResponse };
+
+export const NORMALIZED_NOTE =
+  'Hill- and drift-adjusted: grade-adjusted pace, only the first 60 minutes of easy and long runs, and each run counts once.';
+
+/** As [vo2maxStateFromError], for the normalized tab: null for a 401 (the interceptor redirects). */
+export function normalizedStateFromError(error: unknown): NormalizedVo2maxState | null {
+  const state = vo2maxStateFromError(error);
+  if (state === null) {
+    return null;
+  }
+  return state.kind === 'invalidConfig' ? state : { kind: 'error' };
+}
+
+/** Max HR line and, while split data is importing, a pending line. */
+export function normalizedFootnoteText(data: NormalizedVo2maxResponse): string[] {
+  const [maxHr] = footnoteText({ ...data, runsPendingDetail: 0 });
+  const pending =
+    data.runsPendingDetail > 0
+      ? [`${runs(data.runsPendingDetail)} still importing split data; numbers will update.`]
+      : [];
+  return [maxHr, ...pending];
 }

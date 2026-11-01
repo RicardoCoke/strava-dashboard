@@ -9,6 +9,7 @@ import app.stravadashboard.domain.model.Meters
 import app.stravadashboard.domain.model.MetersPerSecond
 import app.stravadashboard.domain.model.Seconds
 import app.stravadashboard.domain.model.SpeedStream
+import app.stravadashboard.domain.model.Split
 import app.stravadashboard.domain.ports.ActivityDetail
 import app.stravadashboard.domain.ports.ActivitySummary
 import java.time.Instant
@@ -42,6 +43,17 @@ internal fun DetailedActivityDto.toDetail(): ActivityDetail =
                 )
             },
         movingTime = Seconds(movingTime),
+        splits = splitsMetric.map { it.toSplit() },
+    )
+
+private fun SplitDto.toSplit(): Split =
+    Split(
+        index = split,
+        distance = Meters(distance),
+        movingTime = Seconds(movingTime),
+        elevationDifference = elevationDifference?.let(::Meters),
+        averageHeartRateBpm = averageHeartrate,
+        gradeAdjustedSpeed = averageGradeAdjustedSpeed?.let(::MetersPerSecond),
     )
 
 /** Null unless both `time` and `velocity_smooth` are present, of equal length and at least two samples. */
