@@ -6,6 +6,7 @@ import { stubSyncStore } from '../../testing/sync-store-stub';
 import { stubTrainingLoadSection } from '../../testing/training-load-stub';
 import { trainingPlan } from '../../testing/training-plan-fixtures';
 import { stubVo2maxSection } from '../../testing/vo2max-stub';
+import { stubRaceDayFormSection } from '../../testing/race-day-form-stub';
 import { RunningDashboardPage } from './running-dashboard-page';
 
 describe('RunningDashboardPage with the marathon pace card', () => {
@@ -20,6 +21,7 @@ describe('RunningDashboardPage with the marathon pace card', () => {
     stubVo2maxSection();
     stubSyncStore();
     stubTrainingLoadSection();
+    stubRaceDayFormSection();
     fixture = TestBed.createComponent(RunningDashboardPage);
     http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();

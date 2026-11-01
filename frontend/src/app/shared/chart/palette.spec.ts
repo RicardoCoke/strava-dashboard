@@ -29,7 +29,12 @@ describe('dark theme palette', () => {
       fitness: '#00f19f',
       fatigue: '#a78bfa',
       form: '#f2f4f5',
+      readyBand: 'rgba(0, 241, 159, 0.12)',
     });
+  });
+
+  it('011 R17 - palette has ready band', () => {
+    expect(palette.readyBand).toBe('rgba(0, 241, 159, 0.12)');
   });
 
   it('005 R14 - palette has load colours from existing values', () => {
