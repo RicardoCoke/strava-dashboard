@@ -1,0 +1,39 @@
+<section class="card race-form" aria-labelledby="race-form-heading">
+  <h2 id="race-form-heading">Race-day form</h2>
+
+  @switch (state().kind) {
+    @case ('loading') {
+      <p class="empty" role="status">Loading race-day projection…</p>
+    }
+    @case ('notConfigured') {
+      <p class="empty">{{ notConfiguredMessage() }}</p>
+    }
+    @case ('invalidConfig') {
+      <p class="race-form-problem" role="alert">
+        Race-day form can't be shown: {{ invalidMessage() }}
+      </p>
+    }
+    @case ('error') {
+      <div class="race-form-error" role="alert">
+        <p>Couldn't load race-day form.</p>
+        <button type="button" class="retry" (click)="retry()">Retry</button>
+      </div>
+    }
+    @case ('loaded') {
+      @if (data(); as data) {
+        @if (data.projection === 'notEnoughRuns') {
+          <p class="empty" role="status">{{ notEnoughRunsText }}</p>
+        }
+        @if (data.raceDay; as raceDay) {
+          <p class="race-tile">{{ raceDay.label }}</p>
+          <p class="race-caption">{{ caption() }}</p>
+        }
+        @if (subtNote(); as note) {
+          <p class="note">{{ note }}</p>
+        }
+        <app-race-day-form-chart [form]="data" />
+        <p class="note band-caption">{{ bandCaption }}</p>
+      }
+    }
+  }
+</section>

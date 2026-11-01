@@ -55,7 +55,8 @@ object TrainingLoadCalculator {
             ?.takeIf { run.averageHeartRateBpm != null && it.status == HrHistogramStatus.COMPUTED }
             ?.histogram
 
-    private fun rollingAverage(
+    /** Average daily load over the [days] days ending on [date]; dates absent from [loads] count as 0. */
+    fun rollingAverage(
         loads: Map<LocalDate, Double>,
         date: LocalDate,
         days: Int,

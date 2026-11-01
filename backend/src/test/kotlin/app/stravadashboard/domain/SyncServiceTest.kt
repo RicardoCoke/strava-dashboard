@@ -65,7 +65,11 @@ class SyncServiceTest {
                 summary(2, daysAgo(8), name = "Sunday long run", distanceMeters = 25_000.0),
             )
         sync()
-        val callsPerRun = source.activityCalls.groupBy({ it.substringAfter(':') }, { it.substringBefore(':') })
+        // Feature 013 adds one drift-streams call for long runs only; every other call is the same.
+        val callsPerRun =
+            source.activityCalls
+                .filterNot { it.startsWith("driftstream") }
+                .groupBy({ it.substringAfter(':') }, { it.substringBefore(':') })
         assertEquals(callsPerRun.getValue("1").sorted(), callsPerRun.getValue("2").sorted())
         assertTrue("detail" in callsPerRun.getValue("2"))
         assertTrue(source.calls.none { it.startsWith("stream") })

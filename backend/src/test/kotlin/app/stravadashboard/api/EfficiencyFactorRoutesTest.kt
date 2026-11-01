@@ -91,7 +91,7 @@ class EfficiencyFactorRoutesTest {
                     i,
                     date,
                     ->
-                    summary(500L + i, date.atTime(7, 0).toInstant(TEST_ZONE), heartRate = 125.0)
+                    summary(500L + i, date.atTime(7, 0).atZone(TEST_ZONE).toInstant(), heartRate = 125.0)
                 } +
                     summary(600, Instant.parse("2026-10-31T07:00:00Z")),
             )
@@ -131,7 +131,8 @@ class EfficiencyFactorRoutesTest {
             assertEquals(3, points.size)
             assertEquals(
                 """{"date":"2026-10-26","runType":"easy","efficiency":1.6,"rollingEfficiency":null,""" +
-                    """"distanceKm":10.0,"movingTimeSeconds":3000,"paceSecondsPerKm":300,"averageHeartRateBpm":125.0}""",
+                    """"distanceKm":10.0,"movingTimeSeconds":3000,"paceSecondsPerKm":300,""" +
+                    """"averageHeartRateBpm":125.0}""",
                 points.first().toString(),
             )
             assertTrue("Morning Run" !in response.bodyAsText())

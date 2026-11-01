@@ -1,0 +1,47 @@
+<section class="card long-run-drift" aria-labelledby="long-run-drift-heading">
+  <h2 id="long-run-drift-heading">Long-run HR drift</h2>
+
+  @switch (state().kind) {
+    @case ('loading') {
+      <p class="empty" role="status">Loading heart-rate drift…</p>
+    }
+    @case ('error') {
+      <div class="drift-error" role="alert">
+        <p>Couldn't load heart-rate drift.</p>
+        <button type="button" class="retry" (click)="retry()">Retry</button>
+      </div>
+    }
+    @case ('loaded') {
+      @if (data(); as data) {
+        @switch (empty()) {
+          @case ('none') {
+            <p class="empty">No long runs in the last 5 months</p>
+          }
+          @case ('noDrift') {
+            <p class="drift-empty">No long-run drift yet</p>
+          }
+          @default {
+            <p class="drift-header">
+              @for (item of header(); track item.text) {
+                <span [class]="'drift-stat zone-' + item.zone">{{ item.text }}</span>
+              }
+            </p>
+            <app-long-run-drift-chart [points]="data.points" [thresholds]="data.thresholds" />
+            <div class="footnote drift-legend">
+              <p>{{ legend() }}</p>
+              <p>Lower is better. Plain pace, not adjusted for hills or heat.</p>
+            </div>
+          }
+        }
+        @if (empty() !== 'none') {
+          @if (excluded(); as excluded) {
+            <p class="drift-note drift-excluded">{{ excluded }}</p>
+          }
+          @if (pending(); as pending) {
+            <p class="drift-note drift-pending">{{ pending }}</p>
+          }
+        }
+      }
+    }
+  }
+</section>

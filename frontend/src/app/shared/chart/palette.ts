@@ -13,9 +13,13 @@ export const palette = {
   secondary: '#6f8299',
   worse: '#ff6b4a',
   treadmill: '#a78bfa',
+  // The "watch" drift zone (feature 013).
+  caution: '#ffc857',
   grid: 'rgba(255, 255, 255, 0.06)',
   // Training load lines (feature 005), reusing the values above.
   fitness: '#00f19f',
   fatigue: '#a78bfa',
   form: '#f2f4f5',
+  // The race-day form ready band (feature 011): the accent at 12 %.
+  readyBand: 'rgba(0, 241, 159, 0.12)',
 } as const;

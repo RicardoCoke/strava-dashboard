@@ -94,11 +94,11 @@ object EfficiencyFactorCalculator {
         run: RunActivity,
         today: LocalDate,
     ): Sample? {
-        val type = efTypeOf(run)
+        val excluded = run.trainer || run.distance.value <= 0 || run.localDate.isAfter(today)
+        val type = efTypeOf(run)?.takeUnless { excluded }
         val heartRate = run.averageHeartRateBpm?.takeIf { it > 0 }
         val movingTime = run.movingTime?.takeIf { it.value >= MIN_MOVING_SECONDS }
-        val excluded = run.trainer || run.distance.value <= 0 || run.localDate.isAfter(today)
-        if (type == null || heartRate == null || movingTime == null || excluded) return null
+        if (type == null || heartRate == null || movingTime == null) return null
         val metersPerMinute = run.distance.value / (movingTime.value.toDouble() / SECONDS_PER_MINUTE)
         return Sample(run, type, movingTime, heartRate, metersPerMinute / heartRate)
     }

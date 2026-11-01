@@ -1,0 +1,53 @@
+:host {
+  display: block;
+}
+
+.drift-empty {
+  margin: 0 0 0.25rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.drift-error {
+  text-align: center;
+
+  p {
+    margin: 0 0 0.75rem;
+    color: var(--color-text);
+  }
+}
+
+.drift-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  margin: 0 0 0.75rem;
+}
+
+.drift-stat {
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.zone-good {
+  color: var(--color-accent);
+}
+
+.zone-watch {
+  color: var(--color-caution);
+}
+
+.zone-poor {
+  color: var(--color-worse);
+}
+
+.drift-legend p {
+  margin: 0;
+}
+
+.drift-note {
+  margin: 0.5rem 0 0;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}

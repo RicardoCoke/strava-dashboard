@@ -2,6 +2,7 @@
 <app-sync-banner [state]="sync.bannerState()" />
 <app-calendar-like-build />
 <app-training-load-section />
+<app-race-day-form-section />
 <app-vo2max-section />
 
 @switch (state().kind) {
@@ -32,6 +33,7 @@
             [selectedTypeKey]="selectedHrTypeKey()"
             (typeSelected)="selectedHrTypeKey.set($event)"
           />
+          <app-long-run-drift-section />
           <app-workout-pace-comparison-chart
             [comparison]="data.workoutPaceComparison"
             [selectedTypeKey]="selectedPaceTypeKey()"
