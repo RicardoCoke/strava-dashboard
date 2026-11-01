@@ -1,0 +1,48 @@
+<section class="card efficiency-factor" aria-labelledby="efficiency-factor-heading">
+  <h2 id="efficiency-factor-heading">Efficiency factor</h2>
+
+  @switch (state().kind) {
+    @case ('loading') {
+      <div class="ef-loading" role="status">
+        <app-ring-spinner />
+        <p class="empty">Loading efficiency factor…</p>
+      </div>
+    }
+    @case ('error') {
+      <div class="ef-error" role="alert">
+        <p>Couldn't load the efficiency factor.</p>
+        <button type="button" class="retry" (click)="retry()">Retry</button>
+      </div>
+    }
+    @case ('loaded') {
+      @if (data(); as data) {
+        @if (empty(); as empty) {
+          <p class="empty">{{ empty }}</p>
+        } @else {
+          <div class="ef-tile">
+            @if (current(); as current) {
+              <p class="ef-current">
+                <span class="ef-value">{{ current.value }}</span>
+                <span class="ef-unit">m/min/beat</span>
+              </p>
+              <p class="ef-caption">{{ current.caption }}</p>
+              @if (change(); as change) {
+                <p class="ef-change" [class]="'tone-' + change.tone">{{ change.text }}</p>
+              } @else {
+                <p class="ef-note">{{ noChangeNote }}</p>
+              }
+            } @else {
+              <p class="ef-note">{{ noCurrentNote }}</p>
+            }
+          </div>
+          <app-efficiency-factor-chart [points]="data.points" />
+          <div class="footnote">
+            @for (line of footnote(); track line) {
+              <p>{{ line }}</p>
+            }
+          </div>
+        }
+      }
+    }
+  }
+</section>

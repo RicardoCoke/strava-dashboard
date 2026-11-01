@@ -6,6 +6,7 @@ import { trainingLoad } from '../../testing/training-load-fixtures';
 import { trainingPlan } from '../../testing/training-plan-fixtures';
 import { stubSyncStore } from '../../testing/sync-store-stub';
 import { stubLongRunDriftSection } from '../../testing/long-run-drift-stub';
+import { stubEfficiencyFactorSection } from '../../testing/efficiency-factor-stub';
 import { stubVo2maxSection } from '../../testing/vo2max-stub';
 import { stubMarathonPaceSection } from '../../testing/marathon-pace-stub';
 import { stubRaceDayFormSection } from '../../testing/race-day-form-stub';
@@ -23,6 +24,7 @@ describe('RunningDashboardPage with the training load card', () => {
     stubCharts();
     stubRaceDayFormSection();
     stubVo2maxSection();
+    stubEfficiencyFactorSection();
     stubLongRunDriftSection();
     stubWellnessSection();
     stubSyncStore();

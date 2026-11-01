@@ -2,6 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { dashboard, stubCharts } from '../../testing/dashboard-fixtures';
+import { stubEfficiencyFactorSection } from '../../testing/efficiency-factor-stub';
 import { stubLongRunDriftSection } from '../../testing/long-run-drift-stub';
 import { stubMarathonPaceSection } from '../../testing/marathon-pace-stub';
 import { stubRaceDayFormSection } from '../../testing/race-day-form-stub';
@@ -24,6 +25,7 @@ describe('RunningDashboardPage with the resting HR & HRV card', () => {
     stubVo2maxSection();
     stubRaceDayFormSection();
     stubLongRunDriftSection();
+    stubEfficiencyFactorSection();
     stubMarathonPaceSection();
     stubSyncStore();
     fixture = TestBed.createComponent(RunningDashboardPage);
