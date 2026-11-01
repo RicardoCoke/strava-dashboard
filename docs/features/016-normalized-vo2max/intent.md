@@ -53,9 +53,9 @@ Heart rate, pace, and elevation/lap data already stored; body metrics (max HR). 
 - The tabs replace the single view in the existing VO2max card, which keeps its place under the Training load card. (assumed)
 - The last-7-days, falling back to last 4 weeks, "current value" logic from 008 applies to both tabs. (assumed)
 
-## Open questions
-1. Should "Vo2" be the default tab when the page opens (assumed yes), or "Normalized Vo2"?
-2. Should the normalized chart also show the original series as a faint comparison line, or keep the two tabs fully separate?
-3. When grade-adjusted pace is not available from Strava and a run has no usable elevation data, should the run be skipped or scored at plain pace?
-4. For "early portion" on long runs, is a fixed cut-off (first 60 minutes) fine, or do you want it to stop earlier when drift starts?
-5. Should runs shorter than the cut-off (e.g. a 45-minute easy run) still use the whole run (assumed yes)?
+## Decisions (approved by the user)
+1. "Vo2" is the default tab when the page opens.
+2. The Normalized Vo2 chart also shows the original series as a faint comparison line.
+3. A run with no grade-adjusted pace and no usable elevation data (e.g. treadmill) is scored at plain pace, not skipped.
+4. Long runs use a fixed cut-off: the first 60 minutes.
+5. Runs shorter than the cut-off use the whole run.
