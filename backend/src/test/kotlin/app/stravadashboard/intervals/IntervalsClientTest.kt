@@ -10,6 +10,7 @@ import ch.qos.logback.core.read.ListAppender
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockRequestHandleScope
 import io.ktor.client.engine.mock.respond
+import io.ktor.client.plugins.HttpRequestTimeoutException
 import io.ktor.client.request.HttpRequestData
 import io.ktor.client.request.HttpResponseData
 import io.ktor.http.HttpHeaders
@@ -117,6 +118,12 @@ class IntervalsClientTest {
             fetch { respond(resource("wellness-malformed.json"), HttpStatusCode.OK, json) },
         )
         assertEquals(WellnessFetchResult.Unavailable, fetch { respond("not json", HttpStatusCode.OK, json) })
+        val html = headersOf(HttpHeaders.ContentType, "text/html")
+        assertEquals(WellnessFetchResult.Unavailable, fetch { respond("<html>proxy</html>", HttpStatusCode.OK, html) })
+        assertEquals(
+            WellnessFetchResult.Unavailable,
+            fetch { request -> throw HttpRequestTimeoutException(request.url.toString(), 15_000) },
+        )
     }
 
     @Test

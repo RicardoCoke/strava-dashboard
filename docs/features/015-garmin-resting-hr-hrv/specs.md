@@ -236,7 +236,7 @@ DTOs live in `api/WellnessDtos.kt` (`WellnessResponse`, `WellnessDayDto`, `Welln
 - Route / page: no new route. The card is added to the existing dashboard page (`running-dashboard-page.html`, directly after `<app-training-load-section />`, plus one import in `running-dashboard-page.ts`).
 - Components (new folder `features/wellness/`):
   - `WellnessSection` (`wellness-section.ts/.html/.scss`): the container. It injects `WellnessService` and optionally `SyncStore` (quiet reload on `dataVersion`, the same as `TrainingLoadSection`) and holds `signal<WellnessState>`.
-  - `WellnessLatest` (`wellness-latest/wellness-latest.ts`): `input.required<WellnessLatestPair>()`. It renders the two tiles and their flags.
+  - `WellnessLatest` (`wellness-latest/wellness-latest.ts`): `input.required<WellnessTile[]>()`, built by `latestTiles(data)` in `wellness.view.ts`. It renders the two tiles and their flags.
   - `WellnessChart` (`wellness-chart/wellness-chart.ts`): `input.required<WellnessResponse>()`. It renders `<app-chart>` with `buildWellnessOptions`.
   - `wellness.view.ts`: `WellnessState` union (`loading | notConfigured | error | loaded`), `wellnessStateFromError(error)`, `emptyText(source)`, `staleText(source)`.
   - `wellness.options.ts`: `buildWellnessOptions(data): EChartsOption`, `wellnessTooltipLines(day): string[]`, `WELLNESS_CHART_LABEL`.

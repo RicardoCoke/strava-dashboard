@@ -12,6 +12,7 @@ import app.stravadashboard.domain.wellness.WellnessState
 import app.stravadashboard.module
 import app.stravadashboard.persistence.DatabaseFactory
 import app.stravadashboard.persistence.ExposedRunRepository
+import app.stravadashboard.persistence.ExposedTokenRepository
 import app.stravadashboard.persistence.ExposedWellnessRepository
 import app.stravadashboard.testsupport.TEST_ZONE
 import app.stravadashboard.testsupport.WELLNESS_TODAY
@@ -54,6 +55,7 @@ class WellnessRoutesTest {
     private val jsonHeaders = headersOf(HttpHeaders.ContentType, "application/json")
     private val stravaRequests = mutableListOf<HttpRequestData>()
     private val intervalsRequests = mutableListOf<HttpRequestData>()
+    private var intervalsStatus = HttpStatusCode.OK
 
     private fun config(key: String? = "invented-key"): AppConfig =
         testConfig().copy(lthr = LthrSetting.Valid(Bpm(175)), intervalsApiKey = key)
@@ -82,7 +84,7 @@ class WellnessRoutesTest {
         val intervals =
             MockEngine { request ->
                 intervalsRequests += request
-                respond("""[{"id":"2026-10-31","restingHR":50,"hrv":60.0}]""", HttpStatusCode.OK, jsonHeaders)
+                respond("""[{"id":"2026-10-31","restingHR":50,"hrv":60.0}]""", intervalsStatus, jsonHeaders)
             }
         application { module(config, clock, TEST_ZONE, strava, intervalsEngine = intervals) }
         block()
@@ -149,6 +151,18 @@ class WellnessRoutesTest {
             assertEquals(HttpStatusCode.Unauthorized, response.status)
             assertEquals("not_connected", response.json().text("error"))
         }
+
+    @Test
+    fun `R8 - wellness requires a session matching the stored tokens`() {
+        val config = config()
+        app(config) {
+            val browser = connectedBrowser()
+            runBlocking { ExposedTokenRepository(DatabaseFactory.connect(config.dbPath)).delete() }
+            val response = browser.get("/api/wellness")
+            assertEquals(HttpStatusCode.Unauthorized, response.status)
+            assertEquals("not_connected", response.json().text("error"))
+        }
+    }
 
     @Test
     fun `R8 - pending source with no data`() =
@@ -269,13 +283,39 @@ class WellnessRoutesTest {
         }
     }
 
-    @Test
-    fun `R1 - job makes no Intervals calls without a key`() =
-        app(config(key = null)) {
+    /** One background sync from a fresh app: the `/api/sync` body, the Strava paths called and the Intervals calls. */
+    private fun syncOnce(config: AppConfig): Triple<String, List<String>, Int> {
+        var result = Triple("", emptyList<String>(), 0)
+        intervalsRequests.clear()
+        app(config) {
             val status = connectedBrowser().syncAndWait()
             assertEquals(HttpStatusCode.OK, status.status)
-            assertTrue(intervalsRequests.isEmpty())
+            result = Triple(status.bodyAsText(), stravaRequests.map { it.url.encodedPath }, intervalsRequests.size)
         }
+        return result
+    }
+
+    @Test
+    fun `R1 - job makes no Intervals calls without a key and the Strava sync is unchanged`() {
+        val withoutKey = syncOnce(config(key = null))
+        val withKey = syncOnce(config())
+
+        assertEquals(0, withoutKey.third)
+        assertEquals(1, withKey.third)
+        assertEquals(withoutKey.first, withKey.first)
+        assertEquals(withoutKey.second, withKey.second)
+    }
+
+    @Test
+    fun `R4 - rejected key leaves the Strava sync and its status unchanged`() {
+        val withoutKey = syncOnce(config(key = null))
+        intervalsStatus = HttpStatusCode.Unauthorized
+        val rejected = syncOnce(config())
+
+        assertEquals(1, rejected.third)
+        assertEquals(withoutKey.first, rejected.first)
+        assertEquals(withoutKey.second, rejected.second)
+    }
 
     @Test
     fun `R11 - training load response identical with wellness configured`() {

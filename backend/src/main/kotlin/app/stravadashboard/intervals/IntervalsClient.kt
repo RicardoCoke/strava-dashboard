@@ -1,6 +1,8 @@
 package app.stravadashboard.intervals
 
+import app.stravadashboard.domain.wellness.WellnessPolicy
 import io.ktor.client.HttpClient
+import io.ktor.client.call.NoTransformationFoundException
 import io.ktor.client.call.body
 import io.ktor.client.request.accept
 import io.ktor.client.request.basicAuth
@@ -68,6 +70,9 @@ class IntervalsClient(
         } catch (e: ContentConvertException) {
             // Its message can quote the response body, so only the class name is logged.
             unavailable(e)
+        } catch (e: NoTransformationFoundException) {
+            // A 200 that isn't JSON, such as an HTML page from a proxy.
+            unavailable(e)
         }
 
     private suspend fun map(response: HttpResponse): IntervalsResult =
@@ -85,7 +90,7 @@ class IntervalsClient(
     /** `Retry-After` in whole seconds (1 to 86400); anything else waits the 15-minute fallback. */
     private fun retryAt(header: String?): Instant {
         val seconds = header?.trim()?.toLongOrNull()?.takeIf { it in 1..MAX_RETRY_AFTER_SECONDS }
-        return clock.instant().plus(seconds?.let(Duration::ofSeconds) ?: RATE_LIMIT_FALLBACK)
+        return clock.instant().plus(seconds?.let(Duration::ofSeconds) ?: WellnessPolicy.RATE_LIMIT_FALLBACK)
     }
 
     private fun unavailable(e: Exception): IntervalsResult {
@@ -98,7 +103,6 @@ class IntervalsClient(
         const val FIELDS = "id,restingHR,hrv"
         const val API_KEY_USER = "API_KEY"
         const val MAX_RETRY_AFTER_SECONDS = 86_400L
-        val RATE_LIMIT_FALLBACK: Duration = Duration.ofMinutes(15)
         val REJECTED = setOf(HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden)
         val log = LoggerFactory.getLogger(IntervalsClient::class.java)
     }

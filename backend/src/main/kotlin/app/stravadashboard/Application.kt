@@ -84,7 +84,7 @@ fun Application.module(
     zone: ZoneId = ZoneId.systemDefault(),
     stravaEngine: HttpClientEngine = CIO.create(),
     trainingPlanSource: TrainingPlanSource = TrainingPlanFileSource(config.trainingPlanCsvPath),
-    intervalsEngine: HttpClientEngine = CIO.create(),
+    intervalsEngine: HttpClientEngine? = null,
 ) {
     installServerPlugins(config)
 
@@ -125,19 +125,23 @@ fun Application.module(
 }
 
 /**
- * Resting HR and HRV from Intervals.icu (feature 015), or null without an API key. The client is closed when the
- * application stops.
+ * Resting HR and HRV from Intervals.icu (feature 015), or null without an API key. Without a test [engine], a CIO
+ * engine is created only when a key is set; the client and that engine are closed when the application stops.
  */
 private fun Application.intervalsWellnessSync(
     apiKey: String?,
-    engine: HttpClientEngine,
+    engine: HttpClientEngine?,
     repo: ExposedWellnessRepository,
     clock: Clock,
     zone: ZoneId,
 ): WellnessSync? {
     if (apiKey == null) return null
-    val http = intervalsHttpClient(engine)
-    monitor.subscribe(ApplicationStopped) { http.close() }
+    val ownEngine = if (engine == null) CIO.create() else null
+    val http = intervalsHttpClient(engine ?: requireNotNull(ownEngine))
+    monitor.subscribe(ApplicationStopped) {
+        http.close()
+        ownEngine?.close()
+    }
     return WellnessSync(IntervalsWellnessSource(IntervalsClient(http, apiKey, clock)), repo, clock, zone)
 }
 

@@ -19,6 +19,8 @@ object WellnessPolicy {
     const val HRV_FLAG_FRACTION = 0.15
     const val HIGH_LOAD_FORM = -10.0
     val WELLNESS_INTERVAL: Duration = SyncPolicy.SYNC_INTERVAL
+
+    /** How long to wait after a 429 without a usable `Retry-After`. */
     val RATE_LIMIT_FALLBACK: Duration = Duration.ofMinutes(15)
 
     fun isDue(

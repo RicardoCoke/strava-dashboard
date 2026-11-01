@@ -277,6 +277,63 @@ class BackgroundSyncTest {
             assertEquals(SyncStatus.OK, withWellness.status().info.status)
         }
 
+    /** The Strava sync state after the same one-run sync in a separate database, with no wellness step. */
+    private suspend fun plainSyncState(): SyncState {
+        val database = DatabaseFactory.connect(tempDbPath())
+        val plainRuns = ExposedRunRepository(database)
+        val plainState = ExposedSyncStateRepository(database)
+        val plainBudget = StravaCallBudget(clock)
+        val plainSource =
+            GatedActivitySource().apply {
+                release.complete(Unit)
+                stored(1)
+            }
+        val plain =
+            BackgroundSync(
+                SyncService(plainSource, plainRuns, plainState, clock, TEST_ZONE, plainBudget),
+                plainRuns,
+                plainState,
+                plainBudget,
+                clock,
+                scope,
+            )
+        plain.startIfDue()
+        plain.join()
+        return plainState.get()
+    }
+
+    @Test
+    fun `015 R4 - a throwing wellness step leaves Strava sync state untouched`() =
+        run {
+            source.release.complete(Unit)
+            source.stored(1)
+            val throwing =
+                object : WellnessSource {
+                    override suspend fun fetch(
+                        oldest: LocalDate,
+                        newest: LocalDate,
+                    ): WellnessFetchResult = error("invented")
+                }
+            val sync =
+                BackgroundSync(
+                    SyncService(source, runs, syncState, clock, TEST_ZONE, budget),
+                    runs,
+                    syncState,
+                    budget,
+                    clock,
+                    scope,
+                    WellnessSync(throwing, wellnessRepo, clock, TEST_ZONE),
+                )
+            sync.startIfDue()
+            sync.join()
+
+            assertEquals(WellnessFetchStatus.UNAVAILABLE, wellnessRepo.getState().lastStatus)
+            assertFalse(sync.reauthRequired)
+            assertEquals(listOf(1L), runs.findAll().map { it.id.value })
+            assertEquals(plainSyncState(), syncState.get())
+            assertEquals(SyncStatus.OK, sync.status().info.status)
+        }
+
     private companion object {
         const val TIMEOUT_MS = 10_000L
     }
