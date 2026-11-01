@@ -8,7 +8,9 @@ import { vo2max } from '../../testing/vo2max-fixtures';
 import { stubEfficiencyFactorSection } from '../../testing/efficiency-factor-stub';
 import { stubLongRunDriftSection } from '../../testing/long-run-drift-stub';
 import { SyncStoreStub, stubSyncStore, syncStatus } from '../../testing/sync-store-stub';
+import { stubMarathonPaceSection } from '../../testing/marathon-pace-stub';
 import { stubRaceDayFormSection } from '../../testing/race-day-form-stub';
+import { stubWellnessSection } from '../../testing/wellness-stub';
 import { RunningDashboardPage } from './running-dashboard-page';
 
 describe('RunningDashboardPage with the VO2max card', () => {
@@ -24,7 +26,9 @@ describe('RunningDashboardPage with the VO2max card', () => {
     stubLongRunDriftSection();
     stubEfficiencyFactorSection();
     stubRaceDayFormSection();
+    stubWellnessSection();
     sync = stubSyncStore();
+    stubMarathonPaceSection();
     fixture = TestBed.createComponent(RunningDashboardPage);
     http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
@@ -34,13 +38,14 @@ describe('RunningDashboardPage with the VO2max card', () => {
   const text = () => element().textContent?.replace(/\s+/g, ' ') ?? '';
   const tags = () => Array.from(element().children).map((child) => child.tagName.toLowerCase());
 
-  it('008 R10 / 011 R12 - race-day form between training load and vo2max', () => {
-    expect(tags().slice(0, 6)).toEqual([
+  it('008 R10 / 011 R12 / 015 R9 - race-day form, then resting HR & HRV, then vo2max', () => {
+    expect(tags().slice(0, 7)).toEqual([
       'h1',
       'app-sync-banner',
       'app-calendar-like-build',
       'app-training-load-section',
       'app-race-day-form-section',
+      'app-wellness-section',
       'app-vo2max-section',
     ]);
   });

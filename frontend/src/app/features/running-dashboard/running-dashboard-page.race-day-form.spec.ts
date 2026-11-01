@@ -9,6 +9,8 @@ import { stubSyncStore } from '../../testing/sync-store-stub';
 import { stubTrainingLoadSection } from '../../testing/training-load-stub';
 import { stubEfficiencyFactorSection } from '../../testing/efficiency-factor-stub';
 import { stubVo2maxSection } from '../../testing/vo2max-stub';
+import { stubMarathonPaceSection } from '../../testing/marathon-pace-stub';
+import { stubWellnessSection } from '../../testing/wellness-stub';
 import { RunningDashboardPage } from './running-dashboard-page';
 
 /** The page with the real race-day form card (feature 011, R12). */
@@ -25,6 +27,8 @@ describe('RunningDashboardPage with the race-day form card', () => {
     stubEfficiencyFactorSection();
     stubLongRunDriftSection();
     stubTrainingLoadSection();
+    stubMarathonPaceSection();
+    stubWellnessSection();
     stubPlanSection();
     stubSyncStore();
     fixture = TestBed.createComponent(RunningDashboardPage);

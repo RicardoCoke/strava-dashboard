@@ -37,6 +37,8 @@ object DatabaseFactory {
                 RunHrHistogramsTable,
                 RunHrDriftsTable,
                 SyncStateTable,
+                WellnessDaysTable,
+                WellnessStateTable,
             )
             addColumnIfMissing(SyncStateTable.tableName, SyncStateTable.historyStart.name, "INTEGER")
             addColumnIfMissing(SyncStateTable.tableName, SyncStateTable.lastAttemptAt.name, "INTEGER")

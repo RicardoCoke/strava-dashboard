@@ -5,12 +5,14 @@ import app.stravadashboard.api.XsrfProtection
 import app.stravadashboard.api.efficiencyFactorRoutes
 import app.stravadashboard.api.healthRoutes
 import app.stravadashboard.api.longRunDriftRoutes
+import app.stravadashboard.api.marathonPaceRoutes
 import app.stravadashboard.api.raceDayFormRoutes
 import app.stravadashboard.api.runningDashboardRoutes
 import app.stravadashboard.api.syncRoutes
 import app.stravadashboard.api.trainingLoadRoutes
 import app.stravadashboard.api.trainingPlanRoutes
 import app.stravadashboard.api.vo2maxRoutes
+import app.stravadashboard.api.wellnessRoutes
 import app.stravadashboard.auth.ConnectService
 import app.stravadashboard.auth.OAuthState
 import app.stravadashboard.auth.UserSession
@@ -22,15 +24,22 @@ import app.stravadashboard.domain.StravaCallBudget
 import app.stravadashboard.domain.SyncService
 import app.stravadashboard.domain.efficiency.EfficiencyFactorService
 import app.stravadashboard.domain.longrundrift.LongRunDriftService
+import app.stravadashboard.domain.marathonpace.MarathonPaceService
 import app.stravadashboard.domain.ports.TrainingPlanSource
 import app.stravadashboard.domain.racedayform.RaceDayFormService
 import app.stravadashboard.domain.trainingload.TrainingLoadService
 import app.stravadashboard.domain.trainingplan.TrainingPlanService
 import app.stravadashboard.domain.vo2max.Vo2maxService
+import app.stravadashboard.domain.wellness.WellnessService
+import app.stravadashboard.domain.wellness.WellnessSync
+import app.stravadashboard.intervals.IntervalsClient
+import app.stravadashboard.intervals.IntervalsWellnessSource
+import app.stravadashboard.intervals.intervalsHttpClient
 import app.stravadashboard.persistence.DatabaseFactory
 import app.stravadashboard.persistence.ExposedRunRepository
 import app.stravadashboard.persistence.ExposedSyncStateRepository
 import app.stravadashboard.persistence.ExposedTokenRepository
+import app.stravadashboard.persistence.ExposedWellnessRepository
 import app.stravadashboard.persistence.TrainingPlanFileSource
 import app.stravadashboard.strava.StravaActivitySource
 import app.stravadashboard.strava.StravaClient
@@ -75,18 +84,17 @@ fun main() {
     }.start(wait = true)
 }
 
+// The engines and plan source are test seams; every other dependency is built here.
+@Suppress("LongParameterList")
 fun Application.module(
     config: AppConfig,
     clock: Clock = Clock.systemUTC(),
     zone: ZoneId = ZoneId.systemDefault(),
     stravaEngine: HttpClientEngine = CIO.create(),
     trainingPlanSource: TrainingPlanSource = TrainingPlanFileSource(config.trainingPlanCsvPath),
+    intervalsEngine: HttpClientEngine? = null,
 ) {
-    install(ContentNegotiation) { json() }
-    install(CallLogging)
-    installStatusPages()
-    installSessions(config)
-    install(XsrfProtection) { secureCookies = config.secureCookies }
+    installServerPlugins(config)
 
     val database = DatabaseFactory.connect(config.dbPath)
     val tokens = ExposedTokenRepository(database)
@@ -99,12 +107,17 @@ fun Application.module(
     val stravaClient = StravaClient(http, StravaTokenProvider(tokens, oauth, clock), clock)
     val budget = StravaCallBudget(clock)
     val syncService = SyncService(StravaActivitySource(stravaClient), runs, syncState, clock, zone, budget)
-    val backgroundSync = BackgroundSync(syncService, runs, syncState, budget, clock, backgroundSyncScope())
+    val wellnessRepo = ExposedWellnessRepository(database)
+    val wellnessSync = intervalsWellnessSync(config.intervalsApiKey, intervalsEngine, wellnessRepo, clock, zone)
+    val backgroundSync =
+        BackgroundSync(syncService, runs, syncState, budget, clock, backgroundSyncScope(), wellnessSync)
     val dashboardService = RunningDashboardService(tokens, runs, clock, zone)
     val connectService = ConnectService(oauth, tokens, runs, syncState)
     val planService = TrainingPlanService(trainingPlanSource, config.trainingPlanStartDate, clock, zone)
     val loadService = TrainingLoadService(config.lthr, tokens, runs, clock, zone)
     val vo2maxService = Vo2maxService(config.maxHr, tokens, runs, clock, zone)
+    val marathonPaceService =
+        MarathonPaceService(config.marathonPace, config.trainingPlanStartDate, tokens, runs, clock, zone)
 
     routing {
         healthRoutes()
@@ -117,7 +130,38 @@ fun Application.module(
         vo2maxRoutes(tokens, vo2maxService)
         longRunDriftRoutes(tokens, LongRunDriftService(tokens, runs, clock, zone))
         efficiencyFactorRoutes(tokens, EfficiencyFactorService(tokens, runs, clock, zone))
+        marathonPaceRoutes(tokens, marathonPaceService)
+        wellnessRoutes(tokens, WellnessService(wellnessSync != null, wellnessRepo, loadService, clock, zone))
     }
+}
+
+/**
+ * Resting HR and HRV from Intervals.icu (feature 015), or null without an API key. Without a test [engine], a CIO
+ * engine is created only when a key is set; the client and that engine are closed when the application stops.
+ */
+private fun Application.intervalsWellnessSync(
+    apiKey: String?,
+    engine: HttpClientEngine?,
+    repo: ExposedWellnessRepository,
+    clock: Clock,
+    zone: ZoneId,
+): WellnessSync? {
+    if (apiKey == null) return null
+    val ownEngine = if (engine == null) CIO.create() else null
+    val http = intervalsHttpClient(engine ?: requireNotNull(ownEngine))
+    monitor.subscribe(ApplicationStopped) {
+        http.close()
+        ownEngine?.close()
+    }
+    return WellnessSync(IntervalsWellnessSource(IntervalsClient(http, apiKey, clock)), repo, clock, zone)
+}
+
+private fun Application.installServerPlugins(config: AppConfig) {
+    install(ContentNegotiation) { json() }
+    install(CallLogging)
+    installStatusPages()
+    installSessions(config)
+    install(XsrfProtection) { secureCookies = config.secureCookies }
 }
 
 private fun Application.installStatusPages() {

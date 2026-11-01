@@ -1,0 +1,6 @@
+[
+  {"id": "2026-10-29", "restingHR": 49, "hrv": 61.5, "weight": 70.1},
+  {"id": "2026-10-30", "restingHR": 52},
+  {"id": "2026-10-31", "restingHR": 50.5, "hrv": null},
+  {"id": "not-a-date", "restingHR": 48, "hrv": 59.0}
+]

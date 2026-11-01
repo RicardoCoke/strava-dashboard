@@ -19,9 +19,11 @@ import { CalendarLikeBuild } from '../calendar-like-build/calendar-like-build';
 import { TrainingPlanStore } from '../calendar-like-build/training-plan.store';
 import { EfficiencyFactorSection } from '../efficiency-factor/efficiency-factor-section';
 import { LongRunDriftSection } from '../long-run-drift/long-run-drift-section';
+import { MarathonPaceSection } from '../marathon-pace/marathon-pace-section/marathon-pace-section';
 import { RaceDayFormSection } from '../race-day-form/race-day-form-section';
 import { TrainingLoadSection } from '../training-load/training-load-section';
 import { Vo2maxSection } from '../vo2max/vo2max-section';
+import { WellnessSection } from '../wellness/wellness-section';
 import { HeadlineTiles } from './headline-tiles/headline-tiles';
 import { HeartRateTrendChart } from './heart-rate-trend-chart/heart-rate-trend-chart';
 import { SyncBanner } from './sync-banner/sync-banner';
@@ -45,7 +47,9 @@ function hasNoRuns(data: RunningDashboardResponse): boolean {
     CalendarLikeBuild,
     TrainingLoadSection,
     RaceDayFormSection,
+    WellnessSection,
     Vo2maxSection,
+    MarathonPaceSection,
     BuildCalendarSection,
     RingSpinner,
     SyncBanner,

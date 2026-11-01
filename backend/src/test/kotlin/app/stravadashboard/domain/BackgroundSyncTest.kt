@@ -2,13 +2,20 @@ package app.stravadashboard.domain
 
 import app.stravadashboard.domain.model.ActivityId
 import app.stravadashboard.domain.ports.ActivitySource
+import app.stravadashboard.domain.ports.ActivitySummary
 import app.stravadashboard.domain.ports.SourceResult
 import app.stravadashboard.domain.ports.SyncState
 import app.stravadashboard.domain.ports.SyncStatus
+import app.stravadashboard.domain.ports.WellnessSource
+import app.stravadashboard.domain.wellness.WellnessFetchResult
+import app.stravadashboard.domain.wellness.WellnessFetchStatus
+import app.stravadashboard.domain.wellness.WellnessSync
 import app.stravadashboard.persistence.DatabaseFactory
 import app.stravadashboard.persistence.ExposedRunRepository
 import app.stravadashboard.persistence.ExposedSyncStateRepository
+import app.stravadashboard.persistence.ExposedWellnessRepository
 import app.stravadashboard.testsupport.FakeActivitySource
+import app.stravadashboard.testsupport.FakeWellnessSource
 import app.stravadashboard.testsupport.MutableClock
 import app.stravadashboard.testsupport.NOW
 import app.stravadashboard.testsupport.TEST_ZONE
@@ -23,6 +30,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import java.time.Duration
 import java.time.Instant
+import java.time.LocalDate
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -167,6 +175,163 @@ class BackgroundSyncTest {
             sync.join()
 
             assertTrue(sync.reauthRequired)
+        }
+
+    private val wellnessRepo = ExposedWellnessRepository(database)
+    private val wellnessSource = FakeWellnessSource()
+
+    private fun syncWithWellness(source: ActivitySource = this.source) =
+        BackgroundSync(
+            SyncService(source, runs, syncState, clock, TEST_ZONE, budget),
+            runs,
+            syncState,
+            budget,
+            clock,
+            scope,
+            WellnessSync(wellnessSource, wellnessRepo, clock, TEST_ZONE),
+        )
+
+    @Test
+    fun `015 R3 - wellness refresh runs after Strava step with any outcome`() =
+        run {
+            val done = syncWithWellness()
+            source.release.complete(Unit)
+            done.startIfDue()
+            done.join()
+            assertEquals(1, wellnessSource.ranges.size)
+            assertEquals(WellnessFetchStatus.OK, wellnessRepo.getState().lastStatus)
+
+            clock.advance(Duration.ofMinutes(15))
+            source.failWith(SourceResult.ReauthRequired)
+            done.startIfDue()
+            done.join()
+            assertTrue(done.reauthRequired)
+            assertEquals(2, wellnessSource.ranges.size)
+
+            clock.advance(Duration.ofMinutes(15))
+            val throwing =
+                object : ActivitySource by FakeActivitySource() {
+                    override suspend fun listActivities(
+                        after: Instant,
+                        page: Int,
+                        perPage: Int,
+                    ): SourceResult<List<ActivitySummary>> = error("invented")
+                }
+            val failed = syncWithWellness(throwing)
+            failed.startIfDue()
+            failed.join()
+            assertEquals(3, wellnessSource.ranges.size)
+            assertFalse(SyncStatus.SYNCING == failed.status().info.status)
+        }
+
+    @Test
+    fun `015 R3 - status stays syncing until the wellness step is done`() =
+        run {
+            val gate = CompletableDeferred<Unit>()
+            val entered = CompletableDeferred<Unit>()
+            val slow =
+                object : WellnessSource by wellnessSource {
+                    override suspend fun fetch(
+                        oldest: LocalDate,
+                        newest: LocalDate,
+                    ): WellnessFetchResult {
+                        entered.complete(Unit)
+                        gate.await()
+                        return wellnessSource.fetch(oldest, newest)
+                    }
+                }
+            val sync =
+                BackgroundSync(
+                    SyncService(source, runs, syncState, clock, TEST_ZONE, budget),
+                    runs,
+                    syncState,
+                    budget,
+                    clock,
+                    scope,
+                    WellnessSync(slow, wellnessRepo, clock, TEST_ZONE),
+                )
+            source.release.complete(Unit)
+            sync.startIfDue()
+            entered.await()
+            assertEquals(SyncStatus.SYNCING, sync.status().info.status)
+            gate.complete(Unit)
+            sync.join()
+            assertEquals(SyncStatus.OK, sync.status().info.status)
+        }
+
+    @Test
+    fun `015 R4 - wellness failure leaves Strava sync state untouched`() =
+        run {
+            source.release.complete(Unit)
+            source.stored(1)
+            wellnessSource.result = WellnessFetchResult.KeyRejected
+            val withWellness = syncWithWellness()
+            withWellness.startIfDue()
+            withWellness.join()
+
+            assertEquals(WellnessFetchStatus.KEY_REJECTED, wellnessRepo.getState().lastStatus)
+            assertFalse(withWellness.reauthRequired)
+            assertEquals(listOf(1L), runs.findAll().map { it.id.value })
+            assertEquals(SyncStatus.OK, syncState.get().lastStatus)
+            assertEquals(NOW, syncState.get().lastSuccessfulSyncAt)
+            assertEquals(SyncStatus.OK, withWellness.status().info.status)
+        }
+
+    /** The Strava sync state after the same one-run sync in a separate database, with no wellness step. */
+    private suspend fun plainSyncState(): SyncState {
+        val database = DatabaseFactory.connect(tempDbPath())
+        val plainRuns = ExposedRunRepository(database)
+        val plainState = ExposedSyncStateRepository(database)
+        val plainBudget = StravaCallBudget(clock)
+        val plainSource =
+            GatedActivitySource().apply {
+                release.complete(Unit)
+                stored(1)
+            }
+        val plain =
+            BackgroundSync(
+                SyncService(plainSource, plainRuns, plainState, clock, TEST_ZONE, plainBudget),
+                plainRuns,
+                plainState,
+                plainBudget,
+                clock,
+                scope,
+            )
+        plain.startIfDue()
+        plain.join()
+        return plainState.get()
+    }
+
+    @Test
+    fun `015 R4 - a throwing wellness step leaves Strava sync state untouched`() =
+        run {
+            source.release.complete(Unit)
+            source.stored(1)
+            val throwing =
+                object : WellnessSource {
+                    override suspend fun fetch(
+                        oldest: LocalDate,
+                        newest: LocalDate,
+                    ): WellnessFetchResult = error("invented")
+                }
+            val sync =
+                BackgroundSync(
+                    SyncService(source, runs, syncState, clock, TEST_ZONE, budget),
+                    runs,
+                    syncState,
+                    budget,
+                    clock,
+                    scope,
+                    WellnessSync(throwing, wellnessRepo, clock, TEST_ZONE),
+                )
+            sync.startIfDue()
+            sync.join()
+
+            assertEquals(WellnessFetchStatus.UNAVAILABLE, wellnessRepo.getState().lastStatus)
+            assertFalse(sync.reauthRequired)
+            assertEquals(listOf(1L), runs.findAll().map { it.id.value })
+            assertEquals(plainSyncState(), syncState.get())
+            assertEquals(SyncStatus.OK, sync.status().info.status)
         }
 
     private companion object {

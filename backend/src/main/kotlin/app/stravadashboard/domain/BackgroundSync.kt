@@ -4,6 +4,7 @@ import app.stravadashboard.domain.SyncPolicy.pendingCount
 import app.stravadashboard.domain.ports.RunRepository
 import app.stravadashboard.domain.ports.SyncStateRepository
 import app.stravadashboard.domain.ports.SyncStatus
+import app.stravadashboard.domain.wellness.WellnessSync
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -23,6 +24,7 @@ data class SyncSnapshot(
  * Runs [SyncService] as a background job in [scope], so the read endpoints never wait for Strava (feature 009).
  * At most one job runs at a time, across tabs.
  */
+@Suppress("LongParameterList")
 class BackgroundSync(
     private val syncService: SyncService,
     private val runs: RunRepository,
@@ -30,6 +32,8 @@ class BackgroundSync(
     private val budget: StravaCallBudget,
     private val clock: Clock,
     private val scope: CoroutineScope,
+    /** Refreshes resting HR and HRV after the Strava step (feature 015); null when Intervals.icu isn't configured. */
+    private val wellness: WellnessSync? = null,
 ) {
     private val running = AtomicBoolean(false)
 
@@ -63,12 +67,22 @@ class BackgroundSync(
         return SyncSnapshot(idle.info.copy(status = SyncStatus.SYNCING, retryAfter = null), null)
     }
 
+    private suspend fun runJob() {
+        try {
+            stravaStep()
+            // After the Strava step, whatever its outcome; catches its own failures (feature 015, R3 and R4).
+            wellness?.refreshIfDue()
+        } finally {
+            running.set(false)
+        }
+    }
+
     /**
      * [SyncService] handles Strava failures itself; this is the last net for anything else (a locked database, say),
      * so the job never ends without a status and only the exception's class name is logged (AC5.4).
      */
     @Suppress("TooGenericExceptionCaught")
-    private suspend fun runJob() {
+    private suspend fun stravaStep() {
         try {
             reauthRequired = syncService.syncIfDue() == SyncOutcome.ReauthRequired
         } catch (e: CancellationException) {
@@ -76,8 +90,6 @@ class BackgroundSync(
         } catch (e: Exception) {
             log.warn("Background sync failed unexpectedly: {}", e::class.simpleName)
             recordUnavailable()
-        } finally {
-            running.set(false)
         }
     }
 
