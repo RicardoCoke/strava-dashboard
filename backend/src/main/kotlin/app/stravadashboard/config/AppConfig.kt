@@ -23,6 +23,8 @@ data class AppConfig(
     val lthr: LthrSetting = LthrSetting.NotConfigured,
     /** Maximum heart rate for the VO2max estimate (feature 008). */
     val maxHr: MaxHrSetting = MaxHrSetting.Default,
+    /** Goal marathon pace for the marathon-pace card (feature 012). */
+    val marathonPace: MarathonPaceSetting = MarathonPaceSetting.NotConfigured,
 ) {
     val sessionSecret: ByteArray get() = HexFormat.of().parseHex(sessionSecretHex)
 
@@ -42,9 +44,15 @@ data class AppConfig(
                 MaxHrSetting.Invalid -> "<invalid>"
                 is MaxHrSetting.Configured -> "<set>"
             }
+        val marathonPaceText =
+            when (marathonPace) {
+                MarathonPaceSetting.NotConfigured -> "<unset>"
+                MarathonPaceSetting.Invalid -> "<invalid>"
+                is MarathonPaceSetting.Valid -> "<set>"
+            }
         return "AppConfig(host=$host, port=$port, stravaRedirectUri=$stravaRedirectUri, dbPath=$dbPath, " +
             "trainingPlanCsv=$plan, trainingPlanStartDate=$trainingPlanStartDate, lthr=$lthrText, " +
-            "maxHr=$maxHrText, secrets=<redacted>)"
+            "maxHr=$maxHrText, marathonPace=$marathonPaceText, secrets=<redacted>)"
     }
 
     companion object {
@@ -71,6 +79,7 @@ data class AppConfig(
                         ?: DEFAULT_TRAINING_PLAN_START,
                 lthr = LthrSetting.parse(env["LTHR_BPM"]),
                 maxHr = MaxHrSetting.parse(env["MAX_HR_BPM"]),
+                marathonPace = MarathonPaceSetting.parse(env["MARATHON_GOAL_PACE"]),
             )
 
         private fun validStartDate(text: String): LocalDate {

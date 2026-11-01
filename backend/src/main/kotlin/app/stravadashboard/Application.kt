@@ -3,6 +3,7 @@ package app.stravadashboard
 import app.stravadashboard.api.ErrorResponse
 import app.stravadashboard.api.XsrfProtection
 import app.stravadashboard.api.healthRoutes
+import app.stravadashboard.api.marathonPaceRoutes
 import app.stravadashboard.api.runningDashboardRoutes
 import app.stravadashboard.api.syncRoutes
 import app.stravadashboard.api.trainingLoadRoutes
@@ -17,6 +18,7 @@ import app.stravadashboard.domain.BackgroundSync
 import app.stravadashboard.domain.RunningDashboardService
 import app.stravadashboard.domain.StravaCallBudget
 import app.stravadashboard.domain.SyncService
+import app.stravadashboard.domain.marathonpace.MarathonPaceService
 import app.stravadashboard.domain.ports.TrainingPlanSource
 import app.stravadashboard.domain.trainingload.TrainingLoadService
 import app.stravadashboard.domain.trainingplan.TrainingPlanService
@@ -78,13 +80,7 @@ fun Application.module(
 ) {
     install(ContentNegotiation) { json() }
     install(CallLogging)
-    install(StatusPages) {
-        exception<Throwable> { call, cause ->
-            // Path only: query strings can carry the OAuth code.
-            log.error("Unhandled error on {}", call.request.path(), cause)
-            call.respond(HttpStatusCode.InternalServerError, ErrorResponse.INTERNAL)
-        }
-    }
+    installStatusPages()
     installSessions(config)
     install(XsrfProtection) { secureCookies = config.secureCookies }
 
@@ -108,6 +104,8 @@ fun Application.module(
     val planService = TrainingPlanService(trainingPlanSource, config.trainingPlanStartDate, clock, zone)
     val loadService = TrainingLoadService(config.lthr, tokens, runs, clock, zone)
     val vo2maxService = Vo2maxService(config.maxHr, tokens, runs, clock, zone)
+    val marathonPaceService =
+        MarathonPaceService(config.marathonPace, config.trainingPlanStartDate, tokens, runs, clock, zone)
 
     routing {
         healthRoutes()
@@ -117,6 +115,17 @@ fun Application.module(
         trainingPlanRoutes(tokens, planService)
         trainingLoadRoutes(tokens, loadService)
         vo2maxRoutes(tokens, vo2maxService)
+        marathonPaceRoutes(tokens, marathonPaceService)
+    }
+}
+
+private fun Application.installStatusPages() {
+    install(StatusPages) {
+        exception<Throwable> { call, cause ->
+            // Path only: query strings can carry the OAuth code.
+            log.error("Unhandled error on {}", call.request.path(), cause)
+            call.respond(HttpStatusCode.InternalServerError, ErrorResponse.INTERNAL)
+        }
     }
 }
 
