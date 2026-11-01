@@ -1,6 +1,7 @@
 package app.stravadashboard.domain.ports
 
 import app.stravadashboard.domain.model.ActivityId
+import app.stravadashboard.domain.model.HrDriftResult
 import app.stravadashboard.domain.model.HrHistogramResult
 import app.stravadashboard.domain.model.RunActivity
 import app.stravadashboard.domain.model.StreamPaceResult
@@ -30,11 +31,17 @@ interface RunRepository {
         computedAt: Instant,
     )
 
+    suspend fun saveHrDrift(
+        id: ActivityId,
+        result: HrDriftResult,
+        computedAt: Instant,
+    )
+
     suspend fun findAll(): List<RunActivity>
 
     suspend fun newestStartUtc(): Instant?
 
-    /** Deletes runs with their laps, stream paces and heart-rate histograms; unknown ids are ignored. */
+    /** Deletes runs with their laps, stream paces, heart-rate histograms and drifts; unknown ids are ignored. */
     suspend fun delete(ids: Collection<ActivityId>)
 
     /** Deletes runs whose local start date is before [date]. */

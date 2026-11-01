@@ -55,6 +55,15 @@ object RunHrHistogramsTable : Table("run_hr_histograms") {
     override val primaryKey = PrimaryKey(runId)
 }
 
+/** One row per long run once its drift streams were fetched (feature 013). Only the derived drift % is kept. */
+object RunHrDriftsTable : Table("run_hr_drifts") {
+    val runId = long("run_id").references(RunsTable.id, onDelete = ReferenceOption.CASCADE)
+    val status = text("status")
+    val driftPct = double("drift_pct").nullable()
+    val computedAt = long("computed_at")
+    override val primaryKey = PrimaryKey(runId)
+}
+
 object SyncStateTable : Table("sync_state") {
     val id = integer("id")
     val listCursor = long("list_cursor").nullable()

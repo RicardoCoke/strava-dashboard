@@ -6,6 +6,7 @@ import { stubPlanSection } from '../../testing/plan-section-stub';
 import { stubTrainingLoadSection } from '../../testing/training-load-stub';
 import { stubRaceDayFormSection } from '../../testing/race-day-form-stub';
 import { SyncStoreStub, stubSyncStore, syncStatus } from '../../testing/sync-store-stub';
+import { stubLongRunDriftSection } from '../../testing/long-run-drift-stub';
 import { stubVo2maxSection } from '../../testing/vo2max-stub';
 import { stubMarathonPaceSection } from '../../testing/marathon-pace-stub';
 import { RunningDashboardPage } from './running-dashboard-page';
@@ -21,6 +22,7 @@ describe('RunningDashboardPage', () => {
     });
     stubCharts();
     stubVo2maxSection();
+    stubLongRunDriftSection();
     sync = stubSyncStore();
     stubTrainingLoadSection();
     stubMarathonPaceSection();

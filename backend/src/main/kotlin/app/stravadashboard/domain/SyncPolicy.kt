@@ -1,5 +1,6 @@
 package app.stravadashboard.domain
 
+import app.stravadashboard.domain.longrundrift.needsDriftStream
 import app.stravadashboard.domain.model.RunActivity
 import app.stravadashboard.domain.model.RunType
 import app.stravadashboard.domain.ports.SourceResult
@@ -9,15 +10,19 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 
-/** A detail call, a speed-streams call when [streamFor] is set, or a heart-rate streams call when [heartRate]. */
+/**
+ * A detail call, a speed-streams call when [streamFor] is set, a heart-rate streams call when [heartRate], or a
+ * long-run drift streams call when [drift].
+ */
 internal data class ActivityCall(
     val run: RunActivity,
     val streamFor: RunType.Workout? = null,
     val heartRate: Boolean = false,
+    val drift: Boolean = false,
 )
 
 /** Activity-call phases, in priority order. They share one per-sync cap. */
-internal enum class SyncPhase { MISSING_DETAILS, MISSING_STREAMS, MISSING_HR_STREAMS, RECHECKS }
+internal enum class SyncPhase { MISSING_DETAILS, MISSING_STREAMS, MISSING_HR_STREAMS, RECHECKS, MISSING_DRIFT_STREAMS }
 
 /** A run with heart rate whose heart-rate stream hasn't been fetched yet (feature 005). */
 internal fun needsHrStream(run: RunActivity): Boolean = run.averageHeartRateBpm != null && run.hrHistogram == null
@@ -40,14 +45,15 @@ internal object SyncPolicy {
 
     /**
      * Runs waiting for a detail call (first or the 008 lap-HR refetch), outdoor workouts waiting for a streams call,
-     * or runs waiting for HR streams.
+     * runs waiting for HR streams, or long runs waiting for drift streams.
      */
     fun pendingCount(all: List<RunActivity>): Int =
         all.count {
             it.detailFetchedAt == null ||
                 needsLapHeartRate(it) ||
                 RepPaceCalculator.needsStream(it) ||
-                needsHrStream(it)
+                needsHrStream(it) ||
+                needsDriftStream(it)
         }
 
     fun plan(
@@ -67,6 +73,8 @@ internal object SyncPolicy {
             SyncPhase.MISSING_HR_STREAMS ->
                 newestFirst.filter(::needsHrStream).map { ActivityCall(it, heartRate = true) }
             SyncPhase.RECHECKS -> newestFirst.filter { isRecheckDue(it, now) }.map { ActivityCall(it) }
+            SyncPhase.MISSING_DRIFT_STREAMS ->
+                newestFirst.filter(::needsDriftStream).map { ActivityCall(it, drift = true) }
         }
     }
 

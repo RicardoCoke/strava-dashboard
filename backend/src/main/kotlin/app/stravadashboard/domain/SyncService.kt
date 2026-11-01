@@ -4,6 +4,7 @@ import app.stravadashboard.domain.SyncPolicy.MAX_ACTIVITY_CALLS_PER_SYNC
 import app.stravadashboard.domain.SyncPolicy.PAGE_SIZE
 import app.stravadashboard.domain.SyncPolicy.failureOf
 import app.stravadashboard.domain.SyncPolicy.pendingCount
+import app.stravadashboard.domain.longrundrift.fetchDriftStream
 import app.stravadashboard.domain.model.HrHistogramResult
 import app.stravadashboard.domain.model.HrHistogramStatus
 import app.stravadashboard.domain.model.RUN_SPORT_TYPE
@@ -201,6 +202,7 @@ class SyncService(
                 val workout = call.streamFor
                 failure =
                     when {
+                        call.drift -> fetchDriftStream(source, runs, call.run, now)
                         call.heartRate -> fetchHrStream(call.run, now)
                         workout != null -> fetchStream(call.run, workout, now)
                         else -> fetchDetail(call.run, now)

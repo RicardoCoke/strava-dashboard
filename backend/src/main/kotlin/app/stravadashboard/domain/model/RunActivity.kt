@@ -43,6 +43,8 @@ data class RunActivity(
     val hrHistogram: HrHistogramResult? = null,
     /** Null until a detail call made since feature 008 (which also stores lap heart rate). */
     val movingTime: Seconds? = null,
+    /** Null until the long-run drift stream call has been made (feature 013). */
+    val hrDrift: HrDriftResult? = null,
 ) {
     val localDate: LocalDate get() = startLocal.toLocalDate()
     val isRun: Boolean get() = sportType == RUN_SPORT_TYPE

@@ -35,6 +35,7 @@ object DatabaseFactory {
                 RunLapsTable,
                 RunStreamPacesTable,
                 RunHrHistogramsTable,
+                RunHrDriftsTable,
                 SyncStateTable,
             )
             addColumnIfMissing(SyncStateTable.tableName, SyncStateTable.historyStart.name, "INTEGER")

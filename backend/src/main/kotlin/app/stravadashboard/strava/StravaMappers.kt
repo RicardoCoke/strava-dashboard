@@ -2,6 +2,7 @@ package app.stravadashboard.strava
 
 import app.stravadashboard.domain.model.ActivityId
 import app.stravadashboard.domain.model.Bpm
+import app.stravadashboard.domain.model.DriftStream
 import app.stravadashboard.domain.model.HeartRateStream
 import app.stravadashboard.domain.model.Lap
 import app.stravadashboard.domain.model.Meters
@@ -49,6 +50,22 @@ internal fun StreamSetDto.toSpeedStream(): SpeedStream? {
     val speeds = velocitySmooth?.data.orEmpty()
     return if (times.size >= MIN_STREAM_SAMPLES && times.size == speeds.size) {
         SpeedStream(times.map(::Seconds), speeds.map(::MetersPerSecond))
+    } else {
+        null
+    }
+}
+
+/**
+ * Null unless `time`, `velocity_smooth` and `heartrate` are present, of equal length and at least two samples. A
+ * `moving` stream of another length is ignored, so every interval counts as moving.
+ */
+internal fun StreamSetDto.toDriftStream(): DriftStream? {
+    val times = time?.data.orEmpty()
+    val speeds = velocitySmooth?.data.orEmpty()
+    val bpm = heartrate?.data.orEmpty()
+    val movingFlags = moving?.data?.takeIf { it.size == times.size }
+    return if (times.size >= MIN_STREAM_SAMPLES && times.size == speeds.size && times.size == bpm.size) {
+        DriftStream(times.map(::Seconds), speeds.map(::MetersPerSecond), bpm.map(::Bpm), movingFlags)
     } else {
         null
     }
