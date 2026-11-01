@@ -2,6 +2,7 @@ package app.stravadashboard
 
 import app.stravadashboard.api.ErrorResponse
 import app.stravadashboard.api.XsrfProtection
+import app.stravadashboard.api.efficiencyFactorRoutes
 import app.stravadashboard.api.healthRoutes
 import app.stravadashboard.api.runningDashboardRoutes
 import app.stravadashboard.api.syncRoutes
@@ -17,6 +18,7 @@ import app.stravadashboard.domain.BackgroundSync
 import app.stravadashboard.domain.RunningDashboardService
 import app.stravadashboard.domain.StravaCallBudget
 import app.stravadashboard.domain.SyncService
+import app.stravadashboard.domain.efficiency.EfficiencyFactorService
 import app.stravadashboard.domain.ports.TrainingPlanSource
 import app.stravadashboard.domain.trainingload.TrainingLoadService
 import app.stravadashboard.domain.trainingplan.TrainingPlanService
@@ -117,6 +119,7 @@ fun Application.module(
         trainingPlanRoutes(tokens, planService)
         trainingLoadRoutes(tokens, loadService)
         vo2maxRoutes(tokens, vo2maxService)
+        efficiencyFactorRoutes(tokens, EfficiencyFactorService(tokens, runs, clock, zone))
     }
 }
 
