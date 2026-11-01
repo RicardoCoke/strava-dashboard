@@ -31,7 +31,7 @@ object Vo2maxCalculator {
                 .filter { it.isRun && it.localDate <= today }
                 .mapNotNull(SegmentExtractor::segmentOf)
                 .mapNotNull { segment -> Vo2maxEstimator.estimate(segment, maxHr)?.let { Valued(segment, it) } }
-        val current = current(valued, today)
+        val current = currentOf(valued, today, { it.segment.date }, ::weightedMean)
         val windowStart = today.minusMonths(WINDOW_MONTHS).with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
         val windowEnd = today.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY))
         return Vo2maxReport(
@@ -46,19 +46,22 @@ object Vo2maxCalculator {
         )
     }
 
-    private fun current(
-        valued: List<Valued>,
+    /** The last 7 days, else the last 28 days, averaged with [mean]; shared with feature 016. */
+    internal fun <T> currentOf(
+        items: List<T>,
         today: LocalDate,
+        dateOf: (T) -> LocalDate,
+        mean: (List<T>) -> Double?,
     ): CurrentVo2max? =
         listOf(CurrentBasis.LAST_7_DAYS to CURRENT_DAYS, CurrentBasis.LAST_28_DAYS to FALLBACK_DAYS)
             .firstNotNullOfOrNull { (basis, days) ->
                 val start = today.minusDays(days - 1)
-                val inPeriod = valued.filter { it.segment.date in start..today }
-                weightedMean(inPeriod)?.let { CurrentVo2max(it, basis, start, today, inPeriod.size) }
+                val inPeriod = items.filter { dateOf(it) in start..today }
+                mean(inPeriod)?.let { CurrentVo2max(it, basis, start, today, inPeriod.size) }
             }
 
     /** Uses the shown value (1 decimal), so the tiles match the number on screen. */
-    private fun predictions(vo2max: Double): List<RacePrediction> {
+    internal fun predictions(vo2max: Double): List<RacePrediction> {
         val vdot = roundOneDecimal(vo2max)
         return RaceDistance.entries.map { RacePrediction(it, DanielsFormulas.raceTime(vdot, it.meters)) }
     }
@@ -82,13 +85,15 @@ object Vo2maxCalculator {
         return if (seconds == 0) null else valued.sumOf { it.vo2max * it.segment.duration.value } / seconds
     }
 
-    private fun isPending(
+    /** A run in the window still waiting for detail data; [alsoPending] adds feature-specific refetches. */
+    internal fun isPending(
         run: RunActivity,
         windowStart: LocalDate,
         today: LocalDate,
+        alsoPending: (RunActivity) -> Boolean = { false },
     ): Boolean =
         run.localDate in windowStart..today &&
             run.averageHeartRateBpm != null &&
-            (run.detailFetchedAt == null || needsLapHeartRate(run)) &&
+            (run.detailFetchedAt == null || needsLapHeartRate(run) || alsoPending(run)) &&
             !DistanceRepPattern.matches(run.name)
 }

@@ -88,6 +88,34 @@ describe('Vo2maxSection tabs', () => {
     expect(element().querySelector('app-vo2max-chart')).not.toBeNull();
   });
 
+  it('R8 - tabs work with the keyboard', () => {
+    const tablist = element().querySelector<HTMLElement>('[role="tablist"]');
+    const press = (key: string) => {
+      const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true });
+      document.activeElement?.dispatchEvent(event);
+      fixture.detectChanges();
+      return event;
+    };
+    tabs()[0].focus();
+    expect(tabs().map((tab) => tab.tabIndex)).toEqual([0, -1]);
+
+    expect(press('ArrowRight').defaultPrevented).toBe(true);
+    expect(tabs()[1].getAttribute('aria-selected')).toBe('true');
+    expect(document.activeElement).toBe(tabs()[1]);
+    expect(tabs().map((tab) => tab.tabIndex)).toEqual([-1, 0]);
+    http.expectOne(NORMALIZED).flush(normalizedVo2max());
+    fixture.detectChanges();
+
+    press('ArrowRight');
+    expect(document.activeElement).toBe(tabs()[0]);
+    press('End');
+    expect(document.activeElement).toBe(tabs()[1]);
+    press('Home');
+    expect(tabs()[0].getAttribute('aria-selected')).toBe('true');
+    expect(press('a').defaultPrevented).toBe(false);
+    expect(tablist).not.toBeNull();
+  });
+
   it('R8 - normalized loads on first open only', () => {
     http.expectNone(NORMALIZED);
     openNormalized(normalizedVo2max());

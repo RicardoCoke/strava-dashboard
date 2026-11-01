@@ -133,14 +133,8 @@ class ExposedRunRepository(
             val splits = RunSplitsTable.selectAll().groupBy({ it[RunSplitsTable.runId] }, { it.toSplit() })
             RunsTable.selectAll().map { row ->
                 val id = row[RunsTable.id]
-                val runSplits =
-                    if (row[RunsTable.splitsSaved] ==
-                        true
-                    ) {
-                        splits[id].orEmpty().sortedBy { it.index }
-                    } else {
-                        null
-                    }
+                val splitsSaved = row[RunsTable.splitsSaved] == true
+                val runSplits = splits[id].orEmpty().sortedBy { it.index }.takeIf { splitsSaved }
                 row.toRun(laps[id].orEmpty().sortedBy { it.index }, paces[id], histograms[id], drifts[id], runSplits)
             }
         }

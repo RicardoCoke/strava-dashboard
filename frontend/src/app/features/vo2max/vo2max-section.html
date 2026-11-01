@@ -10,6 +10,7 @@
       [attr.aria-selected]="activeTab() === 'vo2'"
       [attr.tabindex]="activeTab() === 'vo2' ? 0 : -1"
       (click)="selectTab('vo2')"
+      (keydown)="onTabKeydown($event)"
     >
       Vo2
     </button>
@@ -22,6 +23,7 @@
       [attr.aria-selected]="activeTab() === 'normalized'"
       [attr.tabindex]="activeTab() === 'normalized' ? 0 : -1"
       (click)="selectTab('normalized')"
+      (keydown)="onTabKeydown($event)"
     >
       Normalized Vo2
     </button>

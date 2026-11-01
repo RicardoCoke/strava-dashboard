@@ -439,6 +439,55 @@ class SyncServiceTest {
     }
 
     @Test
+    fun `016 R1 - lap heart rate refetch comes before splits refetch`() {
+        // Run 1 (older) waits for lap heart rate; run 2 (newer) only for splits. Both helpers update every row,
+        // so run 1 is stored first: it then needs both refetches, run 2 only splits.
+        storeOldDetails(summary(1, daysAgo(10)))
+        storePre016Details(summary(2, daysAgo(3)))
+        source.activities = emptyList()
+
+        sync()
+
+        assertEquals(listOf("detail:1", "detail:2"), source.activityCalls.filter { it.startsWith("detail") })
+    }
+
+    @Test
+    fun `016 R1 - 404 on splits refetch deletes the run`() {
+        storePre016Details(summary(1, daysAgo(10)))
+        source.activities = emptyList()
+        source.failFromCall = 2
+        source.failure = SourceResult.NotFound
+
+        sync()
+
+        assertEquals(emptyList(), runBlocking { runs.findAll() })
+    }
+
+    @Test
+    fun `016 R1 - revoked access on splits refetch requires reauth and writes nothing`() {
+        storePre016Details(summary(1, daysAgo(10)))
+        source.activities = emptyList()
+        source.failFromCall = 2
+        source.failure = SourceResult.ReauthRequired
+
+        assertIs<SyncOutcome.ReauthRequired>(runBlocking { service.syncIfDue() })
+        assertNull(runBlocking { runs.findAll() }.single().splits)
+    }
+
+    @Test
+    fun `016 R1 - unavailable on splits refetch leaves the run pending`() {
+        storePre016Details(summary(1, daysAgo(10)))
+        source.activities = emptyList()
+        source.failFromCall = 2
+
+        val info = sync()
+
+        assertEquals(SyncStatus.STRAVA_UNAVAILABLE, info.status)
+        assertEquals(1, info.runsPendingDetail)
+        assertNull(runBlocking { runs.findAll() }.single().splits)
+    }
+
+    @Test
     fun `016 R1 - each run is planned once across detail groups`() {
         storeOldDetails(summary(1, daysAgo(10)))
         transaction(database) { exec("UPDATE runs SET splits_saved = NULL") }

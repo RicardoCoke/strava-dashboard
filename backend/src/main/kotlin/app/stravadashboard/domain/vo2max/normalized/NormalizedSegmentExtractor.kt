@@ -17,8 +17,6 @@ import app.stravadashboard.domain.vo2max.SegmentMethod
  */
 object NormalizedSegmentExtractor {
     const val EARLY_PORTION_SECONDS = 3600
-    private const val MIN_PACE_SECONDS = 120.0
-    private const val MAX_PACE_SECONDS = 720.0
 
     private data class Piece(
         val seconds: Double,
@@ -34,12 +32,15 @@ object NormalizedSegmentExtractor {
             DistanceRepPattern.matches(run.name) || movingTime == null -> null
             run.trainer || RunClassifier.classify(run) is RunType.Workout -> SegmentExtractor.segmentOf(run)
             !qualifiesAsWholeRun(run, movingTime) || splits == null -> null
-            else ->
-                earlyPieces(
-                    splits,
-                ).let { if (it.isEmpty()) SegmentExtractor.segmentOf(run) else earlySegment(run, it) }
+            else -> earlySegmentOrWholeRun(run, earlyPieces(splits))
         }
     }
+
+    /** Row 7, or row 6 (008's whole run) when no usable split piece with heart rate is left. */
+    private fun earlySegmentOrWholeRun(
+        run: RunActivity,
+        pieces: List<Piece>,
+    ): Segment? = if (pieces.isEmpty()) SegmentExtractor.segmentOf(run) else earlySegment(run, pieces)
 
     /** 008's whole-run checks (row 4): heart rate, at least 20 minutes and a distance. */
     private fun qualifiesAsWholeRun(
@@ -54,10 +55,8 @@ object NormalizedSegmentExtractor {
     private fun earlyPieces(splits: List<Split>): List<Piece> {
         val usable =
             splits.sortedBy { it.index }.mapNotNull { split ->
-                GradeAdjustment.equivalentSpeed(split)?.let {
-                    split to
-                        it
-                }
+                val speed = GradeAdjustment.equivalentSpeed(split)
+                speed?.let { Pair(split, it) }
             }
         val startSeconds = usable.runningFold(0) { before, (split, _) -> before + split.movingTime.value }
         return usable
@@ -79,7 +78,8 @@ object NormalizedSegmentExtractor {
         val duration = pieces.sumOf { it.seconds }
         val pace = duration / (pieces.sumOf { it.speed * it.seconds } / METERS_PER_KM)
         val plausible =
-            duration >= SegmentExtractor.MIN_RUN_MOVING_SECONDS && pace in MIN_PACE_SECONDS..MAX_PACE_SECONDS
+            duration >= SegmentExtractor.MIN_RUN_MOVING_SECONDS &&
+                pace in SegmentExtractor.MIN_PACE_SECONDS..SegmentExtractor.MAX_PACE_SECONDS
         val heartRate = pieces.sumOf { it.heartRate * it.seconds } / duration
         return if (plausible) {
             Segment(run.localDate, pace, heartRate, Seconds(duration.toInt()), SegmentMethod.EARLY_SPLITS)

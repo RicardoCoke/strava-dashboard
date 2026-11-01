@@ -2,15 +2,7 @@ package app.stravadashboard.domain.vo2max.normalized
 
 import app.stravadashboard.domain.model.Bpm
 import app.stravadashboard.domain.model.RunActivity
-import app.stravadashboard.domain.model.roundOneDecimal
-import app.stravadashboard.domain.needsLapHeartRate
 import app.stravadashboard.domain.needsSplits
-import app.stravadashboard.domain.vo2max.CurrentBasis
-import app.stravadashboard.domain.vo2max.CurrentVo2max
-import app.stravadashboard.domain.vo2max.DanielsFormulas
-import app.stravadashboard.domain.vo2max.DistanceRepPattern
-import app.stravadashboard.domain.vo2max.RaceDistance
-import app.stravadashboard.domain.vo2max.RacePrediction
 import app.stravadashboard.domain.vo2max.Segment
 import app.stravadashboard.domain.vo2max.Vo2maxCalculator
 import app.stravadashboard.domain.vo2max.Vo2maxEstimator
@@ -38,12 +30,12 @@ object NormalizedVo2maxCalculator {
                 .filter { it.isRun && it.localDate <= today }
                 .mapNotNull(NormalizedSegmentExtractor::segmentOf)
                 .mapNotNull { segment -> Vo2maxEstimator.estimate(segment, maxHr)?.let { Valued(segment, it) } }
-        val current = current(valued, today)
+        val current = Vo2maxCalculator.currentOf(valued, today, { it.segment.date }, ::mean)
         return NormalizedVo2maxReport(
             maxHr = maxHr,
             maxHrConfigured = maxHrConfigured,
             current = current,
-            predictions = current?.let { predictions(it.vo2max) }.orEmpty(),
+            predictions = current?.let { Vo2maxCalculator.predictions(it.vo2max) }.orEmpty(),
             weeks =
                 original.weeks.map { week ->
                     val inWeek = valued.filter { it.segment.date in week.weekStart..week.weekEnd }
@@ -58,40 +50,12 @@ object NormalizedVo2maxCalculator {
                 },
             windowStart = original.windowStart,
             windowEnd = original.windowEnd,
-            runsPendingDetail = runs.count { isPending(it, original.windowStart, today) },
+            runsPendingDetail =
+                runs.count { Vo2maxCalculator.isPending(it, original.windowStart, today, ::needsSplits) },
         )
-    }
-
-    private fun current(
-        valued: List<Valued>,
-        today: LocalDate,
-    ): CurrentVo2max? =
-        listOf(
-            CurrentBasis.LAST_7_DAYS to Vo2maxCalculator.CURRENT_DAYS,
-            CurrentBasis.LAST_28_DAYS to Vo2maxCalculator.FALLBACK_DAYS,
-        ).firstNotNullOfOrNull { (basis, days) ->
-            val start = today.minusDays(days - 1)
-            val inPeriod = valued.filter { it.segment.date in start..today }
-            mean(inPeriod)?.let { CurrentVo2max(it, basis, start, today, inPeriod.size) }
-        }
-
-    /** Uses the shown value (1 decimal), so the tiles match the number on screen (as 008). */
-    private fun predictions(vo2max: Double): List<RacePrediction> {
-        val vdot = roundOneDecimal(vo2max)
-        return RaceDistance.entries.map { RacePrediction(it, DanielsFormulas.raceTime(vdot, it.meters)) }
     }
 
     /** Plain mean: each run counts once, whatever its duration. */
     private fun mean(valued: List<Valued>): Double? =
         if (valued.isEmpty()) null else valued.sumOf { it.vo2max } / valued.size
-
-    private fun isPending(
-        run: RunActivity,
-        windowStart: LocalDate,
-        today: LocalDate,
-    ): Boolean =
-        run.localDate in windowStart..today &&
-            run.averageHeartRateBpm != null &&
-            !DistanceRepPattern.matches(run.name) &&
-            (run.detailFetchedAt == null || needsLapHeartRate(run) || needsSplits(run))
 }

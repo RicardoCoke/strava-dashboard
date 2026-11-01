@@ -12,8 +12,8 @@ import app.stravadashboard.domain.model.Seconds
 object SegmentExtractor {
     const val MIN_RUN_MOVING_SECONDS = 1200
     const val MIN_REP_MINUTES = 4
-    private const val MIN_PACE_SECONDS = 120.0
-    private const val MAX_PACE_SECONDS = 720.0
+    const val MIN_PACE_SECONDS = 120.0
+    const val MAX_PACE_SECONDS = 720.0
 
     /** The spec's R3 table, applied top to bottom; the first matching row decides. */
     fun segmentOf(run: RunActivity): Segment? {

@@ -30,6 +30,16 @@ import {
 
 export type Vo2maxTab = 'vo2' | 'normalized';
 
+const TABS: Vo2maxTab[] = ['vo2', 'normalized'];
+const step = (tab: Vo2maxTab, by: number): Vo2maxTab =>
+  TABS[(TABS.indexOf(tab) + by + TABS.length) % TABS.length];
+const TAB_KEYS: Record<string, ((tab: Vo2maxTab) => Vo2maxTab) | undefined> = {
+  ArrowRight: (tab) => step(tab, 1),
+  ArrowLeft: (tab) => step(tab, -1),
+  Home: () => TABS[0],
+  End: () => TABS[TABS.length - 1],
+};
+
 /**
  * The "VO2max" card under "Training load", with two tabs: "Vo2" (feature 008) and "Normalized Vo2" (feature 016).
  * Each tab has its own request and states; the normalized data loads the first time its tab opens.
@@ -105,6 +115,18 @@ export class Vo2maxSection implements OnInit {
     if (tab === 'normalized' && this.normalizedState().kind === 'idle') {
       this.loadNormalized();
     }
+  }
+
+  /** Arrow keys and Home/End move between the tabs and select them (WAI-ARIA tabs pattern). */
+  protected onTabKeydown(event: KeyboardEvent): void {
+    const next = TAB_KEYS[event.key]?.(this.activeTab());
+    if (!next) {
+      return;
+    }
+    event.preventDefault();
+    this.selectTab(next);
+    const tablist = (event.currentTarget as HTMLElement).closest('[role="tablist"]');
+    tablist?.querySelector<HTMLElement>(`#vo2max-tab-${next}`)?.focus();
   }
 
   protected retryNormalized(): void {

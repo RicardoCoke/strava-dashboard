@@ -8,9 +8,11 @@ import app.stravadashboard.domain.model.MetersPerSecond
 import app.stravadashboard.domain.model.Seconds
 import app.stravadashboard.domain.model.Split
 import app.stravadashboard.domain.ports.ActivityDetail
+import app.stravadashboard.domain.ports.StoredTokens
 import app.stravadashboard.module
 import app.stravadashboard.persistence.DatabaseFactory
 import app.stravadashboard.persistence.ExposedRunRepository
+import app.stravadashboard.persistence.ExposedTokenRepository
 import app.stravadashboard.testsupport.TEST_ZONE
 import app.stravadashboard.testsupport.summary
 import app.stravadashboard.testsupport.testConfig
@@ -34,6 +36,8 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -138,6 +142,21 @@ class NormalizedVo2maxRoutesTest {
         }
 
     @Test
+    fun `R7 - 401 for a session of another athlete`() {
+        val config = config(MaxHrSetting.Default)
+        app(config) {
+            val browser = connectedBrowser()
+            runBlocking {
+                val tokens = ExposedTokenRepository(DatabaseFactory.connect(config.dbPath))
+                tokens.save(StoredTokens(8, "a", "r", now.plusSeconds(99_999), "activity:read_all"))
+            }
+            val response = browser.get("/api/vo2max/normalized")
+            assertEquals(HttpStatusCode.Unauthorized, response.status)
+            assertEquals("not_connected", response.json()["error"]?.jsonPrimitive?.content)
+        }
+    }
+
+    @Test
     fun `R7 - 422 invalid config`() =
         app(config(MaxHrSetting.Invalid)) {
             val response = connectedBrowser().get("/api/vo2max/normalized")
@@ -166,8 +185,10 @@ class NormalizedVo2maxRoutesTest {
             assertEquals("last7Days", current["basis"]?.jsonPrimitive?.content)
             val predictions = body.getValue("predictions").jsonArray.map { it.jsonObject }
             assertEquals(listOf("5k", "10k", "half", "marathon"), predictions.map { it["key"]?.jsonPrimitive?.content })
-            assertEquals(JsonNull, predictions.first()["note"])
-            assertEquals(MARATHON_NOTE, predictions.last()["note"]?.jsonPrimitive?.content)
+            assertEquals(
+                listOf<String?>(null, null, null, MARATHON_NOTE),
+                predictions.map { (it["note"] as? JsonPrimitive)?.contentOrNull },
+            )
             val weeks = body.getValue("weeks").jsonArray.map { it.jsonObject }
             assertEquals(27, weeks.size)
             assertEquals(keys("weekStart weekEnd vo2max runCount inProgress originalVo2max"), weeks.first().keys)
@@ -212,18 +233,37 @@ class NormalizedVo2maxRoutesTest {
         }
     }
 
+    /** The JSON of [path] for the seeded run, stored with or without splits. */
+    private fun bodiesWithAndWithoutSplits(path: String): List<String> =
+        listOf(true, false).map { splits ->
+            val config = config(MaxHrSetting.Default)
+            var text = ""
+            app(config) {
+                val browser = connectedBrowser()
+                seedRun(config, splits)
+                text = browser.get(path).bodyAsText()
+            }
+            text
+        }
+
     @Test
     fun `R9 - vo2max JSON unchanged with splits stored`() {
-        val withSplits = config(MaxHrSetting.Default)
-        val withoutSplits = config(MaxHrSetting.Default)
-        val bodies =
-            listOf(withSplits to true, withoutSplits to false).map { (config, splits) ->
-                var text = ""
-                app(
-                    config,
-                ) { text = connectedBrowser().also { seedRun(config, splits) }.get("/api/vo2max").bodyAsText() }
-                text
-            }
+        val bodies = bodiesWithAndWithoutSplits("/api/vo2max")
         assertEquals(bodies[0], bodies[1])
+    }
+
+    @Test
+    fun `R13 - other reports unchanged with splits stored`() {
+        listOf(
+            "/api/dashboard/running",
+            "/api/training-load",
+            "/api/efficiency-factor",
+            "/api/long-run-drift",
+            "/api/marathon-pace",
+        ).forEach { path ->
+            val bodies = bodiesWithAndWithoutSplits(path)
+            assertTrue(bodies[0].startsWith("{"), path)
+            assertEquals(bodies[0], bodies[1], path)
+        }
     }
 }
