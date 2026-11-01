@@ -7,6 +7,7 @@ import { trainingPlan } from '../../testing/training-plan-fixtures';
 import { stubSyncStore } from '../../testing/sync-store-stub';
 import { stubLongRunDriftSection } from '../../testing/long-run-drift-stub';
 import { stubVo2maxSection } from '../../testing/vo2max-stub';
+import { stubRaceDayFormSection } from '../../testing/race-day-form-stub';
 import { RunningDashboardPage } from './running-dashboard-page';
 
 describe('RunningDashboardPage with the training load card', () => {
@@ -18,6 +19,7 @@ describe('RunningDashboardPage with the training load card', () => {
       providers: [provideHttpClient(), provideHttpClientTesting()],
     });
     stubCharts();
+    stubRaceDayFormSection();
     stubVo2maxSection();
     stubLongRunDriftSection();
     stubSyncStore();

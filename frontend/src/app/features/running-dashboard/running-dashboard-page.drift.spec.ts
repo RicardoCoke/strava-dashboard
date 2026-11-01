@@ -3,6 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { dashboard, stubCharts } from '../../testing/dashboard-fixtures';
 import { stubPlanSection } from '../../testing/plan-section-stub';
+import { stubRaceDayFormSection } from '../../testing/race-day-form-stub';
 import { stubSyncStore } from '../../testing/sync-store-stub';
 import { stubTrainingLoadSection } from '../../testing/training-load-stub';
 import { stubVo2maxSection } from '../../testing/vo2max-stub';
@@ -18,6 +19,7 @@ describe('RunningDashboardPage with the long-run drift card', () => {
     });
     stubCharts();
     stubVo2maxSection();
+    stubRaceDayFormSection();
     stubSyncStore();
     stubTrainingLoadSection();
     stubPlanSection();

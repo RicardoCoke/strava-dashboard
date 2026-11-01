@@ -28,6 +28,24 @@ data class ErrorResponse(
         val VO2MAX_INVALID_CONFIG =
             ErrorResponse("vo2max_invalid_config", "MAX_HR_BPM is not a whole number between 120 and 230.")
 
+        val RACE_DAY_FORM_MISSING_PLAN =
+            ErrorResponse("race_day_form_missing_plan", "No training plan is configured.")
+        val RACE_DAY_FORM_MISSING_LTHR =
+            ErrorResponse("race_day_form_missing_lthr", "No threshold heart rate is configured.")
+        val RACE_DAY_FORM_MISSING_BOTH =
+            ErrorResponse(
+                "race_day_form_missing_plan_and_lthr",
+                "No training plan or threshold heart rate is configured.",
+            )
+
+        /** Fixed texts: never the configured value, the parser reason or the file path. */
+        val RACE_DAY_FORM_INVALID_LTHR =
+            ErrorResponse("race_day_form_invalid_config", "LTHR_BPM is not a whole number between 100 and 220.")
+        val RACE_DAY_FORM_INVALID_PLAN =
+            ErrorResponse("race_day_form_invalid_config", "The training plan file has a problem.")
+        val RACE_DAY_FORM_PLAN_UNAVAILABLE =
+            ErrorResponse("race_day_form_plan_unavailable", "The training plan file could not be read.")
+
         /** [reason] comes from the plan parser and never contains the file path or cell values. */
         fun trainingPlanInvalid(reason: String): ErrorResponse = ErrorResponse("training_plan_invalid", reason)
     }

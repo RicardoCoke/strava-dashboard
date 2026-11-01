@@ -20,4 +20,6 @@ export const palette = {
   fitness: '#00f19f',
   fatigue: '#a78bfa',
   form: '#f2f4f5',
+  // The race-day form ready band (feature 011): the accent at 12 %.
+  readyBand: 'rgba(0, 241, 159, 0.12)',
 } as const;
