@@ -8,6 +8,7 @@ import app.stravadashboard.api.syncRoutes
 import app.stravadashboard.api.trainingLoadRoutes
 import app.stravadashboard.api.trainingPlanRoutes
 import app.stravadashboard.api.vo2maxRoutes
+import app.stravadashboard.api.wellnessRoutes
 import app.stravadashboard.auth.ConnectService
 import app.stravadashboard.auth.OAuthState
 import app.stravadashboard.auth.UserSession
@@ -21,10 +22,16 @@ import app.stravadashboard.domain.ports.TrainingPlanSource
 import app.stravadashboard.domain.trainingload.TrainingLoadService
 import app.stravadashboard.domain.trainingplan.TrainingPlanService
 import app.stravadashboard.domain.vo2max.Vo2maxService
+import app.stravadashboard.domain.wellness.WellnessService
+import app.stravadashboard.domain.wellness.WellnessSync
+import app.stravadashboard.intervals.IntervalsClient
+import app.stravadashboard.intervals.IntervalsWellnessSource
+import app.stravadashboard.intervals.intervalsHttpClient
 import app.stravadashboard.persistence.DatabaseFactory
 import app.stravadashboard.persistence.ExposedRunRepository
 import app.stravadashboard.persistence.ExposedSyncStateRepository
 import app.stravadashboard.persistence.ExposedTokenRepository
+import app.stravadashboard.persistence.ExposedWellnessRepository
 import app.stravadashboard.persistence.TrainingPlanFileSource
 import app.stravadashboard.strava.StravaActivitySource
 import app.stravadashboard.strava.StravaClient
@@ -69,24 +76,17 @@ fun main() {
     }.start(wait = true)
 }
 
+// The engines and plan source are test seams; every other dependency is built here.
+@Suppress("LongParameterList")
 fun Application.module(
     config: AppConfig,
     clock: Clock = Clock.systemUTC(),
     zone: ZoneId = ZoneId.systemDefault(),
     stravaEngine: HttpClientEngine = CIO.create(),
     trainingPlanSource: TrainingPlanSource = TrainingPlanFileSource(config.trainingPlanCsvPath),
+    intervalsEngine: HttpClientEngine = CIO.create(),
 ) {
-    install(ContentNegotiation) { json() }
-    install(CallLogging)
-    install(StatusPages) {
-        exception<Throwable> { call, cause ->
-            // Path only: query strings can carry the OAuth code.
-            log.error("Unhandled error on {}", call.request.path(), cause)
-            call.respond(HttpStatusCode.InternalServerError, ErrorResponse.INTERNAL)
-        }
-    }
-    installSessions(config)
-    install(XsrfProtection) { secureCookies = config.secureCookies }
+    installServerPlugins(config)
 
     val database = DatabaseFactory.connect(config.dbPath)
     val tokens = ExposedTokenRepository(database)
@@ -102,12 +102,15 @@ fun Application.module(
     // Background syncs run in a child scope of the application, so they are cancelled when it stops.
     val syncScope = CoroutineScope(coroutineContext + SupervisorJob(coroutineContext[Job]))
     monitor.subscribe(ApplicationStopped) { syncScope.cancel() }
-    val backgroundSync = BackgroundSync(syncService, runs, syncState, budget, clock, syncScope)
+    val wellnessRepo = ExposedWellnessRepository(database)
+    val wellnessSync = intervalsWellnessSync(config.intervalsApiKey, intervalsEngine, wellnessRepo, clock, zone)
+    val backgroundSync = BackgroundSync(syncService, runs, syncState, budget, clock, syncScope, wellnessSync)
     val dashboardService = RunningDashboardService(tokens, runs, clock, zone)
     val connectService = ConnectService(oauth, tokens, runs, syncState)
     val planService = TrainingPlanService(trainingPlanSource, config.trainingPlanStartDate, clock, zone)
     val loadService = TrainingLoadService(config.lthr, tokens, runs, clock, zone)
     val vo2maxService = Vo2maxService(config.maxHr, tokens, runs, clock, zone)
+    val wellnessService = WellnessService(wellnessSync != null, wellnessRepo, loadService, clock, zone)
 
     routing {
         healthRoutes()
@@ -117,7 +120,39 @@ fun Application.module(
         trainingPlanRoutes(tokens, planService)
         trainingLoadRoutes(tokens, loadService)
         vo2maxRoutes(tokens, vo2maxService)
+        wellnessRoutes(tokens, wellnessService)
     }
+}
+
+/**
+ * Resting HR and HRV from Intervals.icu (feature 015), or null without an API key. The client is closed when the
+ * application stops.
+ */
+private fun Application.intervalsWellnessSync(
+    apiKey: String?,
+    engine: HttpClientEngine,
+    repo: ExposedWellnessRepository,
+    clock: Clock,
+    zone: ZoneId,
+): WellnessSync? {
+    if (apiKey == null) return null
+    val http = intervalsHttpClient(engine)
+    monitor.subscribe(ApplicationStopped) { http.close() }
+    return WellnessSync(IntervalsWellnessSource(IntervalsClient(http, apiKey, clock)), repo, clock, zone)
+}
+
+private fun Application.installServerPlugins(config: AppConfig) {
+    install(ContentNegotiation) { json() }
+    install(CallLogging)
+    install(StatusPages) {
+        exception<Throwable> { call, cause ->
+            // Path only: query strings can carry the OAuth code.
+            log.error("Unhandled error on {}", call.request.path(), cause)
+            call.respond(HttpStatusCode.InternalServerError, ErrorResponse.INTERNAL)
+        }
+    }
+    installSessions(config)
+    install(XsrfProtection) { secureCookies = config.secureCookies }
 }
 
 private fun Application.installSessions(config: AppConfig) {

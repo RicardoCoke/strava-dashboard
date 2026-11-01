@@ -6,6 +6,7 @@ import { stubPlanSection } from '../../testing/plan-section-stub';
 import { stubTrainingLoadSection } from '../../testing/training-load-stub';
 import { SyncStoreStub, stubSyncStore, syncStatus } from '../../testing/sync-store-stub';
 import { stubVo2maxSection } from '../../testing/vo2max-stub';
+import { stubWellnessSection } from '../../testing/wellness-stub';
 import { RunningDashboardPage } from './running-dashboard-page';
 
 const URL = '/api/dashboard/running';
@@ -22,6 +23,7 @@ describe('RunningDashboardPage redesign', () => {
     });
     stubCharts();
     stubVo2maxSection();
+    stubWellnessSection();
     sync = stubSyncStore();
     stubTrainingLoadSection();
     stubPlanSection();

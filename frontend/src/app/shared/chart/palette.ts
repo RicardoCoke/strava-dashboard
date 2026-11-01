@@ -18,4 +18,7 @@ export const palette = {
   fitness: '#00f19f',
   fatigue: '#a78bfa',
   form: '#f2f4f5',
+  // Resting HR and HRV lines (feature 015), reusing the values above.
+  restingHr: '#a78bfa',
+  hrv: '#00f19f',
 } as const;

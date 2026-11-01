@@ -66,3 +66,21 @@ object SyncStateTable : Table("sync_state") {
     val lastAttemptAt = long("last_attempt_at").nullable()
     override val primaryKey = PrimaryKey(id)
 }
+
+/** One row per local date from Intervals.icu (feature 015). Both values may be null, never both. */
+object WellnessDaysTable : Table("wellness_days") {
+    val date = text("date")
+    val restingHrBpm = integer("resting_hr_bpm").nullable()
+    val hrvMs = double("hrv_ms").nullable()
+    val fetchedAt = long("fetched_at")
+    override val primaryKey = PrimaryKey(date)
+}
+
+object WellnessStateTable : Table("wellness_state") {
+    val id = integer("id")
+    val lastSuccessAt = long("last_success_at").nullable()
+    val lastAttemptAt = long("last_attempt_at").nullable()
+    val lastStatus = text("last_status").nullable()
+    val retryAfter = long("retry_after").nullable()
+    override val primaryKey = PrimaryKey(id)
+}

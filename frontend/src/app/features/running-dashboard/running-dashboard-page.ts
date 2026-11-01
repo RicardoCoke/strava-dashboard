@@ -19,6 +19,7 @@ import { CalendarLikeBuild } from '../calendar-like-build/calendar-like-build';
 import { TrainingPlanStore } from '../calendar-like-build/training-plan.store';
 import { TrainingLoadSection } from '../training-load/training-load-section';
 import { Vo2maxSection } from '../vo2max/vo2max-section';
+import { WellnessSection } from '../wellness/wellness-section';
 import { HeadlineTiles } from './headline-tiles/headline-tiles';
 import { HeartRateTrendChart } from './heart-rate-trend-chart/heart-rate-trend-chart';
 import { SyncBanner } from './sync-banner/sync-banner';
@@ -41,6 +42,7 @@ function hasNoRuns(data: RunningDashboardResponse): boolean {
   imports: [
     CalendarLikeBuild,
     TrainingLoadSection,
+    WellnessSection,
     Vo2maxSection,
     BuildCalendarSection,
     RingSpinner,

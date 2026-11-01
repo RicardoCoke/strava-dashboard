@@ -23,6 +23,8 @@ data class AppConfig(
     val lthr: LthrSetting = LthrSetting.NotConfigured,
     /** Maximum heart rate for the VO2max estimate (feature 008). */
     val maxHr: MaxHrSetting = MaxHrSetting.Default,
+    /** Personal Intervals.icu API key for resting HR and HRV (feature 015), or null when not connected. */
+    val intervalsApiKey: String? = null,
 ) {
     val sessionSecret: ByteArray get() = HexFormat.of().parseHex(sessionSecretHex)
 
@@ -44,7 +46,8 @@ data class AppConfig(
             }
         return "AppConfig(host=$host, port=$port, stravaRedirectUri=$stravaRedirectUri, dbPath=$dbPath, " +
             "trainingPlanCsv=$plan, trainingPlanStartDate=$trainingPlanStartDate, lthr=$lthrText, " +
-            "maxHr=$maxHrText, secrets=<redacted>)"
+            "maxHr=$maxHrText, intervalsApiKey=${if (intervalsApiKey == null) "<unset>" else "<set>"}, " +
+            "secrets=<redacted>)"
     }
 
     companion object {
@@ -71,6 +74,7 @@ data class AppConfig(
                         ?: DEFAULT_TRAINING_PLAN_START,
                 lthr = LthrSetting.parse(env["LTHR_BPM"]),
                 maxHr = MaxHrSetting.parse(env["MAX_HR_BPM"]),
+                intervalsApiKey = env["INTERVALS_ICU_API_KEY"]?.trim()?.takeIf { it.isNotEmpty() },
             )
 
         private fun validStartDate(text: String): LocalDate {

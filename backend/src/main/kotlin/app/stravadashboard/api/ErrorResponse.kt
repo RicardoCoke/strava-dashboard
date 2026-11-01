@@ -28,6 +28,8 @@ data class ErrorResponse(
         val VO2MAX_INVALID_CONFIG =
             ErrorResponse("vo2max_invalid_config", "MAX_HR_BPM is not a whole number between 120 and 230.")
 
+        val WELLNESS_NOT_CONFIGURED = ErrorResponse("wellness_not_configured", "Intervals.icu is not connected.")
+
         /** [reason] comes from the plan parser and never contains the file path or cell values. */
         fun trainingPlanInvalid(reason: String): ErrorResponse = ErrorResponse("training_plan_invalid", reason)
     }

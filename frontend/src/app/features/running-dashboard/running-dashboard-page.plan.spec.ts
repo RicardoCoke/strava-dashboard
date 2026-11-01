@@ -6,6 +6,7 @@ import { trainingPlan } from '../../testing/training-plan-fixtures';
 import { stubTrainingLoadSection } from '../../testing/training-load-stub';
 import { stubSyncStore } from '../../testing/sync-store-stub';
 import { stubVo2maxSection } from '../../testing/vo2max-stub';
+import { stubWellnessSection } from '../../testing/wellness-stub';
 import { RunningDashboardPage } from './running-dashboard-page';
 
 describe('RunningDashboardPage with the marathon build section', () => {
@@ -18,6 +19,7 @@ describe('RunningDashboardPage with the marathon build section', () => {
     });
     stubCharts();
     stubVo2maxSection();
+    stubWellnessSection();
     stubSyncStore();
     stubTrainingLoadSection();
     fixture = TestBed.createComponent(RunningDashboardPage);
