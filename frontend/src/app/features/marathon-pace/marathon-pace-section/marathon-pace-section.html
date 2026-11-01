@@ -1,0 +1,53 @@
+<section class="card mp" aria-labelledby="mp-heading">
+  <h2 id="mp-heading">Marathon pace</h2>
+
+  @switch (state().kind) {
+    @case ('loading') {
+      <p class="empty" role="status">Loading marathon pace…</p>
+    }
+    @case ('notConfigured') {
+      <p class="mp-empty">Marathon pace not configured.</p>
+      <p class="empty">
+        Set MARATHON_GOAL_PACE in .env (for example 4:15), then restart the backend.
+      </p>
+    }
+    @case ('invalidConfig') {
+      <p class="mp-problem" role="alert">
+        Marathon pace settings have a problem: {{ invalidMessage() }}
+      </p>
+      <p class="empty">
+        Set MARATHON_GOAL_PACE in .env (for example 4:15), then restart the backend.
+      </p>
+    }
+    @case ('error') {
+      <div class="mp-error" role="alert">
+        <p>Couldn't load marathon pace.</p>
+        <button type="button" class="retry" (click)="retry()">Retry</button>
+      </div>
+    }
+    @case ('loaded') {
+      <p class="subtitle">{{ subtitle() }}</p>
+      @if (empty()) {
+        <p class="empty">No marathon-pace km in the build yet.</p>
+      } @else {
+        <div class="summary">
+          @for (item of summary(); track item.label) {
+            <p class="summary-value">
+              <span class="summary-label">{{ item.label }}</span>
+              <span class="summary-number">{{ item.value }}</span>
+              @if (item.caption) {
+                <span class="summary-caption">{{ item.caption }}</span>
+              }
+            </p>
+          }
+        </div>
+        @if (options(); as options) {
+          <app-chart [options]="options" [label]="chartLabel" />
+        }
+      }
+      @if (pending(); as pending) {
+        <p class="footnote">{{ pending }}</p>
+      }
+    }
+  }
+</section>

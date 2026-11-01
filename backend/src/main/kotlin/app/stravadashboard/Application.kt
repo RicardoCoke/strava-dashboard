@@ -4,6 +4,7 @@ import app.stravadashboard.api.ErrorResponse
 import app.stravadashboard.api.XsrfProtection
 import app.stravadashboard.api.healthRoutes
 import app.stravadashboard.api.longRunDriftRoutes
+import app.stravadashboard.api.marathonPaceRoutes
 import app.stravadashboard.api.raceDayFormRoutes
 import app.stravadashboard.api.runningDashboardRoutes
 import app.stravadashboard.api.syncRoutes
@@ -20,6 +21,7 @@ import app.stravadashboard.domain.RunningDashboardService
 import app.stravadashboard.domain.StravaCallBudget
 import app.stravadashboard.domain.SyncService
 import app.stravadashboard.domain.longrundrift.LongRunDriftService
+import app.stravadashboard.domain.marathonpace.MarathonPaceService
 import app.stravadashboard.domain.ports.TrainingPlanSource
 import app.stravadashboard.domain.racedayform.RaceDayFormService
 import app.stravadashboard.domain.trainingload.TrainingLoadService
@@ -103,6 +105,8 @@ fun Application.module(
     val planService = TrainingPlanService(trainingPlanSource, config.trainingPlanStartDate, clock, zone)
     val loadService = TrainingLoadService(config.lthr, tokens, runs, clock, zone)
     val vo2maxService = Vo2maxService(config.maxHr, tokens, runs, clock, zone)
+    val marathonPaceService =
+        MarathonPaceService(config.marathonPace, config.trainingPlanStartDate, tokens, runs, clock, zone)
 
     routing {
         healthRoutes()
@@ -114,6 +118,7 @@ fun Application.module(
         raceDayFormRoutes(tokens, RaceDayFormService(config.lthr, tokens, runs, planService, clock, zone))
         vo2maxRoutes(tokens, vo2maxService)
         longRunDriftRoutes(tokens, LongRunDriftService(tokens, runs, clock, zone))
+        marathonPaceRoutes(tokens, marathonPaceService)
     }
 }
 

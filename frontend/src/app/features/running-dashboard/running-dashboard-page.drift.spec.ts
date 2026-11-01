@@ -7,6 +7,7 @@ import { stubRaceDayFormSection } from '../../testing/race-day-form-stub';
 import { stubSyncStore } from '../../testing/sync-store-stub';
 import { stubTrainingLoadSection } from '../../testing/training-load-stub';
 import { stubVo2maxSection } from '../../testing/vo2max-stub';
+import { stubMarathonPaceSection } from '../../testing/marathon-pace-stub';
 import { RunningDashboardPage } from './running-dashboard-page';
 
 describe('RunningDashboardPage with the long-run drift card', () => {
@@ -22,6 +23,7 @@ describe('RunningDashboardPage with the long-run drift card', () => {
     stubRaceDayFormSection();
     stubSyncStore();
     stubTrainingLoadSection();
+    stubMarathonPaceSection();
     stubPlanSection();
     fixture = TestBed.createComponent(RunningDashboardPage);
     http = TestBed.inject(HttpTestingController);
