@@ -39,18 +39,14 @@ describe('RunningDashboardPage with the training load card', () => {
   const tags = () => Array.from(element().children).map((child) => child.tagName.toLowerCase());
 
   it('005 R10 - training load card directly after marathon build', () => {
-    expect(tags().slice(0, 4)).toEqual([
-      'h1',
-      'app-sync-banner',
-      'app-calendar-like-build',
-      'app-training-load-section',
-    ]);
     http.expectOne('/api/dashboard/running').flush(dashboard());
     http.expectOne('/api/training-plan').flush(trainingPlan());
     http.expectOne('/api/training-load').flush(trainingLoad());
     fixture.detectChanges();
     const order = tags();
-    expect(order.indexOf('app-training-load-section')).toBe(3);
+    expect(order.indexOf('app-training-load-section')).toBe(
+      order.indexOf('app-calendar-like-build') + 1,
+    );
   });
 
   it('005 R10 - one training load request', () => {

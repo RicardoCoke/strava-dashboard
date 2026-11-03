@@ -38,21 +38,19 @@ describe('RunningDashboardPage with the marathon build section', () => {
   const element = () => fixture.nativeElement as HTMLElement;
   const text = () => element().textContent ?? '';
 
-  it('004 R9 - plan section renders first and loads in parallel', () => {
+  it('004 R9 - plan loads in parallel with the dashboard', () => {
     const dashboardRequest = http.expectOne('/api/dashboard/running');
     const planRequest = http.expectOne('/api/training-plan');
     expect([dashboardRequest.request.method, planRequest.request.method]).toEqual(['GET', 'GET']);
-
-    const children = Array.from(element().children).map((child) => child.tagName.toLowerCase());
-    expect(children.slice(0, 3)).toEqual(['h1', 'app-sync-banner', 'app-calendar-like-build']);
 
     dashboardRequest.flush(dashboard());
     planRequest.flush(trainingPlan());
     fixture.detectChanges();
     const order = Array.from(element().children).map((child) => child.tagName.toLowerCase());
-    expect(order.indexOf('app-sync-banner')).toBeLessThan(order.indexOf('app-calendar-like-build'));
-    expect(order.indexOf('app-calendar-like-build')).toBeLessThan(
-      order.indexOf('app-headline-tiles'),
+    // Headline tiles and weekly distance sit at the top, above the build calendar.
+    expect(order.slice(0, 4)).toEqual(['h1', 'app-sync-banner', 'app-headline-tiles', 'div']);
+    expect(order.indexOf('app-headline-tiles')).toBeLessThan(
+      order.indexOf('app-calendar-like-build'),
     );
     http.verify();
   });
