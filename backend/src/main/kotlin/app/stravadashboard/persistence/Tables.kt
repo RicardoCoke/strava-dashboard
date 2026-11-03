@@ -91,7 +91,7 @@ object SyncStateTable : Table("sync_state") {
     override val primaryKey = PrimaryKey(id)
 }
 
-/** One row per local date from Intervals.icu (feature 015). Both values may be null, never both. */
+/** One row per local date from Garmin Connect (feature 015). Both values may be null, never both. */
 object WellnessDaysTable : Table("wellness_days") {
     val date = text("date")
     val restingHrBpm = integer("resting_hr_bpm").nullable()

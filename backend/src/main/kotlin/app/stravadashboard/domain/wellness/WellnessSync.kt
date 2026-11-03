@@ -10,7 +10,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 
 /**
- * Refreshes the wellness cache from Intervals.icu (feature 015, R3 and R4). Runs inside the background sync job and
+ * Refreshes the wellness cache from Garmin Connect (feature 015, R3 and R4). Runs inside the background sync job and
  * never touches Strava state. Failures keep the cached rows; only statuses, counts and class names are logged.
  */
 class WellnessSync(

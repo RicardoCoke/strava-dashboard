@@ -7,12 +7,12 @@ describe('wellness view', () => {
   const source = (status: WellnessSourceStatus) => ({ status, lastFetchedAt: null });
 
   it('R9 - empty text per source status', () => {
-    expect(emptyText(source('pending'))).toBe('Waiting for the first sync from Intervals.icu.');
+    expect(emptyText(source('pending'))).toBe('Waiting for the first sync from Garmin Connect.');
     expect(emptyText(source('ok'))).toBe('No resting HR or HRV in the last 12 weeks.');
     expect(emptyText(source('keyRejected'))).toBe(
-      'Intervals.icu rejected the API key. Check INTERVALS_ICU_API_KEY, then restart the backend.',
+      'Garmin Connect rejected the API key. Check GARMIN_API_KEY, then restart the backend.',
     );
-    const unreachable = "Couldn't reach Intervals.icu. It will retry at the next sync.";
+    const unreachable = "Couldn't reach Garmin Connect. It will retry at the next sync.";
     expect(emptyText(source('rateLimited'))).toBe(unreachable);
     expect(emptyText(source('unavailable'))).toBe(unreachable);
   });
@@ -21,10 +21,10 @@ describe('wellness view', () => {
     expect(staleText(source('ok'))).toBeNull();
     expect(staleText(source('pending'))).toBeNull();
     expect(staleText(source('keyRejected'))).toBe(
-      'Showing saved data: Intervals.icu rejected the API key.',
+      'Showing saved data: Garmin Connect rejected the API key.',
     );
     expect(staleText(source('unavailable'))).toBe(
-      "Showing saved data: Intervals.icu couldn't be reached at the last sync.",
+      "Showing saved data: Garmin Connect couldn't be reached at the last sync.",
     );
     expect(staleText(source('rateLimited'))).toBe(staleText(source('unavailable')));
   });
@@ -32,7 +32,7 @@ describe('wellness view', () => {
   it('R9 - 404 not configured, 401 nothing, anything else error', () => {
     const notConfigured = new HttpErrorResponse({
       status: 404,
-      error: { error: 'wellness_not_configured', message: 'Intervals.icu is not connected.' },
+      error: { error: 'wellness_not_configured', message: 'Garmin Connect is not connected.' },
     });
     expect(wellnessStateFromError(notConfigured)).toEqual({ kind: 'notConfigured' });
     expect(wellnessStateFromError(new HttpErrorResponse({ status: 401 }))).toBeNull();

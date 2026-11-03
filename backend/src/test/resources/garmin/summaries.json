@@ -1,0 +1,6 @@
+{"data": [
+  {"calendarDate": "2026-10-29", "source": "garmin", "heartRate": {"minValue": 45, "restingValue": 49, "maxValue": 150}},
+  {"calendarDate": "2026-10-30", "heartRate": {"restingValue": 51.5}},
+  {"calendarDate": "2026-10-31"},
+  {"calendarDate": "not-a-date", "heartRate": {"restingValue": 48}}
+]}

@@ -43,14 +43,14 @@ export function wellnessStateFromError(error: unknown): WellnessState | null {
 export function emptyText(source: WellnessSource): string {
   switch (source.status) {
     case 'pending':
-      return 'Waiting for the first sync from Intervals.icu.';
+      return 'Waiting for the first sync from Garmin Connect.';
     case 'ok':
       return 'No resting HR or HRV in the last 12 weeks.';
     case 'keyRejected':
-      return 'Intervals.icu rejected the API key. Check INTERVALS_ICU_API_KEY, then restart the backend.';
+      return 'Garmin Connect rejected the API key. Check GARMIN_API_KEY, then restart the backend.';
     case 'rateLimited':
     case 'unavailable':
-      return "Couldn't reach Intervals.icu. It will retry at the next sync.";
+      return "Couldn't reach Garmin Connect. It will retry at the next sync.";
   }
 }
 
@@ -61,10 +61,10 @@ export function staleText(source: WellnessSource): string | null {
     case 'pending':
       return null;
     case 'keyRejected':
-      return 'Showing saved data: Intervals.icu rejected the API key.';
+      return 'Showing saved data: Garmin Connect rejected the API key.';
     case 'rateLimited':
     case 'unavailable':
-      return "Showing saved data: Intervals.icu couldn't be reached at the last sync.";
+      return "Showing saved data: Garmin Connect couldn't be reached at the last sync.";
   }
 }
 

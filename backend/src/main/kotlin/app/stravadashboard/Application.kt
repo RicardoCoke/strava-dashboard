@@ -34,9 +34,8 @@ import app.stravadashboard.domain.vo2max.Vo2maxService
 import app.stravadashboard.domain.vo2max.normalized.NormalizedVo2maxService
 import app.stravadashboard.domain.wellness.WellnessService
 import app.stravadashboard.domain.wellness.WellnessSync
-import app.stravadashboard.intervals.IntervalsClient
-import app.stravadashboard.intervals.IntervalsWellnessSource
-import app.stravadashboard.intervals.intervalsHttpClient
+import app.stravadashboard.garmin.GarminWellnessSource
+import app.stravadashboard.garmin.garminHttpClient
 import app.stravadashboard.persistence.DatabaseFactory
 import app.stravadashboard.persistence.ExposedRunRepository
 import app.stravadashboard.persistence.ExposedSyncStateRepository
@@ -94,7 +93,7 @@ fun Application.module(
     zone: ZoneId = ZoneId.systemDefault(),
     stravaEngine: HttpClientEngine = CIO.create(),
     trainingPlanSource: TrainingPlanSource = TrainingPlanFileSource(config.trainingPlanCsvPath),
-    intervalsEngine: HttpClientEngine? = null,
+    garminEngine: HttpClientEngine? = null,
 ) {
     installServerPlugins(config)
 
@@ -110,7 +109,7 @@ fun Application.module(
     val budget = StravaCallBudget(clock)
     val syncService = SyncService(StravaActivitySource(stravaClient), runs, syncState, clock, zone, budget)
     val wellnessRepo = ExposedWellnessRepository(database)
-    val wellnessSync = intervalsWellnessSync(config.intervalsApiKey, intervalsEngine, wellnessRepo, clock, zone)
+    val wellnessSync = garminWellnessSync(config.garminApiKey, garminEngine, wellnessRepo, clock, zone)
     val backgroundSync =
         BackgroundSync(syncService, runs, syncState, budget, clock, backgroundSyncScope(), wellnessSync)
     val dashboardService = RunningDashboardService(tokens, runs, clock, zone)
@@ -139,10 +138,10 @@ fun Application.module(
 }
 
 /**
- * Resting HR and HRV from Intervals.icu (feature 015), or null without an API key. Without a test [engine], a CIO
+ * Resting HR and HRV from Garmin Connect (feature 015), or null without an API key. Without a test [engine], a CIO
  * engine is created only when a key is set; the client and that engine are closed when the application stops.
  */
-private fun Application.intervalsWellnessSync(
+private fun Application.garminWellnessSync(
     apiKey: String?,
     engine: HttpClientEngine?,
     repo: ExposedWellnessRepository,
@@ -151,12 +150,12 @@ private fun Application.intervalsWellnessSync(
 ): WellnessSync? {
     if (apiKey == null) return null
     val ownEngine = if (engine == null) CIO.create() else null
-    val http = intervalsHttpClient(engine ?: requireNotNull(ownEngine))
+    val http = garminHttpClient(engine ?: requireNotNull(ownEngine))
     monitor.subscribe(ApplicationStopped) {
         http.close()
         ownEngine?.close()
     }
-    return WellnessSync(IntervalsWellnessSource(IntervalsClient(http, apiKey, clock)), repo, clock, zone)
+    return WellnessSync(GarminWellnessSource(http, apiKey, clock), repo, clock, zone)
 }
 
 private fun Application.installServerPlugins(config: AppConfig) {
