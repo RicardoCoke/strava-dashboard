@@ -82,6 +82,8 @@ class GarminWellnessSourceTest {
         assertEquals(HttpMethod.Post, token.method)
         assertEquals(base + tokenPath, token.url.toString())
         assertEquals("ApiKey $key", token.headers[HttpHeaders.Authorization])
+        // Garmin answers 406 to a token request that asks for JSON.
+        assertEquals(listOf("*/*"), token.headers.getAll(HttpHeaders.Accept))
 
         assertEquals(HttpMethod.Get, summaries.method)
         assertEquals("$base/usersummary-service/v2/dailysummaries", summaries.url.toString().substringBefore('?'))
