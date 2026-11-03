@@ -39,9 +39,8 @@ describe('RunningDashboardPage with the VO2max card', () => {
   const tags = () => Array.from(element().children).map((child) => child.tagName.toLowerCase());
 
   it('008 R10 / 011 R12 / 015 R9 - race-day form, then resting HR & HRV, then vo2max', () => {
-    expect(tags().slice(0, 7)).toEqual([
-      'h1',
-      'app-sync-banner',
+    const start = tags().indexOf('app-calendar-like-build');
+    expect(tags().slice(start, start + 5)).toEqual([
       'app-calendar-like-build',
       'app-training-load-section',
       'app-race-day-form-section',

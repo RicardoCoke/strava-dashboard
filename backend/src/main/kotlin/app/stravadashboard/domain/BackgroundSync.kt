@@ -32,7 +32,7 @@ class BackgroundSync(
     private val budget: StravaCallBudget,
     private val clock: Clock,
     private val scope: CoroutineScope,
-    /** Refreshes resting HR and HRV after the Strava step (feature 015); null when Intervals.icu isn't configured. */
+    /** Refreshes resting HR and HRV after the Strava step (feature 015); null when Garmin Connect isn't configured. */
     private val wellness: WellnessSync? = null,
 ) {
     private val running = AtomicBoolean(false)

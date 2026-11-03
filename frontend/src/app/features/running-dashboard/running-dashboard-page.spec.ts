@@ -139,11 +139,13 @@ describe('RunningDashboardPage', () => {
     sync.status.set(syncStatus({ status: 'syncing', nextSyncInSeconds: null }));
     fixture.detectChanges();
     expect(element().querySelector('.banner')).not.toBeNull();
+    expect(element().querySelector('.sync-spinner')).not.toBeNull();
 
     sync.finish();
     fixture.detectChanges();
     http.expectOne('/api/dashboard/running').flush(dashboard());
     fixture.detectChanges();
     expect(element().querySelector('.banner')).toBeNull();
+    expect(element().querySelector('.sync-spinner')).toBeNull();
   });
 });

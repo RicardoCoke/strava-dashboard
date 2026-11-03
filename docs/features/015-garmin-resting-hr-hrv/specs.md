@@ -404,3 +404,11 @@ Frontend (edited, kept small):
 - **Intervals.icu response types:** `restingHR` is assumed to be an integer and `hrv` a decimal, from the OpenAPI spec. The client decodes both leniently: a decimal resting HR is rounded half-up.
 - **Single chart with dual y-axes:** the alternative is two stacked mini-charts. Dual axes keep the shared `ChartComponent` (300 px) unchanged.
 - **Shared-file edits** (to coordinate with 011 to 014): `Application.kt`, `BackgroundSync.kt`, `AppConfig.kt`, `Tables.kt`, `DatabaseFactory.kt`, `ErrorResponse.kt`, `palette.ts`, `running-dashboard-page.ts/.html`, three page specs, `.env.example`. Each edit only adds lines.
+
+## Change (2026-11-03): source is now the Garmin Connect Personal API
+Intervals.icu is replaced by Garmin's official Personal API (https://developer.garmin.com/gc-developer-program/personal/personal-api/). The non-goal "no Garmin API" no longer applies; there is still no Garmin login, password or unofficial library.
+- Config: `GARMIN_API_KEY` replaces `INTERVALS_ICU_API_KEY` (env only, never logged or sent to the browser).
+- Auth: `POST https://personal.connectapi.garmin.com/personalapitoken-service/personal-api/personal-api-key/token` with `Authorization: ApiKey <key>` returns the access token as plain text (a JWT, 24 h max, no refresh). The backend keeps it in memory for 24 h minus 5 min, and retries once with a fresh token if a cached one gets a 401/403.
+- Resting HR: `GET /usersummary-service/v2/dailysummaries?startDate=&endDate=` → `data[].calendarDate`, `data[].heartRate.restingValue` (bpm).
+- HRV: `GET /hrv-service/hrv/daily/{from}/{to}` → `hrvSummaries[].calendarDate`, `hrvSummaries[].lastNightAvg` (ms); 204 = no data.
+- Both calls use `Authorization: Bearer <token>`; days are merged by date. Error mapping (401/403 key rejected, 429 Retry-After, other → unavailable) is unchanged.

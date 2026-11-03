@@ -10,7 +10,7 @@ value class HrvMs(
     val value: Double,
 )
 
-/** One day of wellness data from Intervals.icu (feature 015); [date] is the athlete's local date. */
+/** One day of wellness data from Garmin Connect (feature 015); [date] is the athlete's local date. */
 data class WellnessDay(
     val date: LocalDate,
     val restingHr: Bpm?,

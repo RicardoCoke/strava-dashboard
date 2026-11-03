@@ -345,3 +345,6 @@ Not changed: `SyncPolicy`, `SyncService`, `Tables.kt`, `ErrorResponse.kt`, `runn
 6. **Lap pace uses elapsed time** (stops count against the lap), as the intent assumes; there's no moving time per lap in the cache.
 7. **Shared-file touches:** `AppConfig.kt`, `Application.kt`, `.env.example`, `running-dashboard-page.ts/.html` and the five page specs (one line each to stub the new card) are unavoidable. Parallel features 011/013–015 will probably edit nearby lines, so expect small merge conflicts there. `ErrorResponse.kt`, `running-dashboard.models.ts`, `testing/dashboard-fixtures.ts` and `SyncPolicy` are left alone.
 8. **Pending footnote (R9) and sync reload (R10)** are "Should" items that follow existing card patterns. They can be dropped if you want the smallest possible change.
+
+## Change (2026-11-03): treadmill workouts
+R2's treadmill exclusion is relaxed for `NxMmin` treadmill runs whose description has a pace line (e.g. `4:15 4:10`, read by `TreadmillPaceParser`). Each of the first N paces counts as one rep of M minutes at that pace, and counts as MP only if inside the same goal ± 10 s/km band. Other treadmill runs still add nothing.

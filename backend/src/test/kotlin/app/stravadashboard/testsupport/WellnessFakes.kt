@@ -18,7 +18,7 @@ fun wellnessDay(
     hrv: Double? = null,
 ): WellnessDay = WellnessDay(date, restingHr?.let(::Bpm), hrv?.let(::HrvMs))
 
-/** An in-memory Intervals.icu: returns [result] and records each requested range. */
+/** An in-memory Garmin Connect: returns [result] and records each requested range. */
 class FakeWellnessSource(
     var result: WellnessFetchResult = WellnessFetchResult.Success(emptyList()),
 ) : WellnessSource {

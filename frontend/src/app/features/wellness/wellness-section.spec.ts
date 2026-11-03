@@ -50,9 +50,9 @@ describe('WellnessSection', () => {
   });
 
   it('R1 - shows not connected message on 404', () => {
-    fail(404, { error: 'wellness_not_configured', message: 'Intervals.icu is not connected.' });
-    expect(text()).toContain('Intervals.icu not connected.');
-    expect(text()).toContain('Set INTERVALS_ICU_API_KEY in .env, then restart the backend.');
+    fail(404, { error: 'wellness_not_configured', message: 'Garmin Connect is not connected.' });
+    expect(text()).toContain('Garmin Connect not connected.');
+    expect(text()).toContain('Set GARMIN_API_KEY in .env, then restart the backend.');
     expect(element().querySelector('app-wellness-chart')).toBeNull();
     expect(element().querySelector('button')).toBeNull();
   });
@@ -82,7 +82,7 @@ describe('WellnessSection', () => {
 
   it('R9 - empty text per source status', () => {
     respond(emptyWellness());
-    expect(text()).toContain('Waiting for the first sync from Intervals.icu.');
+    expect(text()).toContain('Waiting for the first sync from Garmin Connect.');
     expect(element().querySelector('app-wellness-chart')).toBeNull();
     expect(element().querySelector('app-wellness-latest')).toBeNull();
   });
@@ -103,7 +103,7 @@ describe('WellnessSection', () => {
       'Resting heart rate and HRV per day with 7-day baselines, last 12 weeks',
     );
     expect(text()).toContain(
-      'From Garmin via Intervals.icu · dashed line = average of the previous 7 days',
+      'From Garmin Connect · dashed line = average of the previous 7 days',
     );
     expect(element().querySelector('.wellness-stale')).toBeNull();
   });
@@ -131,7 +131,7 @@ describe('WellnessSection', () => {
   it('R9 - shows stale line when last fetch failed', () => {
     respond(wellness({ source: { status: 'unavailable', lastFetchedAt: null } }));
     expect(element().querySelector('.wellness-stale')?.textContent).toBe(
-      "Showing saved data: Intervals.icu couldn't be reached at the last sync.",
+      "Showing saved data: Garmin Connect couldn't be reached at the last sync.",
     );
     expect(element().querySelector('app-wellness-chart')).not.toBeNull();
   });

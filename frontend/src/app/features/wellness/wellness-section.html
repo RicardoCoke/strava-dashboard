@@ -6,8 +6,8 @@
       <p class="empty" role="status">Loading resting HR &amp; HRV…</p>
     }
     @case ('notConfigured') {
-      <p class="wellness-empty">Intervals.icu not connected.</p>
-      <p class="empty">Set INTERVALS_ICU_API_KEY in .env, then restart the backend.</p>
+      <p class="wellness-empty">Garmin Connect not connected.</p>
+      <p class="empty">Set GARMIN_API_KEY in .env, then restart the backend.</p>
     }
     @case ('error') {
       <div class="wellness-error" role="alert">
@@ -29,7 +29,7 @@
           }
           <app-wellness-chart [wellness]="data" />
           <p class="footnote">
-            From Garmin via Intervals.icu · dashed line = average of the previous 7 days
+            From Garmin Connect · dashed line = average of the previous 7 days
           </p>
         }
       }

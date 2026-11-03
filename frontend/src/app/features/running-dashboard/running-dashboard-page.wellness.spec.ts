@@ -55,14 +55,14 @@ describe('RunningDashboardPage with the resting HR & HRV card', () => {
     http
       .expectOne('/api/wellness')
       .flush(
-        { error: 'wellness_not_configured', message: 'Intervals.icu is not connected.' },
+        { error: 'wellness_not_configured', message: 'Garmin Connect is not connected.' },
         { status: 404, statusText: 'Not Found' },
       );
     http.expectOne('/api/dashboard/running').flush(dashboard());
     http.expectOne('/api/training-plan').flush(trainingPlan());
     http.expectOne('/api/training-load').flush(trainingLoad());
     fixture.detectChanges();
-    expect(text()).toContain('Intervals.icu not connected.');
+    expect(text()).toContain('Garmin Connect not connected.');
     expect(element().querySelector('app-headline-tiles')).not.toBeNull();
     expect(element().querySelector('app-training-load-chart')).not.toBeNull();
   });

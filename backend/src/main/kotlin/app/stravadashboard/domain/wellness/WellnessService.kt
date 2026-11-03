@@ -17,7 +17,7 @@ sealed interface WellnessResult {
     ) : WellnessResult
 }
 
-/** Builds the wellness card from the local cache and the training load result; never calls Intervals.icu. */
+/** Builds the wellness card from the local cache and the training load result; never calls Garmin Connect. */
 class WellnessService(
     private val configured: Boolean,
     private val repo: WellnessRepository,
