@@ -11,6 +11,7 @@ import { stubEfficiencyFactorSection } from '../../testing/efficiency-factor-stu
 import { stubVo2maxSection } from '../../testing/vo2max-stub';
 import { stubMarathonPaceSection } from '../../testing/marathon-pace-stub';
 import { stubWellnessSection } from '../../testing/wellness-stub';
+import { stubWeeklySummaryBell } from '../../testing/weekly-summary-stub';
 import { RunningDashboardPage } from './running-dashboard-page';
 
 describe('RunningDashboardPage with the marathon build section', () => {
@@ -27,6 +28,7 @@ describe('RunningDashboardPage with the marathon build section', () => {
     stubLongRunDriftSection();
     stubWellnessSection();
     stubSyncStore();
+    stubWeeklySummaryBell();
     stubTrainingLoadSection();
     stubMarathonPaceSection();
     stubRaceDayFormSection();
@@ -48,7 +50,13 @@ describe('RunningDashboardPage with the marathon build section', () => {
     fixture.detectChanges();
     const order = Array.from(element().children).map((child) => child.tagName.toLowerCase());
     // Headline tiles and weekly distance sit at the top, above the build calendar.
-    expect(order.slice(0, 4)).toEqual(['h1', 'app-sync-banner', 'app-headline-tiles', 'div']);
+    expect(order.slice(0, 4)).toEqual(['header', 'app-sync-banner', 'app-headline-tiles', 'div']);
+    // 017 AC11.1: the weekly summary bell sits in the header, after the Running heading.
+    const header = Array.from(element().querySelector('header')?.children ?? []);
+    expect(header.map((child) => child.tagName.toLowerCase())).toEqual([
+      'h1',
+      'app-weekly-summary-bell',
+    ]);
     expect(order.indexOf('app-headline-tiles')).toBeLessThan(
       order.indexOf('app-calendar-like-build'),
     );

@@ -1,0 +1,72 @@
+<section
+  id="weekly-summary-panel"
+  class="panel"
+  role="dialog"
+  aria-labelledby="weekly-summary-heading"
+>
+  <header class="panel-header">
+    <h2 id="weekly-summary-heading" class="heading" tabindex="-1" #heading>{{ weekLabel() }}</h2>
+    <button
+      type="button"
+      class="icon-button"
+      aria-label="Close weekly summary"
+      (click)="closed.emit()"
+    >
+      ✕
+    </button>
+  </header>
+
+  @switch (state()) {
+    @case ('loading') {
+      <div class="status" role="status">
+        <app-ring-spinner />
+        <p>Loading weekly summary…</p>
+      </div>
+    }
+    @case ('error') {
+      <div class="status" role="alert">
+        <p>Couldn't load your weekly summary.</p>
+        <button type="button" class="retry" (click)="retry.emit()">Retry</button>
+      </div>
+    }
+    @case ('loaded') {
+      @if (summary(); as summary) {
+        <div class="meta">
+          <button
+            type="button"
+            class="icon-button"
+            aria-label="Older week"
+            [disabled]="!hasOlder()"
+            (click)="older.emit()"
+          >
+            ‹
+          </button>
+          <span>
+            {{ summary.runCount }} runs
+            @if (summary.inProgress) {
+              · <span class="in-progress">In progress</span>
+            }
+          </span>
+          <button
+            type="button"
+            class="icon-button"
+            aria-label="Newer week"
+            [disabled]="!hasNewer()"
+            (click)="newer.emit()"
+          >
+            ›
+          </button>
+        </div>
+        <ul class="notes">
+          @for (note of summary.notes; track note.metric) {
+            <li [class]="'note tone-' + note.tone">{{ note.text }}</li>
+          }
+        </ul>
+      } @else {
+        <p class="status">
+          No week with 5 or more runs yet. A summary appears once a Monday–Sunday week has 5 runs.
+        </p>
+      }
+    }
+  }
+</section>

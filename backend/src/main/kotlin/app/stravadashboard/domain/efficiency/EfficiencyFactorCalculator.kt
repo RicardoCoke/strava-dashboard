@@ -90,6 +90,12 @@ object EfficiencyFactorCalculator {
         )
     }
 
+    /** The run's EF when it qualifies under R1, else null (used by the 017 weekly summary). */
+    internal fun efficiencyOf(
+        run: RunActivity,
+        today: LocalDate,
+    ): Double? = sampleOf(run, today)?.efficiency
+
     private fun sampleOf(
         run: RunActivity,
         today: LocalDate,

@@ -23,6 +23,7 @@ import { MarathonPaceSection } from '../marathon-pace/marathon-pace-section/mara
 import { RaceDayFormSection } from '../race-day-form/race-day-form-section';
 import { TrainingLoadSection } from '../training-load/training-load-section';
 import { Vo2maxSection } from '../vo2max/vo2max-section';
+import { WeeklySummaryBell } from '../weekly-summary/weekly-summary-bell';
 import { WellnessSection } from '../wellness/wellness-section';
 import { HeadlineTiles } from './headline-tiles/headline-tiles';
 import { HeartRateTrendChart } from './heart-rate-trend-chart/heart-rate-trend-chart';
@@ -48,6 +49,7 @@ function hasNoRuns(data: RunningDashboardResponse): boolean {
     TrainingLoadSection,
     RaceDayFormSection,
     WellnessSection,
+    WeeklySummaryBell,
     Vo2maxSection,
     MarathonPaceSection,
     BuildCalendarSection,
