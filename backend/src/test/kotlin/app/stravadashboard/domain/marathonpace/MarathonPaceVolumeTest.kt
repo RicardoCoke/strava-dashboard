@@ -70,6 +70,15 @@ class MarathonPaceVolumeTest {
     }
 
     @Test
+    fun `treadmill workout counts reps from the description pace line`() {
+        // 4:15 and 4:05 are in the band (360 s each); 4:04 is 1 s too fast.
+        val treadmill = run(name = "3x6min", trainer = true, description = "4:15 4:05 4:04")
+        val expected = 360.0 / 255 * METERS_PER_KM + 360.0 / 245 * METERS_PER_KM
+        assertEquals(expected, MarathonPaceVolume.mpMeters(treadmill, goal), 1e-9)
+        assertEquals(0.0, MarathonPaceVolume.mpMeters(run(name = "Easy", trainer = true, description = "4:15"), goal))
+    }
+
+    @Test
     fun `R2 - zero distance or zero time laps are ignored`() {
         assertFalse(MarathonPaceVolume.isMpLap(kmLap(1, 0, 1000.0), goal))
         assertFalse(MarathonPaceVolume.isMpLap(kmLap(1, 255, 0.0), goal))

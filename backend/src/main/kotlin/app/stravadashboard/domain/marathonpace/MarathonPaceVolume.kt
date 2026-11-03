@@ -1,11 +1,15 @@
 package app.stravadashboard.domain.marathonpace
 
 import app.stravadashboard.domain.DateWindow
+import app.stravadashboard.domain.RunClassifier
+import app.stravadashboard.domain.TreadmillPaceParser
 import app.stravadashboard.domain.WeeklyDistance
 import app.stravadashboard.domain.model.Lap
 import app.stravadashboard.domain.model.METERS_PER_KM
 import app.stravadashboard.domain.model.Meters
 import app.stravadashboard.domain.model.RunActivity
+import app.stravadashboard.domain.model.RunType
+import app.stravadashboard.domain.model.SECONDS_PER_MINUTE
 import app.stravadashboard.domain.model.SecondsPerKm
 import app.stravadashboard.domain.model.roundHalfUpToInt
 import app.stravadashboard.domain.model.toKmOneDecimal
@@ -66,16 +70,37 @@ object MarathonPaceVolume {
             scaledSeconds <= goal.slowest.value * meters
     }
 
-    /** MP metres of one run: 0 for treadmill runs, non-Runs and runs whose laps aren't fetched yet. */
+    /** MP metres of one run: 0 for non-Runs and runs whose laps aren't fetched yet. */
     fun mpMeters(
         run: RunActivity,
         goal: MpGoal,
+    ): Double =
+        when {
+            !run.isRun -> 0.0
+            run.trainer -> treadmillMpMeters(run, goal)
+            else ->
+                run.laps
+                    .orEmpty()
+                    .filter { isMpLap(it, goal) }
+                    .sumOf { it.distance.value }
+        }
+
+    /**
+     * Treadmill lap distances come from the watch and aren't reliable, so an `NxMmin` treadmill run counts each rep as
+     * M minutes at the pace written in its description (e.g. "4:15 4:10"). Anything else on a treadmill adds nothing.
+     */
+    private fun treadmillMpMeters(
+        run: RunActivity,
+        goal: MpGoal,
     ): Double {
-        if (!run.isRun || run.trainer) return 0.0
-        return run.laps
+        val workout = RunClassifier.classify(run) as? RunType.Workout ?: return 0.0
+        val repSeconds = workout.minutes * SECONDS_PER_MINUTE.toDouble()
+        return TreadmillPaceParser
+            .parsePaceLine(run.description)
             .orEmpty()
-            .filter { isMpLap(it, goal) }
-            .sumOf { it.distance.value }
+            .take(workout.reps)
+            .filter { it.value in goal.fastest.value..goal.slowest.value }
+            .sumOf { repSeconds / it.value * METERS_PER_KM }
     }
 
     fun compute(
