@@ -10,6 +10,7 @@ import app.stravadashboard.domain.wellness.WellnessPolicy
 import io.ktor.client.HttpClient
 import io.ktor.client.call.NoTransformationFoundException
 import io.ktor.client.call.body
+import io.ktor.client.plugins.contentnegotiation.exclude
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.accept
 import io.ktor.client.request.get
@@ -84,12 +85,16 @@ class GarminWellnessSource(
     ): WellnessFetchResult {
         val days =
             accessToken().then { access ->
-                call<GarminDailySummariesDto>(access) {
+                call<GarminDailySummariesDto>("summaries", access) {
                     url(BASE_URL + SUMMARIES_PATH)
                     parameter("startDate", oldest.toString())
                     parameter("endDate", newest.toString())
                 }.then { summaries ->
-                    call(access, empty = GarminHrvDailyDto(emptyList())) { url("$BASE_URL$HRV_PATH/$oldest/$newest") }
+                    call(
+                        "hrv",
+                        access,
+                        empty = GarminHrvDailyDto(emptyList()),
+                    ) { url("$BASE_URL$HRV_PATH/$oldest/$newest") }
                         .then { hrv -> Call.Ok(summaries to hrv) }
                 }
             }
@@ -115,9 +120,16 @@ class GarminWellnessSource(
     private suspend fun accessToken(): Call<String> {
         validToken()?.let { return Call.Ok(it.value) }
         token = null
-        // The token endpoint answers with the bare token as plain text, not JSON.
+        // The token endpoint answers with the bare token as plain text and rejects `Accept: application/json` (406),
+        // which ContentNegotiation would otherwise add to every request.
         val call =
-            request<String> { http.post(BASE_URL + TOKEN_PATH) { header(HttpHeaders.Authorization, "ApiKey $apiKey") } }
+            request<String>("token") {
+                http.post(BASE_URL + TOKEN_PATH) {
+                    header(HttpHeaders.Authorization, "ApiKey $apiKey")
+                    exclude(ContentType.Application.Json)
+                    accept(ContentType.Any)
+                }
+            }
         val value = (call as? Call.Ok)?.value?.trim()
         return when {
             call is Call.Failed -> call
@@ -135,12 +147,13 @@ class GarminWellnessSource(
 
     /** [empty] is what a 204 ("no data") means for this call; without it a 204 is unexpected. */
     private suspend inline fun <reified T> call(
+        name: String,
         access: String,
         empty: T? = null,
         crossinline block: HttpRequestBuilder.() -> Unit,
     ): Call<T> {
         val result =
-            request(empty) {
+            request(name, empty) {
                 http.get {
                     block()
                     header(HttpHeaders.Authorization, "Bearer $access")
@@ -151,34 +164,37 @@ class GarminWellnessSource(
         return result
     }
 
+    /** [name] (token, summaries or hrv) goes in failure logs so they say which call failed. */
     private suspend inline fun <reified T> request(
+        name: String,
         empty: T? = null,
         send: () -> HttpResponse,
     ): Call<T> =
         try {
-            map(send(), empty)
+            map(name, send(), empty)
         } catch (e: IOException) {
-            unavailable(e)
+            unavailable(name, e)
         } catch (e: UnresolvedAddressException) {
-            unavailable(e)
+            unavailable(name, e)
         } catch (e: SerializationException) {
-            unavailable(e)
+            unavailable(name, e)
         } catch (e: ContentConvertException) {
             // Its message can quote the response body, so only the class name is logged.
-            unavailable(e)
+            unavailable(name, e)
         } catch (e: NoTransformationFoundException) {
             // A 200 that isn't JSON, such as an HTML page from a proxy.
-            unavailable(e)
+            unavailable(name, e)
         }
 
     private suspend inline fun <reified T> map(
+        name: String,
         response: HttpResponse,
         empty: T?,
     ): Call<T> =
         when {
             response.status == HttpStatusCode.NoContent && empty != null -> Call.Ok(empty)
             response.status == HttpStatusCode.NoContent -> {
-                log.warn("Garmin Connect returned status 204")
+                log.warn("Garmin Connect {} returned status 204", name)
                 Call.Failed(WellnessFetchResult.Unavailable)
             }
             response.status.isSuccess() -> Call.Ok(response.body())
@@ -186,7 +202,7 @@ class GarminWellnessSource(
             response.status == HttpStatusCode.TooManyRequests ->
                 Call.Failed(WellnessFetchResult.RateLimited(retryAt(response.headers[HttpHeaders.RetryAfter])))
             else -> {
-                log.warn("Garmin Connect returned status {}", response.status.value)
+                log.warn("Garmin Connect {} returned status {}", name, response.status.value)
                 Call.Failed(WellnessFetchResult.Unavailable)
             }
         }
@@ -197,8 +213,11 @@ class GarminWellnessSource(
         return clock.instant().plus(seconds?.let(Duration::ofSeconds) ?: WellnessPolicy.RATE_LIMIT_FALLBACK)
     }
 
-    private fun unavailable(e: Exception): Call<Nothing> {
-        log.warn("Garmin Connect request failed: {}", e::class.simpleName)
+    private fun unavailable(
+        name: String,
+        e: Exception,
+    ): Call<Nothing> {
+        log.warn("Garmin Connect {} request failed: {}", name, e::class.simpleName)
         return Call.Failed(WellnessFetchResult.Unavailable)
     }
 
