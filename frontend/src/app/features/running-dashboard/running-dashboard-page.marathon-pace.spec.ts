@@ -10,6 +10,7 @@ import { stubRaceDayFormSection } from '../../testing/race-day-form-stub';
 import { stubEfficiencyFactorSection } from '../../testing/efficiency-factor-stub';
 import { stubLongRunDriftSection } from '../../testing/long-run-drift-stub';
 import { stubWellnessSection } from '../../testing/wellness-stub';
+import { stubWeeklySummaryBell } from '../../testing/weekly-summary-stub';
 import { RunningDashboardPage } from './running-dashboard-page';
 
 describe('RunningDashboardPage with the marathon pace card', () => {
@@ -23,6 +24,7 @@ describe('RunningDashboardPage with the marathon pace card', () => {
     stubCharts();
     stubVo2maxSection();
     stubSyncStore();
+    stubWeeklySummaryBell();
     stubTrainingLoadSection();
     stubRaceDayFormSection();
     stubLongRunDriftSection();

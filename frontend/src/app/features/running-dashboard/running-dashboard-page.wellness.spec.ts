@@ -11,6 +11,7 @@ import { trainingLoad } from '../../testing/training-load-fixtures';
 import { trainingPlan } from '../../testing/training-plan-fixtures';
 import { stubVo2maxSection } from '../../testing/vo2max-stub';
 import { wellness } from '../../testing/wellness-fixtures';
+import { stubWeeklySummaryBell } from '../../testing/weekly-summary-stub';
 import { RunningDashboardPage } from './running-dashboard-page';
 
 describe('RunningDashboardPage with the resting HR & HRV card', () => {
@@ -28,6 +29,7 @@ describe('RunningDashboardPage with the resting HR & HRV card', () => {
     stubEfficiencyFactorSection();
     stubMarathonPaceSection();
     stubSyncStore();
+    stubWeeklySummaryBell();
     fixture = TestBed.createComponent(RunningDashboardPage);
     http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();

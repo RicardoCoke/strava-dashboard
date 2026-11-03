@@ -1,0 +1,32 @@
+<button
+  #bell
+  type="button"
+  class="bell"
+  [attr.aria-label]="unseen() ? 'Weekly summary, 1 new' : 'Weekly summary'"
+  [attr.aria-expanded]="open()"
+  aria-controls="weekly-summary-panel"
+  (click)="toggle()"
+>
+  <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+    <path
+      d="M12 2a6 6 0 0 0-6 6v3.6L4.3 15A1 1 0 0 0 5.2 16.5h13.6a1 1 0 0 0 .9-1.5L18 11.6V8a6 6 0 0 0-6-6Zm-2.5 16a2.5 2.5 0 0 0 5 0Z"
+      fill="currentColor"
+    />
+  </svg>
+  @if (unseen()) {
+    <span class="badge" aria-hidden="true">1</span>
+  }
+</button>
+
+@if (open()) {
+  <app-weekly-summary-panel
+    [state]="panelState()"
+    [summary]="summary()"
+    [hasOlder]="hasOlder()"
+    [hasNewer]="index() > 0"
+    (closed)="close()"
+    (older)="older()"
+    (newer)="newer()"
+    (retry)="retry()"
+  />
+}

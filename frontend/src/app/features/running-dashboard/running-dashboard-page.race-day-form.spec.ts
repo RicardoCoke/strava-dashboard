@@ -11,6 +11,7 @@ import { stubEfficiencyFactorSection } from '../../testing/efficiency-factor-stu
 import { stubVo2maxSection } from '../../testing/vo2max-stub';
 import { stubMarathonPaceSection } from '../../testing/marathon-pace-stub';
 import { stubWellnessSection } from '../../testing/wellness-stub';
+import { stubWeeklySummaryBell } from '../../testing/weekly-summary-stub';
 import { RunningDashboardPage } from './running-dashboard-page';
 
 /** The page with the real race-day form card (feature 011, R12). */
@@ -31,6 +32,7 @@ describe('RunningDashboardPage with the race-day form card', () => {
     stubWellnessSection();
     stubPlanSection();
     stubSyncStore();
+    stubWeeklySummaryBell();
     fixture = TestBed.createComponent(RunningDashboardPage);
     http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();

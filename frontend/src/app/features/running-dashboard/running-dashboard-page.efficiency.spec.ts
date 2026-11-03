@@ -11,6 +11,7 @@ import { stubSyncStore } from '../../testing/sync-store-stub';
 import { stubTrainingLoadSection } from '../../testing/training-load-stub';
 import { stubVo2maxSection } from '../../testing/vo2max-stub';
 import { stubWellnessSection } from '../../testing/wellness-stub';
+import { stubWeeklySummaryBell } from '../../testing/weekly-summary-stub';
 import { RunningDashboardPage } from './running-dashboard-page';
 
 describe('RunningDashboardPage with the efficiency factor card', () => {
@@ -28,6 +29,7 @@ describe('RunningDashboardPage with the efficiency factor card', () => {
     stubMarathonPaceSection();
     stubWellnessSection();
     stubSyncStore();
+    stubWeeklySummaryBell();
     stubTrainingLoadSection();
     stubPlanSection();
     fixture = TestBed.createComponent(RunningDashboardPage);

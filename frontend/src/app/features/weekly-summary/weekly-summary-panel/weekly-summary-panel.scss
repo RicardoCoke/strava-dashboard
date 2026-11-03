@@ -1,0 +1,84 @@
+// Fixed overlay: it sits above the cards and never takes part in the page layout (R12).
+// It starts below the page header so the bell stays clickable as a toggle (AC12.4).
+.panel {
+  position: fixed;
+  top: 5.5rem;
+  right: 0;
+  z-index: 20;
+  box-sizing: border-box;
+  width: min(360px, 100vw);
+  max-height: calc(100vh - 5.5rem);
+  overflow-y: auto;
+  padding: 1rem;
+  background: var(--color-surface-raised);
+  border-left: 1px solid var(--color-border);
+  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.4);
+  color: var(--color-text);
+}
+
+.panel-header,
+.meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.heading {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.meta {
+  margin: 0.75rem 0;
+  color: var(--color-text-muted);
+}
+
+.in-progress {
+  color: var(--color-caution);
+}
+
+.icon-button {
+  min-width: 2rem;
+  min-height: 2rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+}
+
+.notes {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.note {
+  padding: 0.5rem 0.75rem;
+  border-left: 3px solid var(--color-secondary);
+  border-radius: 4px;
+  background: var(--color-surface);
+  line-height: 1.4;
+}
+
+.tone-worse {
+  border-left-color: var(--color-worse);
+}
+
+.tone-better {
+  border-left-color: var(--color-accent);
+}
+
+.status {
+  margin-top: 1.5rem;
+  text-align: center;
+  color: var(--color-text-muted);
+}

@@ -13,6 +13,7 @@ import app.stravadashboard.api.syncRoutes
 import app.stravadashboard.api.trainingLoadRoutes
 import app.stravadashboard.api.trainingPlanRoutes
 import app.stravadashboard.api.vo2maxRoutes
+import app.stravadashboard.api.weeklySummaryRoutes
 import app.stravadashboard.api.wellnessRoutes
 import app.stravadashboard.auth.ConnectService
 import app.stravadashboard.auth.OAuthState
@@ -32,6 +33,7 @@ import app.stravadashboard.domain.trainingload.TrainingLoadService
 import app.stravadashboard.domain.trainingplan.TrainingPlanService
 import app.stravadashboard.domain.vo2max.Vo2maxService
 import app.stravadashboard.domain.vo2max.normalized.NormalizedVo2maxService
+import app.stravadashboard.domain.weeklysummary.WeeklySummaryService
 import app.stravadashboard.domain.wellness.WellnessService
 import app.stravadashboard.domain.wellness.WellnessSync
 import app.stravadashboard.garmin.GarminWellnessSource
@@ -86,7 +88,7 @@ fun main() {
 }
 
 // The engines and plan source are test seams; every other dependency is built here.
-@Suppress("LongParameterList")
+@Suppress("LongParameterList", "LongMethod")
 fun Application.module(
     config: AppConfig,
     clock: Clock = Clock.systemUTC(),
@@ -134,6 +136,7 @@ fun Application.module(
         efficiencyFactorRoutes(tokens, EfficiencyFactorService(tokens, runs, clock, zone))
         marathonPaceRoutes(tokens, marathonPaceService)
         wellnessRoutes(tokens, WellnessService(wellnessSync != null, wellnessRepo, loadService, clock, zone))
+        weeklySummaryRoutes(tokens, WeeklySummaryService(config.lthr, tokens, runs, wellnessRepo, clock, zone))
     }
 }
 
