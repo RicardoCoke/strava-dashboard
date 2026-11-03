@@ -49,6 +49,7 @@ import app.stravadashboard.strava.StravaTokenProvider
 import app.stravadashboard.strava.stravaHttpClient
 import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.engine.cio.CIO
+import io.ktor.client.engine.java.Java
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
@@ -138,7 +139,7 @@ fun Application.module(
 }
 
 /**
- * Resting HR and HRV from Garmin Connect (feature 015), or null without an API key. Without a test [engine], a CIO
+ * Resting HR and HRV from Garmin Connect (feature 015), or null without an API key. Without a test [engine], a Java
  * engine is created only when a key is set; the client and that engine are closed when the application stops.
  */
 private fun Application.garminWellnessSync(
@@ -149,7 +150,8 @@ private fun Application.garminWellnessSync(
     zone: ZoneId,
 ): WellnessSync? {
     if (apiKey == null) return null
-    val ownEngine = if (engine == null) CIO.create() else null
+    // Java (JDK HttpClient), not CIO: CIO's own TLS stack fails the handshake with Garmin's servers.
+    val ownEngine = if (engine == null) Java.create() else null
     val http = garminHttpClient(engine ?: requireNotNull(ownEngine))
     monitor.subscribe(ApplicationStopped) {
         http.close()
