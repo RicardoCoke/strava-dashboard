@@ -1,5 +1,6 @@
 import { Type } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { RunWeatherDay } from '../../core/api/run-weather.models';
 import { progress, trainingPlan } from '../../testing/training-plan-fixtures';
 import { BuildCalendar } from './build-calendar/build-calendar';
 import { BuildProgressBar } from './build-progress/build-progress-bar';
@@ -108,6 +109,135 @@ describe('BuildCalendar', () => {
     const monday = calendar(noSession).querySelector('.day');
     expect(monday?.querySelector('.session')).toBeNull();
     expect(squash(monday?.querySelector('.numbers'))).toBe('50 min · 8.50 km');
+  });
+
+  it('marks the key workouts and relabels 20 Nov', () => {
+    const element = calendar();
+    expect(element.querySelectorAll('.day.key-workout').length).toBe(2);
+
+    const friday = element.querySelectorAll('.week')[13].querySelectorAll('.day')[4];
+    expect(squash(friday.querySelector('.date'))).toBe('Fri 20 Nov');
+    expect(friday.classList).toContain('key-workout');
+    expect(squash(friday.querySelector('.session'))).toBe('5x5km');
+
+    const tuesday = element.querySelectorAll('.week')[14].querySelectorAll('.day')[1];
+    expect(squash(tuesday.querySelector('.date'))).toBe('Tue 24 Nov');
+    expect(tuesday.classList).toContain('key-workout');
+    expect(squash(tuesday.querySelector('.session'))).toBe("50' easy");
+  });
+
+  describe('018 weather', () => {
+    const withWeather = (weather: RunWeatherDay[], weeks = plan.weeks) =>
+      render(BuildCalendar, { weeks, progress: plan.progress, weather });
+    // Week 1 of the fixture: Monday 17 Aug to Sunday 23 Aug.
+    const tile = (element: HTMLElement, day: number) => element.querySelectorAll('.day')[day];
+
+    it('R7 - tile shows the icon for its verdict and mm only for rain', () => {
+      const element = withWeather([
+        { date: '2026-08-17', condition: 'sun', rainMm: null },
+        { date: '2026-08-18', condition: 'cloud', rainMm: null },
+        { date: '2026-08-19', condition: 'rain', rainMm: 1.2 },
+      ]);
+      const expected = [
+        ['sun', 'Forecast 09:00-11:00: sunny'],
+        ['cloud', 'Forecast 09:00-11:00: cloudy'],
+        ['rain', 'Forecast 09:00-11:00: rain'],
+      ];
+      expected.forEach(([condition, label], day) => {
+        const weather = tile(element, day).querySelectorAll('.weather');
+        expect(weather.length).toBe(1);
+        expect(weather[0].getAttribute('data-condition')).toBe(condition);
+        const icon = weather[0].querySelector('svg');
+        expect(icon?.getAttribute('role')).toBe('img');
+        expect(icon?.getAttribute('aria-label')).toBe(label);
+      });
+      expect(tile(element, 0).querySelector('.rain-mm')).toBeNull();
+      expect(tile(element, 1).querySelector('.rain-mm')).toBeNull();
+      expect(squash(tile(element, 2).querySelector('.rain-mm'))).toBe('1.2 mm');
+    });
+
+    it('R7 - rest, race and today tiles show the icon', () => {
+      const days = plan.weeks.flatMap((week) => week.days);
+      const rest = days.find((day) => day.isRest);
+      const race = days.find((day) => day.race !== null);
+      const weeks = plan.weeks.map((week) => ({
+        ...week,
+        days: week.days.map((day) =>
+          day.date === '2026-08-17' ? { ...day, isToday: true, isPast: false } : day,
+        ),
+      }));
+      const element = withWeather(
+        [rest?.date, race?.date, '2026-08-17'].map((date) => ({
+          date: date ?? '',
+          condition: 'sun',
+          rainMm: null,
+        })),
+        weeks,
+      );
+      expect(element.querySelector('.day.rest .weather')).not.toBeNull();
+      expect(element.querySelector('.day.race .weather')).not.toBeNull();
+      expect(element.querySelector('.day.today .weather')).not.toBeNull();
+      expect(squash(element.querySelector('.day.rest .session'))).toBe('Rest');
+      expect(element.querySelector('.day.rest .numbers')).toBeNull();
+    });
+
+    it('R7 - near and far tiles look the same', () => {
+      const element = withWeather([
+        { date: '2026-08-17', condition: 'sun', rainMm: null },
+        { date: '2026-08-23', condition: 'sun', rainMm: null },
+      ]);
+      expect(tile(element, 0).querySelector('.weather')?.outerHTML).toBe(
+        tile(element, 6).querySelector('.weather')?.outerHTML,
+      );
+    });
+
+    it('R8 - tile without a verdict has no weather', () => {
+      const element = withWeather([{ date: '2026-08-17', condition: 'sun', rainMm: null }]);
+      expect(element.querySelectorAll('.weather').length).toBe(1);
+      expect(tile(element, 1).querySelector('.weather')).toBeNull();
+      expect(calendar().querySelector('.weather')).toBeNull();
+    });
+
+    it('R7 - new data replaces the icon and mm', () => {
+      const fixture = TestBed.createComponent(BuildCalendar);
+      fixture.componentRef.setInput('weeks', plan.weeks);
+      fixture.componentRef.setInput('progress', plan.progress);
+      fixture.componentRef.setInput('weather', [
+        { date: '2026-08-17', condition: 'rain', rainMm: 1.2 },
+      ]);
+      fixture.detectChanges();
+      fixture.componentRef.setInput('weather', [
+        { date: '2026-08-17', condition: 'rain', rainMm: 3.5 },
+      ]);
+      fixture.detectChanges();
+      const element = fixture.nativeElement as HTMLElement;
+      expect(squash(element.querySelector('.rain-mm'))).toBe('3.5 mm');
+    });
+
+    it('R8 - scroll position holds when weather arrives', () => {
+      // jsdom has no layout: without a non-zero offsetTop, a repeated initial scroll would go unnoticed.
+      const offsetTop = vi.spyOn(HTMLElement.prototype, 'offsetTop', 'get').mockReturnValue(100);
+      const fixture = TestBed.createComponent(BuildCalendar);
+      fixture.componentRef.setInput('weeks', plan.weeks);
+      fixture.componentRef.setInput('progress', plan.progress);
+      fixture.detectChanges();
+      const scroller = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>(
+        '.scroller',
+      );
+      if (!scroller) {
+        throw new Error('no scroller');
+      }
+      expect(scroller.scrollTop).toBe(100);
+
+      scroller.scrollTop = 500;
+      fixture.componentRef.setInput('weather', [
+        { date: '2026-08-17', condition: 'sun', rainMm: null },
+      ]);
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.weather')).not.toBeNull();
+      expect(scroller.scrollTop).toBe(500);
+      offsetTop.mockRestore();
+    });
   });
 
   it('004 R12 - rest day', () => {

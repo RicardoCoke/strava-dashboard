@@ -12,6 +12,7 @@ import { stubMarathonPaceSection } from '../../testing/marathon-pace-stub';
 import { stubRaceDayFormSection } from '../../testing/race-day-form-stub';
 import { stubWellnessSection } from '../../testing/wellness-stub';
 import { stubWeeklySummaryBell } from '../../testing/weekly-summary-stub';
+import { stubRunWeather } from '../../testing/run-weather-stub';
 import { RunningDashboardPage } from './running-dashboard-page';
 
 describe('RunningDashboardPage with the training load card', () => {
@@ -22,6 +23,7 @@ describe('RunningDashboardPage with the training load card', () => {
     TestBed.configureTestingModule({
       providers: [provideHttpClient(), provideHttpClientTesting()],
     });
+    stubRunWeather();
     stubCharts();
     stubRaceDayFormSection();
     stubVo2maxSection();

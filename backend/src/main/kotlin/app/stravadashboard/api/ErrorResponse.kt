@@ -46,6 +46,8 @@ data class ErrorResponse(
         val RACE_DAY_FORM_PLAN_UNAVAILABLE =
             ErrorResponse("race_day_form_plan_unavailable", "The training plan file could not be read.")
         val WELLNESS_NOT_CONFIGURED = ErrorResponse("wellness_not_configured", "Garmin Connect is not connected.")
+        val WEATHER_NOT_CONFIGURED = ErrorResponse("weather_not_configured", "No weather location is configured.")
+        val WEATHER_UNAVAILABLE = ErrorResponse("weather_unavailable", "The weather forecast is unavailable.")
 
         /** [reason] comes from the plan parser and never contains the file path or cell values. */
         fun trainingPlanInvalid(reason: String): ErrorResponse = ErrorResponse("training_plan_invalid", reason)

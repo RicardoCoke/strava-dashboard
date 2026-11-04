@@ -1,0 +1,11 @@
+{
+  "latitude": 10.5,
+  "longitude": 20.5,
+  "timezone": "Etc/UTC",
+  "hourly_units": { "time": "iso8601", "precipitation": "mm", "cloud_cover": "%" },
+  "hourly": {
+    "time": ["2026-11-05T09:00", "2026-11-05T10:00", "2026-11-05T11:00"],
+    "precipitation": [0.0, 0.4, null],
+    "cloud_cover": [75, null, 100]
+  }
+}

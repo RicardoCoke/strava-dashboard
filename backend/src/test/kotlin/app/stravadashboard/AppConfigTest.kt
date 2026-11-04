@@ -3,6 +3,7 @@ package app.stravadashboard
 import app.stravadashboard.config.AppConfig
 import app.stravadashboard.config.LthrSetting
 import app.stravadashboard.config.MaxHrSetting
+import app.stravadashboard.config.WeatherLocation
 import app.stravadashboard.domain.model.Bpm
 import java.time.LocalDate
 import kotlin.test.Test
@@ -21,6 +22,38 @@ class AppConfigTest {
             "SESSION_SECRET" to "ab".repeat(32),
             "DB_PATH" to "data/test.db",
         )
+
+    @Test
+    fun `018 R1 - reads weather location or leaves it unset`() {
+        val location = mapOf("WEATHER_LATITUDE" to "10.50", "WEATHER_LONGITUDE" to " 20.50 ")
+        assertEquals(WeatherLocation(10.50, 20.50), AppConfig.fromEnvironment(required + location).weatherHome)
+        assertNull(AppConfig.fromEnvironment(required).weatherHome)
+        val blank = mapOf("WEATHER_LATITUDE" to " ", "WEATHER_LONGITUDE" to "")
+        assertNull(AppConfig.fromEnvironment(required + blank).weatherHome)
+    }
+
+    @Test
+    fun `018 R1 - partial or invalid location fails at startup`() {
+        listOf(
+            mapOf("WEATHER_LATITUDE" to "41.77") to "WEATHER_LONGITUDE",
+            mapOf("WEATHER_LONGITUDE" to "-7.77") to "WEATHER_LATITUDE",
+            mapOf("WEATHER_LATITUDE" to "north", "WEATHER_LONGITUDE" to "-7.77") to "WEATHER_LATITUDE",
+            mapOf("WEATHER_LATITUDE" to "90.77", "WEATHER_LONGITUDE" to "-7.77") to "WEATHER_LATITUDE",
+            mapOf("WEATHER_LATITUDE" to "41.77", "WEATHER_LONGITUDE" to "180.77") to "WEATHER_LONGITUDE",
+        ).forEach { (env, key) ->
+            val failure = assertFailsWith<IllegalArgumentException> { AppConfig.fromEnvironment(required + env) }
+            assertTrue(key in failure.message.orEmpty())
+            assertFalse(".77" in failure.message.orEmpty())
+        }
+    }
+
+    @Test
+    fun `018 R1 - toString hides coordinates`() {
+        val location = mapOf("WEATHER_LATITUDE" to "41.77", "WEATHER_LONGITUDE" to "-7.77")
+        val text = AppConfig.fromEnvironment(required + location).toString()
+        assertTrue("weather=<set>" in text)
+        assertFalse(".77" in text)
+    }
 
     @Test
     fun `defaults to localhost 8080`() {

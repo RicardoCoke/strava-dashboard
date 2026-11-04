@@ -8,6 +8,7 @@ import app.stravadashboard.api.longRunDriftRoutes
 import app.stravadashboard.api.marathonPaceRoutes
 import app.stravadashboard.api.normalizedVo2maxRoutes
 import app.stravadashboard.api.raceDayFormRoutes
+import app.stravadashboard.api.runWeatherRoutes
 import app.stravadashboard.api.runningDashboardRoutes
 import app.stravadashboard.api.syncRoutes
 import app.stravadashboard.api.trainingLoadRoutes
@@ -33,6 +34,7 @@ import app.stravadashboard.domain.trainingload.TrainingLoadService
 import app.stravadashboard.domain.trainingplan.TrainingPlanService
 import app.stravadashboard.domain.vo2max.Vo2maxService
 import app.stravadashboard.domain.vo2max.normalized.NormalizedVo2maxService
+import app.stravadashboard.domain.weather.RunWeatherService
 import app.stravadashboard.domain.weeklysummary.WeeklySummaryService
 import app.stravadashboard.domain.wellness.WellnessService
 import app.stravadashboard.domain.wellness.WellnessSync
@@ -49,6 +51,8 @@ import app.stravadashboard.strava.StravaClient
 import app.stravadashboard.strava.StravaOAuthClient
 import app.stravadashboard.strava.StravaTokenProvider
 import app.stravadashboard.strava.stravaHttpClient
+import app.stravadashboard.weather.OpenMeteoClient
+import app.stravadashboard.weather.openMeteoHttpClient
 import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.engine.java.Java
@@ -97,6 +101,7 @@ fun Application.module(
     stravaEngine: HttpClientEngine = CIO.create(),
     trainingPlanSource: TrainingPlanSource = TrainingPlanFileSource(config.trainingPlanCsvPath),
     garminEngine: HttpClientEngine? = null,
+    weatherEngine: HttpClientEngine? = null,
 ) {
     installServerPlugins(config)
 
@@ -122,6 +127,8 @@ fun Application.module(
     val vo2maxService = Vo2maxService(config.maxHr, tokens, runs, clock, zone)
     val marathonPaceService =
         MarathonPaceService(config.marathonPace, config.trainingPlanStartDate, tokens, runs, clock, zone)
+    val weatherSource = if (config.weatherHome == null) null else openMeteoSource(weatherEngine)
+    val weatherService = RunWeatherService(config.weatherHome, weatherSource, planService, clock, zone)
 
     routing {
         healthRoutes()
@@ -138,7 +145,19 @@ fun Application.module(
         marathonPaceRoutes(tokens, marathonPaceService)
         wellnessRoutes(tokens, WellnessService(wellnessSync != null, wellnessRepo, loadService, clock, zone))
         weeklySummaryRoutes(tokens, WeeklySummaryService(config.lthr, tokens, runs, wellnessRepo, clock, zone))
+        runWeatherRoutes(tokens, weatherService)
     }
+}
+
+/** The Open-Meteo client (feature 018); like Garmin's, its own Java engine and client close when the app stops. */
+private fun Application.openMeteoSource(engine: HttpClientEngine?): OpenMeteoClient {
+    val ownEngine = if (engine == null) Java.create() else null
+    val http = openMeteoHttpClient(engine ?: requireNotNull(ownEngine))
+    monitor.subscribe(ApplicationStopped) {
+        http.close()
+        ownEngine?.close()
+    }
+    return OpenMeteoClient(http)
 }
 
 /**

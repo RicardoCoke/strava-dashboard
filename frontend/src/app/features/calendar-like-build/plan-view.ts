@@ -1,4 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
+import { RunWeatherDay, WeatherCondition } from '../../core/api/run-weather.models';
 import {
   BuildProgress,
   PlanWeek,
@@ -6,7 +7,7 @@ import {
   TrainingPlanResponse,
 } from '../../core/api/training-plan.models';
 import { formatWeekdayDayMonth } from '../../shared/format/dates';
-import { formatTwoDecimals } from '../../shared/format/numbers';
+import { formatOneDecimal, formatTwoDecimals } from '../../shared/format/numbers';
 import { formatPace } from '../../shared/format/pace';
 
 export type PlanErrorReason = 'unavailable' | 'invalid' | 'other';
@@ -113,6 +114,36 @@ export function paceRows(paces: TargetPace[]): PaceRow[] {
   });
 }
 
+// shortcut: pinned to calendar dates because the plan CSV can't mark a day, move to the CSV if the plan's start date changes.
+const KEY_WORKOUTS = new Map<string, { session?: string }>([
+  ['2026-11-20', { session: '5x5km' }],
+  ['2026-11-24', {}],
+]);
+
+const WEATHER_LABELS: Record<WeatherCondition, string> = {
+  sun: 'Forecast 09:00-11:00: sunny',
+  cloud: 'Forecast 09:00-11:00: cloudy',
+  rain: 'Forecast 09:00-11:00: rain',
+};
+
+export interface WeatherCell {
+  condition: WeatherCondition;
+  label: string;
+  /** "1.2 mm" on rain days, otherwise null. */
+  rainText: string | null;
+}
+
+function weatherCell(day: RunWeatherDay | undefined): WeatherCell | null {
+  if (!day) {
+    return null;
+  }
+  return {
+    condition: day.condition,
+    label: WEATHER_LABELS[day.condition],
+    rainText: day.rainMm === null ? null : `${formatOneDecimal(day.rainMm)} mm`,
+  };
+}
+
 export interface DayCell {
   date: string;
   dateText: string;
@@ -120,6 +151,8 @@ export interface DayCell {
   note: string | null;
   minutesText: string;
   kmText: string;
+  isKeyWorkout: boolean;
+  weather: WeatherCell | null;
   isRest: boolean;
   raceLabel: string | null;
   isMarathon: boolean;
@@ -136,7 +169,8 @@ export interface WeekRow {
   days: DayCell[];
 }
 
-export function weekRows(weeks: PlanWeek[]): WeekRow[] {
+export function weekRows(weeks: PlanWeek[], weather: RunWeatherDay[] = []): WeekRow[] {
+  const weatherByDate = new Map(weather.map((day) => [day.date, day]));
   return weeks.map((week) => ({
     index: week.index,
     label: week.label,
@@ -146,10 +180,12 @@ export function weekRows(weeks: PlanWeek[]): WeekRow[] {
     days: week.days.map((day) => ({
       date: day.date,
       dateText: formatWeekdayDayMonth(day.date, day.dayOfWeek),
-      session: day.session,
+      session: KEY_WORKOUTS.get(day.date)?.session ?? day.session,
       note: day.note,
       minutesText: `${day.totalMinutes} min`,
       kmText: `${formatTwoDecimals(day.distanceKm)} km`,
+      isKeyWorkout: KEY_WORKOUTS.has(day.date),
+      weather: weatherCell(weatherByDate.get(day.date)),
       isRest: day.isRest,
       raceLabel: day.race?.label ?? null,
       isMarathon: day.race?.isMarathon ?? false,
