@@ -99,6 +99,18 @@
   color: var(--color-text-muted);
 }
 
+.weather {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--color-text);
+}
+
+.rain-mm {
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
 .day.race {
   border-color: var(--color-accent);
 }
@@ -110,6 +122,7 @@
   .session,
   .day-note,
   .numbers,
+  .weather,
   .badge {
     color: var(--color-bg);
   }
@@ -117,6 +130,20 @@
   .session {
     font-size: 1.1rem;
     font-weight: 700;
+  }
+}
+
+// Biggest workouts of the build: light orange with dark text. Past and today keep their own look.
+.day.key-workout:not(.past, .today) {
+  border-color: #ffc48a;
+  background-color: #ffc48a;
+
+  .date,
+  .session,
+  .day-note,
+  .numbers,
+  .weather {
+    color: var(--color-bg);
   }
 }
 

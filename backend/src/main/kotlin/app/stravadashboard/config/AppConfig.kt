@@ -27,6 +27,8 @@ data class AppConfig(
     val marathonPace: MarathonPaceSetting = MarathonPaceSetting.NotConfigured,
     /** Garmin Connect Personal API key for resting HR and HRV (feature 015), or null when not connected. */
     val garminApiKey: String? = null,
+    /** Home location for the calendar's run weather (feature 018), or null when the feature is off. */
+    val weatherHome: WeatherLocation? = null,
 ) {
     val sessionSecret: ByteArray get() = HexFormat.of().parseHex(sessionSecretHex)
 
@@ -55,7 +57,8 @@ data class AppConfig(
         return "AppConfig(host=$host, port=$port, stravaRedirectUri=$stravaRedirectUri, dbPath=$dbPath, " +
             "trainingPlanCsv=$plan, trainingPlanStartDate=$trainingPlanStartDate, lthr=$lthrText, " +
             "maxHr=$maxHrText, marathonPace=$marathonPaceText, " +
-            "garminApiKey=${if (garminApiKey == null) "<unset>" else "<set>"}, secrets=<redacted>)"
+            "garminApiKey=${if (garminApiKey == null) "<unset>" else "<set>"}, " +
+            "weather=${if (weatherHome == null) "<unset>" else "<set>"}, secrets=<redacted>)"
     }
 
     companion object {
@@ -84,6 +87,7 @@ data class AppConfig(
                 maxHr = MaxHrSetting.parse(env["MAX_HR_BPM"]),
                 marathonPace = MarathonPaceSetting.parse(env["MARATHON_GOAL_PACE"]),
                 garminApiKey = env["GARMIN_API_KEY"]?.trim()?.takeIf { it.isNotEmpty() },
+                weatherHome = WeatherLocation.parse(env["WEATHER_LATITUDE"], env["WEATHER_LONGITUDE"]),
             )
 
         private fun validStartDate(text: String): LocalDate {

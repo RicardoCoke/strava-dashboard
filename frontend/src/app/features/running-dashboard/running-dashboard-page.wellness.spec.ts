@@ -12,6 +12,7 @@ import { trainingPlan } from '../../testing/training-plan-fixtures';
 import { stubVo2maxSection } from '../../testing/vo2max-stub';
 import { wellness } from '../../testing/wellness-fixtures';
 import { stubWeeklySummaryBell } from '../../testing/weekly-summary-stub';
+import { stubRunWeather } from '../../testing/run-weather-stub';
 import { RunningDashboardPage } from './running-dashboard-page';
 
 describe('RunningDashboardPage with the resting HR & HRV card', () => {
@@ -22,6 +23,7 @@ describe('RunningDashboardPage with the resting HR & HRV card', () => {
     TestBed.configureTestingModule({
       providers: [provideHttpClient(), provideHttpClientTesting()],
     });
+    stubRunWeather();
     stubCharts();
     stubVo2maxSection();
     stubRaceDayFormSection();

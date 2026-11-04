@@ -7,6 +7,7 @@ import {
   input,
   viewChild,
 } from '@angular/core';
+import { RunWeatherDay } from '../../../core/api/run-weather.models';
 import { BuildProgress, PlanWeek } from '../../../core/api/training-plan.models';
 import { scrollTargetWeekIndex, weekRows } from '../plan-view';
 
@@ -33,6 +34,7 @@ import { scrollTargetWeekIndex, weekRows } from '../plan-view';
           @for (day of week.days; track day.date) {
             <div
               class="day"
+              [class.key-workout]="day.isKeyWorkout"
               [class.rest]="day.isRest"
               [class.race]="day.raceLabel !== null"
               [class.marathon]="day.isMarathon"
@@ -59,6 +61,47 @@ import { scrollTargetWeekIndex, weekRows } from '../plan-view';
                   }
                   <span class="numbers">{{ day.minutesText }} · {{ day.kmText }}</span>
                 }
+                @if (day.weather; as weather) {
+                  <span class="weather" [attr.data-condition]="weather.condition">
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="18"
+                      height="18"
+                      role="img"
+                      fill="currentColor"
+                      [attr.aria-label]="weather.label"
+                    >
+                      @switch (weather.condition) {
+                        @case ('sun') {
+                          <circle cx="12" cy="12" r="5" />
+                          <path
+                            d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                          />
+                        }
+                        @case ('cloud') {
+                          <path d="M7 19a4.5 4.5 0 0 1-.7-8.9 6 6 0 0 1 11.5-.9A5 5 0 0 1 17 19z" />
+                        }
+                        @case ('rain') {
+                          <path
+                            d="M7 15a4 4 0 0 1-.6-7.95A5.5 5.5 0 0 1 17 6.1 4.5 4.5 0 0 1 17 15z"
+                          />
+                          <path
+                            d="M8 18l-1 3M13 18l-1 3M18 18l-1 3"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                          />
+                        }
+                      }
+                    </svg>
+                    @if (weather.rainText) {
+                      <span class="rain-mm">{{ weather.rainText }}</span>
+                    }
+                  </span>
+                }
               </div>
             </div>
           }
@@ -71,8 +114,9 @@ import { scrollTargetWeekIndex, weekRows } from '../plan-view';
 export class BuildCalendar {
   readonly weeks = input.required<PlanWeek[]>();
   readonly progress = input.required<BuildProgress>();
+  readonly weather = input<RunWeatherDay[]>([]);
 
-  protected readonly rows = computed(() => weekRows(this.weeks()));
+  protected readonly rows = computed(() => weekRows(this.weeks(), this.weather()));
   private readonly scroller = viewChild.required<ElementRef<HTMLElement>>('scroller');
 
   constructor() {
