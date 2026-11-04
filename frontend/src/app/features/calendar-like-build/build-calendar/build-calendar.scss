@@ -246,8 +246,14 @@
     aspect-ratio: 1 / 1;
   }
 
+  // The body fills the tile, so the weather sits at the bottom and lines up across a week.
   .body {
+    flex: 1;
     align-items: flex-start;
     text-align: left;
+  }
+
+  .weather {
+    margin-top: auto;
   }
 }
