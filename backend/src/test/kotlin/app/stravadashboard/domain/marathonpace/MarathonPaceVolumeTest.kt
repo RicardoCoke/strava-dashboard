@@ -21,6 +21,14 @@ class MarathonPaceVolumeTest {
     private val goal = MpGoal(SecondsPerKm(255))
     private val buildStart = LocalDate.of(2026, 8, 17)
 
+    @Test
+    fun `019 R7 - an 18 week build has 18 weeks ending 18 weeks after its start`() {
+        val start = LocalDate.of(2026, 8, 3)
+        val report = MarathonPaceVolume.compute(emptyList(), goal, start, start, buildWeeks = 18)
+        assertEquals(18, report.weeks.size)
+        assertEquals(LocalDate.of(2026, 12, 6), report.buildEnd)
+    }
+
     /** Saturday 2026-10-31, in week 11 of the build. */
     private val today = LocalDate.of(2026, 10, 31)
 

@@ -9,11 +9,14 @@ import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
+import kotlinx.coroutines.CancellationException
+import org.slf4j.LoggerFactory
 
 /** `GET /api/sync` reports the status; `POST /api/sync` starts a background sync if one is due (feature 009). */
 fun Route.syncRoutes(
     tokens: TokenRepository,
     sync: BackgroundSync,
+    other: OtherPersonSync?,
 ) {
     get("/api/sync") {
         if (call.rejectUnconnected(tokens, sync)) return@get
@@ -25,7 +28,30 @@ fun Route.syncRoutes(
             return@post
         }
         if (call.rejectUnconnected(tokens, sync)) return@post
-        call.respond(sync.startIfDue().toDto())
+        val status = sync.startIfDue()
+        other?.startIfConnected()
+        call.respond(status.toDto())
+    }
+}
+
+/** The person not on screen: sync only runs while a dashboard is open, so a request starts theirs too (019 R6). */
+class OtherPersonSync(
+    private val tokens: TokenRepository,
+    private val sync: BackgroundSync,
+) {
+    @Suppress("TooGenericExceptionCaught")
+    suspend fun startIfConnected() {
+        try {
+            if (tokens.find() != null) sync.startIfDue()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            log.warn("Could not start the other person's sync: {}", e::class.simpleName)
+        }
+    }
+
+    private companion object {
+        val log = LoggerFactory.getLogger(OtherPersonSync::class.java)
     }
 }
 

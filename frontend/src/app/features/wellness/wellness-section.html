@@ -1,38 +1,40 @@
-<section class="card wellness" aria-labelledby="wellness-heading">
-  <h2 id="wellness-heading">Resting HR &amp; HRV</h2>
+@if (!hidden()) {
+  <section class="card wellness" aria-labelledby="wellness-heading">
+    <h2 id="wellness-heading">Resting HR &amp; HRV</h2>
 
-  @switch (state().kind) {
-    @case ('loading') {
-      <p class="empty" role="status">Loading resting HR &amp; HRV…</p>
-    }
-    @case ('notConfigured') {
-      <p class="wellness-empty">Garmin Connect not connected.</p>
-      <p class="empty">Set GARMIN_API_KEY in .env, then restart the backend.</p>
-    }
-    @case ('error') {
-      <div class="wellness-error" role="alert">
-        <p>Couldn't load resting HR &amp; HRV.</p>
-        <button type="button" class="retry" (click)="retry()">Retry</button>
-      </div>
-    }
-    @case ('loaded') {
-      @if (data(); as data) {
-        @if (empty()) {
-          <p class="empty">{{ emptyLine() }}</p>
-        } @else {
-          @if (staleLine(); as stale) {
-            <p class="wellness-stale">{{ stale }}</p>
+    @switch (state().kind) {
+      @case ('loading') {
+        <p class="empty" role="status">Loading resting HR &amp; HRV…</p>
+      }
+      @case ('notConfigured') {
+        <p class="wellness-empty">Garmin Connect not connected.</p>
+        <p class="empty">Set GARMIN_API_KEY in .env, then restart the backend.</p>
+      }
+      @case ('error') {
+        <div class="wellness-error" role="alert">
+          <p>Couldn't load resting HR &amp; HRV.</p>
+          <button type="button" class="retry" (click)="retry()">Retry</button>
+        </div>
+      }
+      @case ('loaded') {
+        @if (data(); as data) {
+          @if (empty()) {
+            <p class="empty">{{ emptyLine() }}</p>
+          } @else {
+            @if (staleLine(); as stale) {
+              <p class="wellness-stale">{{ stale }}</p>
+            }
+            <app-wellness-latest [tiles]="tiles()" />
+            @if (data.readiness.note; as note) {
+              <p class="wellness-note">{{ note }}</p>
+            }
+            <app-wellness-chart [wellness]="data" />
+            <p class="footnote">
+              From Garmin Connect · dashed line = average of the previous 7 days
+            </p>
           }
-          <app-wellness-latest [tiles]="tiles()" />
-          @if (data.readiness.note; as note) {
-            <p class="wellness-note">{{ note }}</p>
-          }
-          <app-wellness-chart [wellness]="data" />
-          <p class="footnote">
-            From Garmin Connect · dashed line = average of the previous 7 days
-          </p>
         }
       }
     }
-  }
-</section>
+  </section>
+}

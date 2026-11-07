@@ -108,15 +108,16 @@ object MarathonPaceVolume {
         goal: MpGoal,
         buildStart: LocalDate,
         today: LocalDate,
+        buildWeeks: Int = BUILD_WEEKS,
     ): MpReport {
-        val buildEnd = buildStart.plusWeeks(BUILD_WEEKS.toLong()).minusDays(1)
+        val buildEnd = buildStart.plusWeeks(buildWeeks.toLong()).minusDays(1)
         val mpByWeek =
             runs
                 .filter { it.localDate in buildStart..buildEnd }
                 .groupBy { WeeklyDistance.weekStartOf(it.localDate) }
                 .mapValues { (_, weekRuns) -> weekRuns.sumOf { mpMeters(it, goal) } }
         val weeks =
-            (1..BUILD_WEEKS).map { index ->
+            (1..buildWeeks).map { index ->
                 val weekStart = buildStart.plusWeeks(index - 1L)
                 val weekEnd = weekStart.plusDays(DAYS_PER_WEEK - 1)
                 MpWeek(

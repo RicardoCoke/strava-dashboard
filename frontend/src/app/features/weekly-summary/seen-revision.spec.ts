@@ -10,6 +10,12 @@ describe('seen-revision', () => {
     expect(readSeenRevision()).toBeNull();
     writeSeenRevision('abc');
     expect(readSeenRevision()).toBe('abc');
+    // 019 R15: Ricardo keeps the old key, Marina has her own.
+    expect(localStorage.getItem('sd.weeklySummary.seenRevision')).toBe('abc');
+    expect(readSeenRevision('marina')).toBeNull();
+    writeSeenRevision('xyz', 'marina');
+    expect(localStorage.getItem('sd.weeklySummary.seenRevision.marina')).toBe('xyz');
+    expect(readSeenRevision()).toBe('abc');
   });
 
   it('R11 - survives storage errors', () => {

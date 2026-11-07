@@ -5,8 +5,9 @@ import io.ktor.server.application.ApplicationCall
 import io.ktor.server.sessions.get
 import io.ktor.server.sessions.sessions
 
-/** True when the request has a valid session for the athlete whose tokens are stored. */
-suspend fun ApplicationCall.hasConnectedSession(tokens: TokenRepository): Boolean {
-    val session = sessions.get<UserSession>() ?: return false
-    return tokens.find()?.athleteId == session.athleteId
-}
+/**
+ * True when this browser holds a signed session and the selected person's [tokens] are stored. One session opens both
+ * people by design (feature 019), so it doesn't have to match the stored athlete.
+ */
+suspend fun ApplicationCall.hasConnectedSession(tokens: TokenRepository): Boolean =
+    sessions.get<UserSession>() != null && tokens.find() != null

@@ -6,6 +6,7 @@ import {
   TargetPace,
   TrainingPlanResponse,
 } from '../../core/api/training-plan.models';
+import { Person } from '../../core/person/person.store';
 import { formatWeekdayDayMonth } from '../../shared/format/dates';
 import { formatOneDecimal, formatTwoDecimals } from '../../shared/format/numbers';
 import { formatPace } from '../../shared/format/pace';
@@ -149,7 +150,8 @@ export interface DayCell {
   dateText: string;
   session: string;
   note: string | null;
-  minutesText: string;
+  /** Null for a plan without minutes (feature 019). */
+  minutesText: string | null;
   kmText: string;
   isKeyWorkout: boolean;
   weather: WeatherCell | null;
@@ -164,33 +166,44 @@ export interface WeekRow {
   index: number;
   label: string;
   kmText: string;
-  splitText: string;
+  /** Null for a plan without a split (feature 019). */
+  splitText: string | null;
   isCurrentWeek: boolean;
   days: DayCell[];
 }
 
-export function weekRows(weeks: PlanWeek[], weather: RunWeatherDay[] = []): WeekRow[] {
+export function weekRows(
+  weeks: PlanWeek[],
+  weather: RunWeatherDay[] = [],
+  person: Person = 'ricardo',
+): WeekRow[] {
   const weatherByDate = new Map(weather.map((day) => [day.date, day]));
-  return weeks.map((week) => ({
-    index: week.index,
-    label: week.label,
-    kmText: `${formatTwoDecimals(week.distanceKm)} km`,
-    splitText: `${formatTwoDecimals(week.easyPercent)}% easy · ${formatTwoDecimals(week.subtPercent)}% subT`,
-    isCurrentWeek: week.isCurrentWeek,
-    days: week.days.map((day) => ({
-      date: day.date,
-      dateText: formatWeekdayDayMonth(day.date, day.dayOfWeek),
-      session: KEY_WORKOUTS.get(day.date)?.session ?? day.session,
-      note: day.note,
-      minutesText: `${day.totalMinutes} min`,
-      kmText: `${formatTwoDecimals(day.distanceKm)} km`,
-      isKeyWorkout: KEY_WORKOUTS.has(day.date),
-      weather: weatherCell(weatherByDate.get(day.date)),
-      isRest: day.isRest,
-      raceLabel: day.race?.label ?? null,
-      isMarathon: day.race?.isMarathon ?? false,
-      isToday: day.isToday,
-      isPast: day.isPast,
-    })),
-  }));
+  const keyWorkouts = person === 'ricardo' ? KEY_WORKOUTS : new Map<string, { session?: string }>();
+  return weeks.map((week) => {
+    const hasSplit = week.easyPercent !== 0 || week.subtPercent !== 0;
+    return {
+      index: week.index,
+      label: week.label,
+      kmText: `${formatTwoDecimals(week.distanceKm)} km`,
+      splitText: hasSplit
+        ? `${formatTwoDecimals(week.easyPercent)}% easy · ${formatTwoDecimals(week.subtPercent)}% subT`
+        : null,
+      isCurrentWeek: week.isCurrentWeek,
+      days: week.days.map((day) => ({
+        date: day.date,
+        dateText: formatWeekdayDayMonth(day.date, day.dayOfWeek),
+        session: keyWorkouts.get(day.date)?.session ?? day.session,
+        note: day.note,
+        minutesText: hasSplit ? `${day.totalMinutes} min` : null,
+        kmText: `${formatTwoDecimals(day.distanceKm)} km`,
+        isKeyWorkout: keyWorkouts.has(day.date),
+        weather: weatherCell(weatherByDate.get(day.date)),
+        isRest: day.isRest,
+        raceLabel: day.race?.label ?? null,
+        isMarathon: day.race?.isMarathon ?? false,
+        isToday: day.isToday,
+        isPast: day.isPast,
+      })),
+    };
+  });
 }

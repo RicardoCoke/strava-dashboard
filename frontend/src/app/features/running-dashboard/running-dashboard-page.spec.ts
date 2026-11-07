@@ -55,7 +55,7 @@ describe('RunningDashboardPage', () => {
     fixture.detectChanges();
     expect(text()).toContain("Couldn't load your dashboard.");
 
-    element().querySelector('button')?.click();
+    element().querySelector<HTMLButtonElement>('button.retry')?.click();
     fixture.detectChanges();
     http.expectOne('/api/dashboard/running').flush(dashboard());
     fixture.detectChanges();

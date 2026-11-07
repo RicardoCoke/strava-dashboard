@@ -202,21 +202,29 @@ class RoutesTest {
         }
 
     @Test
-    fun `R2 - connecting a different athlete wipes previous data`() {
+    fun `019 R5 - wrong athlete keeps ricardo data`() {
         val runs = ExposedRunRepository(database)
         runBlocking {
             tokens.save(StoredTokens(99, "old-access", "old-refresh", NOW, "activity:read_all"))
             runs.upsertSummaries(listOf(summary(500, NOW.minus(Duration.ofDays(1)))))
         }
         app {
-            browser().connect()
-            assertEquals(7, runBlocking { tokens.find() }?.athleteId)
-            assertTrue(runBlocking { runs.findAll() }.isEmpty())
+            val response = browser().connect()
+
+            assertEquals("/connect?error=wrong_athlete", response.headers[HttpHeaders.Location])
+            assertEquals(99, runBlocking { tokens.find() }?.athleteId)
+            assertEquals(1, runBlocking { runs.findAll() }.size)
+            assertTrue(
+                response.headers
+                    .getAll(HttpHeaders.SetCookie)
+                    .orEmpty()
+                    .none { it.startsWith("sd_session=") },
+            )
         }
     }
 
     @Test
-    fun `R2 - a different athlete connecting after a revoke gets a clean store`() {
+    fun `019 R5 - wrong athlete after a revoke keeps the store`() {
         val runs = ExposedRunRepository(database)
         val syncState = ExposedSyncStateRepository(database)
         runBlocking {
@@ -225,12 +233,48 @@ class RoutesTest {
             runs.upsertSummaries(listOf(summary(500, NOW.minus(Duration.ofDays(1)))))
         }
         app {
+            val response = browser().connect()
+
+            assertEquals("/connect?error=wrong_athlete", response.headers[HttpHeaders.Location])
+            assertNull(runBlocking { tokens.find() })
+            assertEquals(1, runBlocking { runs.findAll() }.size)
+            val state = runBlocking { syncState.get() }
+            assertEquals(99, state.ownerAthleteId)
+            assertEquals(NOW, state.listCursor)
+        }
+    }
+
+    @Test
+    fun `019 R5 - reconnect keeps cursor`() {
+        val runs = ExposedRunRepository(database)
+        val syncState = ExposedSyncStateRepository(database)
+        runBlocking {
+            syncState.save(SyncState(listCursor = NOW, lastSuccessfulSyncAt = NOW, ownerAthleteId = 7))
+            runs.upsertSummaries(listOf(summary(500, NOW.minus(Duration.ofDays(1)))))
+        }
+        app {
+            val response = browser().connect()
+
+            assertEquals("/", response.headers[HttpHeaders.Location])
+            assertEquals(7, runBlocking { tokens.find() }?.athleteId)
+            assertEquals(1, runBlocking { runs.findAll() }.size)
+            assertEquals(NOW, runBlocking { syncState.get() }.listCursor)
+        }
+    }
+
+    @Test
+    fun `019 R5 - null owner filled in`() {
+        val syncState = ExposedSyncStateRepository(database)
+        runBlocking {
+            syncState.save(SyncState(listCursor = NOW, lastSuccessfulSyncAt = NOW, ownerAthleteId = null))
+            tokens.save(StoredTokens(7, "old-access", "old-refresh", NOW, "activity:read_all"))
+        }
+        app {
             browser().connect()
 
-            assertTrue(runBlocking { runs.findAll() }.isEmpty())
             val state = runBlocking { syncState.get() }
             assertEquals(7, state.ownerAthleteId)
-            assertNull(state.listCursor)
+            assertEquals(NOW, state.listCursor)
         }
     }
 

@@ -2,6 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MarathonPaceResponse } from '../../../core/api/marathon-pace.models';
+import { PersonStore } from '../../../core/person/person.store';
 import { SyncStore } from '../../../core/sync/sync.store';
 import { stubCharts } from '../../../testing/dashboard-fixtures';
 import { marathonPace, mpSummary } from '../../../testing/marathon-pace-fixtures';
@@ -55,6 +56,16 @@ describe('MarathonPaceSection', () => {
     );
     expect(element().querySelector('app-chart')).toBeNull();
     respond();
+  });
+
+  it('019 R10 - names marina variable', () => {
+    TestBed.inject(PersonStore).select('marina');
+    fail(404, { error: 'marathon_pace_not_configured', message: 'x' });
+    expect(text()).toContain('Marathon pace not configured.');
+    expect(text()).toContain(
+      'Set MARINA_MARATHON_GOAL_PACE in .env (for example 4:15), then restart the backend.',
+    );
+    localStorage.clear();
   });
 
   it('R7 - not configured', () => {

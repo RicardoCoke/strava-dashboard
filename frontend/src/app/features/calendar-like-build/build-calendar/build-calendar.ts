@@ -4,11 +4,13 @@ import {
   ElementRef,
   afterNextRender,
   computed,
+  inject,
   input,
   viewChild,
 } from '@angular/core';
 import { RunWeatherDay } from '../../../core/api/run-weather.models';
 import { BuildProgress, PlanWeek } from '../../../core/api/training-plan.models';
+import { PersonStore } from '../../../core/person/person.store';
 import { scrollTargetWeekIndex, weekRows } from '../plan-view';
 
 @Component({
@@ -29,7 +31,9 @@ import { scrollTargetWeekIndex, weekRows } from '../plan-view';
               <span class="tag">This week</span>
             }
             <span class="week-km">{{ week.kmText }}</span>
-            <span class="week-split">{{ week.splitText }}</span>
+            @if (week.splitText; as split) {
+              <span class="week-split">{{ split }}</span>
+            }
           </div>
           @for (day of week.days; track day.date) {
             <div
@@ -59,7 +63,9 @@ import { scrollTargetWeekIndex, weekRows } from '../plan-view';
                   @if (day.note) {
                     <span class="day-note">{{ day.note }}</span>
                   }
-                  <span class="numbers">{{ day.minutesText }} · {{ day.kmText }}</span>
+                  <span class="numbers">{{
+                    day.minutesText ? day.minutesText + ' · ' + day.kmText : day.kmText
+                  }}</span>
                 }
                 @if (day.weather; as weather) {
                   <span class="weather" [attr.data-condition]="weather.condition">
@@ -116,7 +122,8 @@ export class BuildCalendar {
   readonly progress = input.required<BuildProgress>();
   readonly weather = input<RunWeatherDay[]>([]);
 
-  protected readonly rows = computed(() => weekRows(this.weeks(), this.weather()));
+  private readonly person = inject(PersonStore).person;
+  protected readonly rows = computed(() => weekRows(this.weeks(), this.weather(), this.person()));
   private readonly scroller = viewChild.required<ElementRef<HTMLElement>>('scroller');
 
   constructor() {

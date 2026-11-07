@@ -2,6 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { WeeklySummary } from '../../core/api/weekly-summary.models';
+import { PersonStore } from '../../core/person/person.store';
 import { SyncStore } from '../../core/sync/sync.store';
 import { formatDayMonth, formatDayMonthYear } from '../../shared/format/dates';
 import { SyncStoreStub } from '../../testing/sync-store-stub';
@@ -72,6 +73,22 @@ describe('WeeklySummaryBell', () => {
     http.verify();
     vi.restoreAllMocks();
     localStorage.clear();
+  });
+
+  it('019 R15 - badges are separate', () => {
+    flush([summary(THIS_MONDAY)]);
+    click(bell());
+    expect(readSeenRevision('ricardo')).toBe(`rev-${THIS_MONDAY}`);
+
+    TestBed.inject(PersonStore).select('marina');
+    fixture = TestBed.createComponent(WeeklySummaryBell);
+    fixture.detectChanges();
+    flush([summary(THIS_MONDAY)]);
+    expect(badge()).not.toBeNull();
+
+    click(bell());
+    expect(badge()).toBeNull();
+    expect(readSeenRevision('marina')).toBe(`rev-${THIS_MONDAY}`);
   });
 
   it('R11 - badge when revision unseen, never above one', () => {

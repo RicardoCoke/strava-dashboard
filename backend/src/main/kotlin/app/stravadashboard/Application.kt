@@ -2,54 +2,15 @@ package app.stravadashboard
 
 import app.stravadashboard.api.ErrorResponse
 import app.stravadashboard.api.XsrfProtection
-import app.stravadashboard.api.efficiencyFactorRoutes
+import app.stravadashboard.api.forPerson
 import app.stravadashboard.api.healthRoutes
-import app.stravadashboard.api.longRunDriftRoutes
-import app.stravadashboard.api.marathonPaceRoutes
-import app.stravadashboard.api.normalizedVo2maxRoutes
-import app.stravadashboard.api.raceDayFormRoutes
-import app.stravadashboard.api.runWeatherRoutes
-import app.stravadashboard.api.runningDashboardRoutes
-import app.stravadashboard.api.syncRoutes
-import app.stravadashboard.api.trainingLoadRoutes
-import app.stravadashboard.api.trainingPlanRoutes
-import app.stravadashboard.api.vo2maxRoutes
-import app.stravadashboard.api.weeklySummaryRoutes
-import app.stravadashboard.api.wellnessRoutes
-import app.stravadashboard.auth.ConnectService
 import app.stravadashboard.auth.OAuthState
 import app.stravadashboard.auth.UserSession
 import app.stravadashboard.auth.authRoutes
 import app.stravadashboard.config.AppConfig
-import app.stravadashboard.domain.BackgroundSync
-import app.stravadashboard.domain.RunningDashboardService
-import app.stravadashboard.domain.StravaCallBudget
-import app.stravadashboard.domain.SyncService
-import app.stravadashboard.domain.efficiency.EfficiencyFactorService
-import app.stravadashboard.domain.longrundrift.LongRunDriftService
-import app.stravadashboard.domain.marathonpace.MarathonPaceService
+import app.stravadashboard.domain.Person
 import app.stravadashboard.domain.ports.TrainingPlanSource
-import app.stravadashboard.domain.racedayform.RaceDayFormService
-import app.stravadashboard.domain.trainingload.TrainingLoadService
-import app.stravadashboard.domain.trainingplan.TrainingPlanService
-import app.stravadashboard.domain.vo2max.Vo2maxService
-import app.stravadashboard.domain.vo2max.normalized.NormalizedVo2maxService
-import app.stravadashboard.domain.weather.RunWeatherService
-import app.stravadashboard.domain.weeklysummary.WeeklySummaryService
-import app.stravadashboard.domain.wellness.WellnessService
-import app.stravadashboard.domain.wellness.WellnessSync
-import app.stravadashboard.garmin.GarminWellnessSource
-import app.stravadashboard.garmin.garminHttpClient
-import app.stravadashboard.persistence.DatabaseFactory
-import app.stravadashboard.persistence.ExposedRunRepository
-import app.stravadashboard.persistence.ExposedSyncStateRepository
-import app.stravadashboard.persistence.ExposedTokenRepository
-import app.stravadashboard.persistence.ExposedWellnessRepository
 import app.stravadashboard.persistence.TrainingPlanFileSource
-import app.stravadashboard.strava.StravaActivitySource
-import app.stravadashboard.strava.StravaClient
-import app.stravadashboard.strava.StravaOAuthClient
-import app.stravadashboard.strava.StravaTokenProvider
 import app.stravadashboard.strava.stravaHttpClient
 import app.stravadashboard.weather.OpenMeteoClient
 import app.stravadashboard.weather.openMeteoHttpClient
@@ -68,6 +29,7 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.request.path
 import io.ktor.server.response.respond
+import io.ktor.server.routing.route
 import io.ktor.server.routing.routing
 import io.ktor.server.sessions.SessionTransportTransformerMessageAuthentication
 import io.ktor.server.sessions.Sessions
@@ -93,7 +55,7 @@ fun main() {
 }
 
 // The engines and plan source are test seams; every other dependency is built here.
-@Suppress("LongParameterList", "LongMethod")
+@Suppress("LongParameterList")
 fun Application.module(
     config: AppConfig,
     clock: Clock = Clock.systemUTC(),
@@ -105,47 +67,41 @@ fun Application.module(
 ) {
     installServerPlugins(config)
 
-    val database = DatabaseFactory.connect(config.dbPath)
-    val tokens = ExposedTokenRepository(database)
-    val runs = ExposedRunRepository(database)
-    val syncState = ExposedSyncStateRepository(database)
-
     val http = stravaHttpClient(stravaEngine)
     monitor.subscribe(ApplicationStopped) { http.close() }
-    val oauth = StravaOAuthClient(http, config.stravaClientId, config.stravaClientSecret, clock)
-    val stravaClient = StravaClient(http, StravaTokenProvider(tokens, oauth, clock), clock)
-    val budget = StravaCallBudget(clock)
-    val syncService = SyncService(StravaActivitySource(stravaClient), runs, syncState, clock, zone, budget)
-    val wellnessRepo = ExposedWellnessRepository(database)
-    val wellnessSync = garminWellnessSync(config.garminApiKey, garminEngine, wellnessRepo, clock, zone)
-    val backgroundSync =
-        BackgroundSync(syncService, runs, syncState, budget, clock, backgroundSyncScope(), wellnessSync)
-    val dashboardService = RunningDashboardService(tokens, runs, clock, zone)
-    val connectService = ConnectService(oauth, tokens, runs, syncState)
-    val planService = TrainingPlanService(trainingPlanSource, config.trainingPlanStartDate, clock, zone)
-    val loadService = TrainingLoadService(config.lthr, tokens, runs, clock, zone)
-    val vo2maxService = Vo2maxService(config.maxHr, tokens, runs, clock, zone)
-    val marathonPaceService =
-        MarathonPaceService(config.marathonPace, config.trainingPlanStartDate, tokens, runs, clock, zone)
     val weatherSource = if (config.weatherHome == null) null else openMeteoSource(weatherEngine)
-    val weatherService = RunWeatherService(config.weatherHome, weatherSource, planService, clock, zone)
+    val deps =
+        SharedDeps(http, config.weatherHome, weatherSource, backgroundSyncScope(), garminEngine, clock, zone)
+
+    val ricardoStores = PersonStores(config.dbPath)
+    val marinaSettings = config.marina
+    val marinaStores = marinaSettings?.let { PersonStores(it.dbPath) }
+    val ricardo = personStack(config.ricardo, ricardoStores, marinaStores, trainingPlanSource, deps)
+    val marina =
+        marinaSettings?.let {
+            val planSource = TrainingPlanFileSource(it.trainingPlanCsvPath)
+            personStack(it, requireNotNull(marinaStores), ricardoStores, planSource, deps)
+        }
 
     routing {
         healthRoutes()
-        authRoutes(config, connectService)
-        runningDashboardRoutes(tokens, dashboardService)
-        syncRoutes(tokens, backgroundSync)
-        trainingPlanRoutes(tokens, planService)
-        trainingLoadRoutes(tokens, loadService)
-        raceDayFormRoutes(tokens, RaceDayFormService(config.lthr, tokens, runs, planService, clock, zone))
-        vo2maxRoutes(tokens, vo2maxService)
-        normalizedVo2maxRoutes(tokens, NormalizedVo2maxService(config.maxHr, tokens, runs, clock, zone))
-        longRunDriftRoutes(tokens, LongRunDriftService(tokens, runs, clock, zone))
-        efficiencyFactorRoutes(tokens, EfficiencyFactorService(tokens, runs, clock, zone))
-        marathonPaceRoutes(tokens, marathonPaceService)
-        wellnessRoutes(tokens, WellnessService(wellnessSync != null, wellnessRepo, loadService, clock, zone))
-        weeklySummaryRoutes(tokens, WeeklySummaryService(config.lthr, tokens, runs, wellnessRepo, clock, zone))
-        runWeatherRoutes(tokens, weatherService)
+        authRoutes(
+            config,
+            buildMap {
+                put(Person.RICARDO, ricardo.connect)
+                marina?.let { put(Person.MARINA, it.connect) }
+            },
+        )
+        forPerson(Person.RICARDO) { ricardo.routes(this, marina?.otherSync) }
+        forPerson(Person.MARINA) {
+            if (marina != null) {
+                marina.routes(this, ricardo.otherSync)
+            } else {
+                route("/api/{...}") {
+                    handle { call.respond(HttpStatusCode.Unauthorized, ErrorResponse.NOT_CONNECTED) }
+                }
+            }
+        }
     }
 }
 
@@ -158,28 +114,6 @@ private fun Application.openMeteoSource(engine: HttpClientEngine?): OpenMeteoCli
         ownEngine?.close()
     }
     return OpenMeteoClient(http)
-}
-
-/**
- * Resting HR and HRV from Garmin Connect (feature 015), or null without an API key. Without a test [engine], a Java
- * engine is created only when a key is set; the client and that engine are closed when the application stops.
- */
-private fun Application.garminWellnessSync(
-    apiKey: String?,
-    engine: HttpClientEngine?,
-    repo: ExposedWellnessRepository,
-    clock: Clock,
-    zone: ZoneId,
-): WellnessSync? {
-    if (apiKey == null) return null
-    // Java (JDK HttpClient), not CIO: CIO's own TLS stack fails the handshake with Garmin's servers.
-    val ownEngine = if (engine == null) Java.create() else null
-    val http = garminHttpClient(engine ?: requireNotNull(ownEngine))
-    monitor.subscribe(ApplicationStopped) {
-        http.close()
-        ownEngine?.close()
-    }
-    return WellnessSync(GarminWellnessSource(http, apiKey, clock), repo, clock, zone)
 }
 
 private fun Application.installServerPlugins(config: AppConfig) {

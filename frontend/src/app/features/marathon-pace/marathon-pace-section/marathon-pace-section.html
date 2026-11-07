@@ -8,7 +8,7 @@
     @case ('notConfigured') {
       <p class="mp-empty">Marathon pace not configured.</p>
       <p class="empty">
-        Set MARATHON_GOAL_PACE in .env (for example 4:15), then restart the backend.
+        Set {{ goalPaceVariable() }} in .env (for example 4:15), then restart the backend.
       </p>
     }
     @case ('invalidConfig') {
@@ -16,7 +16,7 @@
         Marathon pace settings have a problem: {{ invalidMessage() }}
       </p>
       <p class="empty">
-        Set MARATHON_GOAL_PACE in .env (for example 4:15), then restart the backend.
+        Set {{ goalPaceVariable() }} in .env (for example 4:15), then restart the backend.
       </p>
     }
     @case ('error') {

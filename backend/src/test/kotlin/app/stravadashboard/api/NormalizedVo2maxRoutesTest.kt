@@ -142,7 +142,7 @@ class NormalizedVo2maxRoutesTest {
         }
 
     @Test
-    fun `R7 - 401 for a session of another athlete`() {
+    fun `019 R4 - a session opens whichever athlete's tokens are stored`() {
         val config = config(MaxHrSetting.Default)
         app(config) {
             val browser = connectedBrowser()
@@ -150,9 +150,7 @@ class NormalizedVo2maxRoutesTest {
                 val tokens = ExposedTokenRepository(DatabaseFactory.connect(config.dbPath))
                 tokens.save(StoredTokens(8, "a", "r", now.plusSeconds(99_999), "activity:read_all"))
             }
-            val response = browser.get("/api/vo2max/normalized")
-            assertEquals(HttpStatusCode.Unauthorized, response.status)
-            assertEquals("not_connected", response.json()["error"]?.jsonPrimitive?.content)
+            assertEquals(HttpStatusCode.OK, browser.get("/api/vo2max/normalized").status)
         }
     }
 
