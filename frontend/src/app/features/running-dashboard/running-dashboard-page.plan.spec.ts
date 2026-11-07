@@ -55,10 +55,8 @@ describe('RunningDashboardPage with the marathon build section', () => {
     expect(order.slice(0, 4)).toEqual(['header', 'app-sync-banner', 'app-headline-tiles', 'div']);
     // 017 AC11.1: the weekly summary bell sits in the header, after the Running heading.
     const header = Array.from(element().querySelector('header')?.children ?? []);
-    expect(header.map((child) => child.tagName.toLowerCase())).toEqual([
-      'h1',
-      'app-weekly-summary-bell',
-    ]);
+    expect(header.map((child) => child.tagName.toLowerCase())).toEqual(['h1', 'div']);
+    expect(header[1].querySelector('app-weekly-summary-bell')).not.toBeNull();
     expect(order.indexOf('app-headline-tiles')).toBeLessThan(
       order.indexOf('app-calendar-like-build'),
     );

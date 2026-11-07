@@ -1,4 +1,6 @@
 import { TestBed } from '@angular/core/testing';
+import { Router } from '@angular/router';
+import { PersonStore } from '../../core/person/person.store';
 import { ConnectPage } from './connect-page';
 
 describe('ConnectPage', () => {
@@ -8,6 +10,46 @@ describe('ConnectPage', () => {
     fixture.detectChanges();
     return fixture.nativeElement as HTMLElement;
   }
+
+  beforeEach(() => localStorage.clear());
+  afterEach(() => localStorage.clear());
+
+  it('019 R17 - marina link and intro', () => {
+    TestBed.inject(PersonStore).select('marina');
+    const page = render();
+    expect(page.querySelector('a.connect')?.getAttribute('href')).toBe(
+      '/auth/strava/login?person=marina',
+    );
+    expect(page.querySelector('.intro')?.textContent?.trim()).toBe(
+      "Connect Marina's Strava account. Sign in to Strava as Marina first.",
+    );
+  });
+
+  it('019 R17 - ricardo page unchanged', () => {
+    const page = render();
+    expect(page.querySelector('.intro')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+      'Connect your Strava account to see your weekly distance, heart-rate trend and workout pace.',
+    );
+  });
+
+  it('019 R17 - switch on connect page goes home', () => {
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+    render().querySelector<HTMLButtonElement>('app-person-switch button')?.click();
+    expect(TestBed.inject(PersonStore).person()).toBe('marina');
+    expect(navigate).toHaveBeenCalledWith('/');
+  });
+
+  it('019 R17 - wrong athlete, not configured and unknown person messages', () => {
+    expect(render({ error: 'wrong_athlete' }).textContent).toContain(
+      "That Strava account doesn't belong to this person. Sign out of Strava, sign in to the right account, then try again.",
+    );
+    expect(render({ error: 'person_not_configured' }).textContent).toContain(
+      "Marina's Strava app isn't set up yet. Add the MARINA_ settings to .env, then restart the backend.",
+    );
+    expect(render({ error: 'unknown_person' }).textContent).toContain(
+      'Connecting to Strava failed. Please try again.',
+    );
+  });
 
   it('R2 - connect page links to auth login', () => {
     const link = render().querySelector('a');

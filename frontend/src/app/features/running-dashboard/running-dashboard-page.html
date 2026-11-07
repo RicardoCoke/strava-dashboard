@@ -1,6 +1,9 @@
 <header class="page-header">
   <h1>Running</h1>
-  <app-weekly-summary-bell />
+  <div class="header-actions">
+    <app-person-switch />
+    <app-weekly-summary-bell />
+  </div>
 </header>
 <app-sync-banner [state]="sync.bannerState()" />
 @if (sync.status()?.status === 'syncing') {

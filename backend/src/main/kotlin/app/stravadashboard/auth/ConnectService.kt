@@ -1,8 +1,6 @@
 package app.stravadashboard.auth
 
-import app.stravadashboard.domain.ports.RunRepository
 import app.stravadashboard.domain.ports.StoredTokens
-import app.stravadashboard.domain.ports.SyncState
 import app.stravadashboard.domain.ports.SyncStateRepository
 import app.stravadashboard.domain.ports.TokenRepository
 import app.stravadashboard.strava.StravaOAuthClient
@@ -14,17 +12,27 @@ sealed interface ConnectResult {
     ) : ConnectResult
 
     data object TokenExchangeFailed : ConnectResult
+
+    data object WrongAthlete : ConnectResult
+}
+
+/** The athlete a person's local store belongs to, or null before their first connect. */
+class AthleteOwner(
+    private val tokens: TokenRepository,
+    private val syncState: SyncStateRepository,
+) {
+    suspend fun id(): Long? = syncState.get().ownerAthleteId ?: tokens.find()?.athleteId
 }
 
 /**
- * Exchanges the OAuth code and stores the tokens. The local store belongs to one athlete: when a different athlete
- * connects (even after the previous tokens were revoked and deleted), runs and sync state are wiped first.
+ * Exchanges the OAuth code and stores one person's tokens. Each store belongs to one athlete: anyone else is rejected
+ * and nothing changes (feature 019), so connecting can never destroy data.
  */
 class ConnectService(
     private val oauth: StravaOAuthClient,
     private val tokens: TokenRepository,
-    private val runs: RunRepository,
     private val syncState: SyncStateRepository,
+    private val otherOwners: List<AthleteOwner>,
 ) {
     suspend fun connect(
         code: String,
@@ -33,12 +41,15 @@ class ConnectService(
         val grant = (oauth.exchangeCode(code) as? StravaResult.Success)?.value
         val athleteId = grant?.athleteId ?: return ConnectResult.TokenExchangeFailed
 
-        val owner = syncState.get().ownerAthleteId ?: tokens.find()?.athleteId
-        if (owner != athleteId) {
-            runs.deleteAll()
-            syncState.save(SyncState(ownerAthleteId = athleteId))
+        val owner = AthleteOwner(tokens, syncState).id()
+        val belongsElsewhere = (owner != null && owner != athleteId) || otherOwners.any { it.id() == athleteId }
+        return if (belongsElsewhere) {
+            ConnectResult.WrongAthlete
+        } else {
+            val state = syncState.get()
+            if (state.ownerAthleteId == null) syncState.save(state.copy(ownerAthleteId = athleteId))
+            tokens.save(StoredTokens(athleteId, grant.accessToken, grant.refreshToken, grant.expiresAt, grantedScope))
+            ConnectResult.Connected(athleteId)
         }
-        tokens.save(StoredTokens(athleteId, grant.accessToken, grant.refreshToken, grant.expiresAt, grantedScope))
-        return ConnectResult.Connected(athleteId)
     }
 }

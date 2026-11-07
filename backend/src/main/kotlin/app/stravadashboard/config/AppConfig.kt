@@ -1,5 +1,6 @@
 package app.stravadashboard.config
 
+import app.stravadashboard.domain.marathonpace.MarathonPaceVolume
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.util.HexFormat
@@ -29,8 +30,25 @@ data class AppConfig(
     val garminApiKey: String? = null,
     /** Home location for the calendar's run weather (feature 018), or null when the feature is off. */
     val weatherHome: WeatherLocation? = null,
+    /** Marina's own settings (feature 019), or null when she isn't set up. */
+    val marina: PersonSettings? = null,
 ) {
     val sessionSecret: ByteArray get() = HexFormat.of().parseHex(sessionSecretHex)
+
+    val ricardo: PersonSettings
+        get() =
+            PersonSettings(
+                stravaClientId,
+                stravaClientSecret,
+                dbPath,
+                trainingPlanCsvPath,
+                trainingPlanStartDate,
+                lthr,
+                maxHr,
+                marathonPace,
+                garminApiKey,
+                MarathonPaceVolume.BUILD_WEEKS,
+            )
 
     val secureCookies: Boolean get() = stravaRedirectUri.startsWith("https://")
 
@@ -58,7 +76,8 @@ data class AppConfig(
             "trainingPlanCsv=$plan, trainingPlanStartDate=$trainingPlanStartDate, lthr=$lthrText, " +
             "maxHr=$maxHrText, marathonPace=$marathonPaceText, " +
             "garminApiKey=${if (garminApiKey == null) "<unset>" else "<set>"}, " +
-            "weather=${if (weatherHome == null) "<unset>" else "<set>"}, secrets=<redacted>)"
+            "weather=${if (weatherHome == null) "<unset>" else "<set>"}, " +
+            "marina=${if (marina == null) "<unset>" else "<set>"}, secrets=<redacted>)"
     }
 
     companion object {
@@ -81,26 +100,17 @@ data class AppConfig(
                 dbPath = env.required("DB_PATH"),
                 trainingPlanCsvPath = env["TRAINING_PLAN_CSV"]?.trim()?.takeIf { it.isNotEmpty() },
                 trainingPlanStartDate =
-                    env["TRAINING_PLAN_START_DATE"]?.takeIf { it.isNotBlank() }?.let(::validStartDate)
+                    env["TRAINING_PLAN_START_DATE"]
+                        ?.takeIf { it.isNotBlank() }
+                        ?.let { validStartDate(it, "TRAINING_PLAN_START_DATE") }
                         ?: DEFAULT_TRAINING_PLAN_START,
                 lthr = LthrSetting.parse(env["LTHR_BPM"]),
                 maxHr = MaxHrSetting.parse(env["MAX_HR_BPM"]),
                 marathonPace = MarathonPaceSetting.parse(env["MARATHON_GOAL_PACE"]),
                 garminApiKey = env["GARMIN_API_KEY"]?.trim()?.takeIf { it.isNotEmpty() },
                 weatherHome = WeatherLocation.parse(env["WEATHER_LATITUDE"], env["WEATHER_LONGITUDE"]),
+                marina = marinaSettings(env, env.required("DB_PATH")),
             )
-
-        private fun validStartDate(text: String): LocalDate {
-            val date =
-                requireNotNull(runCatching { LocalDate.parse(text.trim()) }.getOrNull()) {
-                    "TRAINING_PLAN_START_DATE must be an ISO date (YYYY-MM-DD)"
-                }
-            require(date.dayOfWeek == DayOfWeek.MONDAY) { "TRAINING_PLAN_START_DATE must be a Monday" }
-            return date
-        }
-
-        private fun Map<String, String>.required(key: String): String =
-            requireNotNull(this[key]?.takeIf { it.isNotBlank() }) { "$key must be set (see .env.example)" }
 
         private fun validSessionSecret(hex: String): String {
             val trimmed = hex.trim()
@@ -111,4 +121,16 @@ data class AppConfig(
             return trimmed
         }
     }
+}
+
+internal fun validStartDate(
+    text: String,
+    key: String,
+): LocalDate {
+    val date =
+        requireNotNull(runCatching { LocalDate.parse(text.trim()) }.getOrNull()) {
+            "$key must be an ISO date (YYYY-MM-DD)"
+        }
+    require(date.dayOfWeek == DayOfWeek.MONDAY) { "$key must be a Monday" }
+    return date
 }

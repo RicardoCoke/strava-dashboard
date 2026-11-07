@@ -11,6 +11,7 @@ import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { skip } from 'rxjs';
 import { isMarathonPaceResponse } from '../../../core/api/marathon-pace.models';
 import { MarathonPaceService } from '../../../core/api/marathon-pace.service';
+import { PersonStore } from '../../../core/person/person.store';
 import { SyncStore } from '../../../core/sync/sync.store';
 import { ChartComponent } from '../../../shared/chart/chart';
 import { MARATHON_PACE_CHART_LABEL, buildMarathonPaceOptions } from '../marathon-pace.options';
@@ -35,6 +36,11 @@ export class MarathonPaceSection implements OnInit {
   private readonly service = inject(MarathonPaceService);
   private readonly destroyRef = inject(DestroyRef);
 
+  private readonly person = inject(PersonStore).person;
+
+  protected readonly goalPaceVariable = computed(() =>
+    this.person() === 'marina' ? 'MARINA_MARATHON_GOAL_PACE' : 'MARATHON_GOAL_PACE',
+  );
   protected readonly chartLabel = MARATHON_PACE_CHART_LABEL;
   protected readonly state = signal<MarathonPaceState>({ kind: 'loading' });
   protected readonly data = computed(() => {

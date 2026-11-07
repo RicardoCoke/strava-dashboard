@@ -2,6 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { WellnessResponse } from '../../core/api/wellness.models';
+import { PersonStore } from '../../core/person/person.store';
 import { SyncStore } from '../../core/sync/sync.store';
 import { stubCharts } from '../../testing/dashboard-fixtures';
 import { SyncStoreStub } from '../../testing/sync-store-stub';
@@ -47,6 +48,13 @@ describe('WellnessSection', () => {
       'Loading resting HR & HRV…',
     );
     expect(element().querySelector('app-wellness-chart')).toBeNull();
+  });
+
+  it('019 R11 - card hidden for marina', () => {
+    TestBed.inject(PersonStore).select('marina');
+    fail(404, { error: 'wellness_not_configured', message: 'Garmin Connect is not connected.' });
+    expect(element().querySelector('section')).toBeNull();
+    localStorage.clear();
   });
 
   it('R1 - shows not connected message on 404', () => {
@@ -102,9 +110,7 @@ describe('WellnessSection', () => {
     expect(element().querySelector('.chart-stub')?.getAttribute('aria-label')).toBe(
       'Resting heart rate and HRV per day with 7-day baselines, last 12 weeks',
     );
-    expect(text()).toContain(
-      'From Garmin Connect · dashed line = average of the previous 7 days',
-    );
+    expect(text()).toContain('From Garmin Connect · dashed line = average of the previous 7 days');
     expect(element().querySelector('.wellness-stale')).toBeNull();
   });
 

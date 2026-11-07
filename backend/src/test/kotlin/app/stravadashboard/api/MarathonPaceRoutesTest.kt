@@ -194,7 +194,7 @@ class MarathonPaceRoutesTest {
             val text = response.bodyAsText()
             assertEquals(
                 """{"error":"marathon_pace_invalid_config",""" +
-                    """"message":"MARATHON_GOAL_PACE is not a pace between 2:30 and 8:00 per km (m:ss)."}""",
+                    """"message":"The goal pace is not a pace between 2:30 and 8:00 per km (m:ss)."}""",
                 text,
             )
         }

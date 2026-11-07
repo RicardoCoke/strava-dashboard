@@ -111,6 +111,14 @@ describe('BuildCalendar', () => {
     expect(squash(monday?.querySelector('.numbers'))).toBe('50 min · 8.50 km');
   });
 
+  it('019 R9 - a week without split shows km only', () => {
+    const noSplit = plan.weeks.map((week) => ({ ...week, easyPercent: 0, subtPercent: 0 }));
+    const element = calendar(noSplit);
+    expect(element.querySelector('.week-split')).toBeNull();
+    const tuesday = element.querySelectorAll('.week')[0].querySelectorAll('.day')[1];
+    expect(squash(tuesday.querySelector('.numbers'))).toBe('8.50 km');
+  });
+
   it('marks the key workouts and relabels 20 Nov', () => {
     const element = calendar();
     expect(element.querySelectorAll('.day.key-workout').length).toBe(2);

@@ -22,6 +22,12 @@ describe('buildMarathonPaceOptions', () => {
     expect(series.data.length).toBe(16);
   });
 
+  it('019 R7 - an 18 week build has 18 bars', () => {
+    const weeks = Array.from({ length: 18 }, (_, i) => mpWeek({ weekIndex: i + 1 }));
+    const built = buildMarathonPaceOptions(marathonPace({ weeks }));
+    expect((built.series as { data: BarItem[] }[])[0].data.length).toBe(18);
+  });
+
   it('R6 - bar colours and labels', () => {
     expect(series.data[10].itemStyle.color).toBe(palette.accent);
     expect(series.data[1].itemStyle.color).toBe(palette.secondary);

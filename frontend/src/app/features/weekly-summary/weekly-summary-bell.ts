@@ -17,6 +17,7 @@ import {
   isWeeklySummariesResponse,
 } from '../../core/api/weekly-summary.models';
 import { WeeklySummaryService } from '../../core/api/weekly-summary.service';
+import { PersonStore } from '../../core/person/person.store';
 import { SyncStore } from '../../core/sync/sync.store';
 import { lastWeekMonday, readSeenRevision, writeSeenRevision } from './seen-revision';
 import { PanelState, WeeklySummaryPanel } from './weekly-summary-panel/weekly-summary-panel';
@@ -42,7 +43,8 @@ export class WeeklySummaryBell implements OnInit {
   protected readonly state = signal<State>({ kind: 'loading' });
   protected readonly open = signal(false);
   private readonly selectedWeek = signal<string | null>(null);
-  private readonly seen = signal(readSeenRevision());
+  private readonly person = inject(PersonStore).person();
+  private readonly seen = signal(readSeenRevision(this.person));
 
   protected readonly panelState = computed<PanelState>(() => this.state().kind);
   private readonly summaries = computed(() => {
@@ -115,7 +117,7 @@ export class WeeklySummaryBell implements OnInit {
   private markSeen(): void {
     const revision = this.summaries()[0]?.revision;
     if (revision !== undefined) {
-      writeSeenRevision(revision);
+      writeSeenRevision(revision, this.person);
       this.seen.set(revision);
     }
   }

@@ -20,9 +20,11 @@ sealed interface MarathonPaceResult {
 }
 
 /** Checks the config, then computes MP km per build week from the local store. Never calls Strava. */
+@Suppress("LongParameterList")
 class MarathonPaceService(
     private val setting: MarathonPaceSetting,
     private val buildStart: LocalDate,
+    private val buildWeeks: Int,
     private val tokens: TokenRepository,
     private val runs: RunRepository,
     private val clock: Clock,
@@ -38,6 +40,6 @@ class MarathonPaceService(
     private suspend fun compute(goal: MpGoal): MarathonPaceResult {
         if (tokens.find() == null) return MarathonPaceResult.NotConnected
         val today = LocalDate.now(clock.withZone(zone))
-        return MarathonPaceResult.Ready(MarathonPaceVolume.compute(runs.findAll(), goal, buildStart, today))
+        return MarathonPaceResult.Ready(MarathonPaceVolume.compute(runs.findAll(), goal, buildStart, today, buildWeeks))
     }
 }

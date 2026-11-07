@@ -53,5 +53,6 @@ val MARATHON_PACE_NOT_CONFIGURED =
 val MARATHON_PACE_INVALID_CONFIG =
     ErrorResponse(
         "marathon_pace_invalid_config",
-        "MARATHON_GOAL_PACE is not a pace between 2:30 and 8:00 per km (m:ss).",
+        // Both people use this text, each with their own variable: the card's hint names the right one.
+        "The goal pace is not a pace between 2:30 and 8:00 per km (m:ss).",
     )

@@ -11,6 +11,7 @@ import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { skip } from 'rxjs';
 import { isWellnessResponse } from '../../core/api/wellness.models';
 import { WellnessService } from '../../core/api/wellness.service';
+import { PersonStore } from '../../core/person/person.store';
 import { SyncStore } from '../../core/sync/sync.store';
 import { WellnessChart } from './wellness-chart/wellness-chart';
 import { WellnessLatest } from './wellness-latest/wellness-latest';
@@ -34,7 +35,13 @@ export class WellnessSection implements OnInit {
   private readonly service = inject(WellnessService);
   private readonly destroyRef = inject(DestroyRef);
 
+  private readonly person = inject(PersonStore).person;
+
   protected readonly state = signal<WellnessState>({ kind: 'loading' });
+  /** Marina may have no Garmin at all, so the card goes instead of asking for a key (019 R11). */
+  protected readonly hidden = computed(
+    () => this.state().kind === 'notConfigured' && this.person() === 'marina',
+  );
   protected readonly data = computed(() => {
     const state = this.state();
     return state.kind === 'loaded' ? state.data : null;
