@@ -117,7 +117,7 @@ export function paceRows(paces: TargetPace[]): PaceRow[] {
 
 // shortcut: pinned to calendar dates because the plan CSV can't mark a day, move to the CSV if the plan's start date changes.
 const KEY_WORKOUTS = new Map<string, { session?: string }>([
-  ['2026-11-20', { session: '5x5km' }],
+  ['2026-11-19', {}],
   ['2026-11-24', {}],
 ]);
 
