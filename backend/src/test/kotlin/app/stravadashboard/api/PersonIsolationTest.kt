@@ -101,6 +101,7 @@ class PersonIsolationTest {
             "/api/efficiency-factor",
             "/api/marathon-pace",
             "/api/wellness",
+            "/api/rings",
             "/api/weekly-summaries",
             "/api/run-weather",
         )

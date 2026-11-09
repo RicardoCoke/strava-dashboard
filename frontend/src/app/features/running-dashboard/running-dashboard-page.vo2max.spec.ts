@@ -10,6 +10,7 @@ import { stubLongRunDriftSection } from '../../testing/long-run-drift-stub';
 import { SyncStoreStub, stubSyncStore, syncStatus } from '../../testing/sync-store-stub';
 import { stubMarathonPaceSection } from '../../testing/marathon-pace-stub';
 import { stubRaceDayFormSection } from '../../testing/race-day-form-stub';
+import { stubRingsSection } from '../../testing/rings-stub';
 import { stubWellnessSection } from '../../testing/wellness-stub';
 import { stubWeeklySummaryBell } from '../../testing/weekly-summary-stub';
 import { stubRunWeather } from '../../testing/run-weather-stub';
@@ -30,6 +31,7 @@ describe('RunningDashboardPage with the VO2max card', () => {
     stubEfficiencyFactorSection();
     stubRaceDayFormSection();
     stubWellnessSection();
+    stubRingsSection();
     sync = stubSyncStore();
     stubWeeklySummaryBell();
     stubMarathonPaceSection();

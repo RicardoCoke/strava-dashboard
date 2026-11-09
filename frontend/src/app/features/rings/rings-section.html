@@ -1,0 +1,46 @@
+@if (state().kind === 'error') {
+  <div class="rings-error" role="alert">
+    <p>Couldn't load rings.</p>
+    <button type="button" class="retry" (click)="retry()">Retry</button>
+  </div>
+} @else {
+  @if (state().kind === 'loading') {
+    <span class="visually-hidden" role="status">Loading rings…</span>
+  }
+  <div class="rings">
+    @for (ring of rings(); track ring.label) {
+      <figure
+        class="ring"
+        [attr.role]="state().kind === 'loaded' ? 'img' : null"
+        [attr.aria-label]="state().kind === 'loaded' ? ring.ariaLabel : null"
+        [attr.aria-hidden]="state().kind === 'loaded' ? null : 'true'"
+      >
+        <div class="dial">
+          <svg viewBox="0 0 100 100" aria-hidden="true">
+            <circle class="track" cx="50" cy="50" r="45" />
+            <!-- A zero fill would draw a dot with round caps. -->
+            @if (ring.valueText !== null && ring.fill > 0) {
+              <circle
+                [class]="'arc colour-' + ring.colour"
+                cx="50"
+                cy="50"
+                r="45"
+                [attr.stroke-dasharray]="circumference"
+                [attr.stroke-dashoffset]="dashOffset(ring.fill)"
+              />
+            }
+          </svg>
+          @if (state().kind === 'loaded') {
+            <span class="value">{{ ring.valueText ?? '—' }}</span>
+          }
+        </div>
+        <figcaption>
+          <span class="label">{{ ring.label }}</span>
+          @if (ring.line) {
+            <span class="line">{{ ring.line }}</span>
+          }
+        </figcaption>
+      </figure>
+    }
+  </div>
+}

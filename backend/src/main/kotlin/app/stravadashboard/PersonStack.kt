@@ -6,6 +6,7 @@ import app.stravadashboard.api.longRunDriftRoutes
 import app.stravadashboard.api.marathonPaceRoutes
 import app.stravadashboard.api.normalizedVo2maxRoutes
 import app.stravadashboard.api.raceDayFormRoutes
+import app.stravadashboard.api.ringsRoutes
 import app.stravadashboard.api.runWeatherRoutes
 import app.stravadashboard.api.runningDashboardRoutes
 import app.stravadashboard.api.syncRoutes
@@ -17,6 +18,7 @@ import app.stravadashboard.api.wellnessRoutes
 import app.stravadashboard.auth.AthleteOwner
 import app.stravadashboard.auth.ConnectService
 import app.stravadashboard.auth.PersonConnect
+import app.stravadashboard.config.LthrSetting
 import app.stravadashboard.config.PersonSettings
 import app.stravadashboard.config.WeatherLocation
 import app.stravadashboard.domain.BackgroundSync
@@ -28,6 +30,8 @@ import app.stravadashboard.domain.longrundrift.LongRunDriftService
 import app.stravadashboard.domain.marathonpace.MarathonPaceService
 import app.stravadashboard.domain.ports.TrainingPlanSource
 import app.stravadashboard.domain.racedayform.RaceDayFormService
+import app.stravadashboard.domain.rings.RingsService
+import app.stravadashboard.domain.rings.RingsSync
 import app.stravadashboard.domain.trainingload.TrainingLoadService
 import app.stravadashboard.domain.trainingplan.TrainingPlanService
 import app.stravadashboard.domain.vo2max.Vo2maxService
@@ -39,6 +43,7 @@ import app.stravadashboard.domain.wellness.WellnessSync
 import app.stravadashboard.garmin.GarminWellnessSource
 import app.stravadashboard.garmin.garminHttpClient
 import app.stravadashboard.persistence.DatabaseFactory
+import app.stravadashboard.persistence.ExposedRingDayRepository
 import app.stravadashboard.persistence.ExposedRunRepository
 import app.stravadashboard.persistence.ExposedSyncStateRepository
 import app.stravadashboard.persistence.ExposedTokenRepository
@@ -67,6 +72,7 @@ internal class PersonStores(
     val runs = ExposedRunRepository(database)
     val syncState = ExposedSyncStateRepository(database)
     val wellness = ExposedWellnessRepository(database)
+    val ringDays = ExposedRingDayRepository(database)
     val owner = AthleteOwner(tokens, syncState)
 }
 
@@ -104,7 +110,7 @@ internal fun Application.personStack(
     val stravaClient = StravaClient(deps.http, StravaTokenProvider(tokens, oauth, clock), clock)
     val budget = StravaCallBudget(clock)
     val syncService = SyncService(StravaActivitySource(stravaClient), runs, stores.syncState, clock, zone, budget)
-    val wellnessSync = garminWellnessSync(settings.garminApiKey, deps.garminEngine, stores.wellness, clock, zone)
+    val wellnessSync = garminWellnessSync(settings, deps.garminEngine, stores, clock, zone)
     val sync = BackgroundSync(syncService, runs, stores.syncState, budget, clock, deps.scope, wellnessSync)
     val service =
         ConnectService(oauth, tokens, stores.syncState, listOfNotNull(otherStores?.owner))
@@ -132,6 +138,7 @@ internal fun Application.personStack(
         efficiencyFactorRoutes(tokens, EfficiencyFactorService(tokens, runs, clock, zone))
         marathonPaceRoutes(tokens, marathonPace)
         wellnessRoutes(tokens, WellnessService(wellnessSync != null, stores.wellness, load, clock, zone))
+        ringsRoutes(tokens, RingsService(wellnessSync != null, stores.wellness, stores.ringDays, clock, zone))
         weeklySummaryRoutes(
             tokens,
             WeeklySummaryService(settings.lthr, tokens, runs, stores.wellness, clock, zone),
@@ -141,17 +148,18 @@ internal fun Application.personStack(
 }
 
 /**
- * Resting HR and HRV from Garmin Connect (feature 015), or null without an API key. Without a test [engine], a Java
- * engine is created only when a key is set; the client and that engine are closed when the application stops.
+ * Resting HR, HRV (015) and ring days (020) from Garmin Connect, or null without an API key. Without a test
+ * [engine], a Java engine is created only when a key is set; the client and engine close when the application stops.
  */
 private fun Application.garminWellnessSync(
-    apiKey: String?,
+    settings: PersonSettings,
     engine: HttpClientEngine?,
-    repo: ExposedWellnessRepository,
+    stores: PersonStores,
     clock: Clock,
     zone: ZoneId,
 ): WellnessSync? {
-    if (apiKey == null) return null
+    val apiKey = settings.garminApiKey ?: return null
+    val lthr = (settings.lthr as? LthrSetting.Valid)?.lthr
     // Java (JDK HttpClient), not CIO: CIO's own TLS stack fails the handshake with Garmin's servers.
     val ownEngine = if (engine == null) Java.create() else null
     val http = garminHttpClient(engine ?: requireNotNull(ownEngine))
@@ -159,5 +167,7 @@ private fun Application.garminWellnessSync(
         http.close()
         ownEngine?.close()
     }
-    return WellnessSync(GarminWellnessSource(http, apiKey, clock), repo, clock, zone)
+    val source = GarminWellnessSource(http, apiKey, clock)
+    val rings = RingsSync(source, stores.ringDays, lthr, clock, zone)
+    return WellnessSync(source, stores.wellness, clock, zone, rings)
 }

@@ -9,6 +9,7 @@ import { stubVo2maxSection } from '../../testing/vo2max-stub';
 import { stubRaceDayFormSection } from '../../testing/race-day-form-stub';
 import { stubEfficiencyFactorSection } from '../../testing/efficiency-factor-stub';
 import { stubLongRunDriftSection } from '../../testing/long-run-drift-stub';
+import { stubRingsSection } from '../../testing/rings-stub';
 import { stubWellnessSection } from '../../testing/wellness-stub';
 import { stubWeeklySummaryBell } from '../../testing/weekly-summary-stub';
 import { stubRunWeather } from '../../testing/run-weather-stub';
@@ -32,6 +33,7 @@ describe('RunningDashboardPage with the marathon pace card', () => {
     stubLongRunDriftSection();
     stubEfficiencyFactorSection();
     stubWellnessSection();
+    stubRingsSection();
     fixture = TestBed.createComponent(RunningDashboardPage);
     http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();

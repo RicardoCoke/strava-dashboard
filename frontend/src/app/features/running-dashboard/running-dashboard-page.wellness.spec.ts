@@ -6,6 +6,7 @@ import { stubEfficiencyFactorSection } from '../../testing/efficiency-factor-stu
 import { stubLongRunDriftSection } from '../../testing/long-run-drift-stub';
 import { stubMarathonPaceSection } from '../../testing/marathon-pace-stub';
 import { stubRaceDayFormSection } from '../../testing/race-day-form-stub';
+import { stubRingsSection } from '../../testing/rings-stub';
 import { stubSyncStore } from '../../testing/sync-store-stub';
 import { trainingLoad } from '../../testing/training-load-fixtures';
 import { trainingPlan } from '../../testing/training-plan-fixtures';
@@ -32,6 +33,7 @@ describe('RunningDashboardPage with the resting HR & HRV card', () => {
     stubMarathonPaceSection();
     stubSyncStore();
     stubWeeklySummaryBell();
+    stubRingsSection();
     fixture = TestBed.createComponent(RunningDashboardPage);
     http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();

@@ -2,6 +2,7 @@ package app.stravadashboard.domain.wellness
 
 import app.stravadashboard.domain.ports.WellnessRepository
 import app.stravadashboard.domain.ports.WellnessSource
+import app.stravadashboard.domain.rings.RingsSync
 import kotlinx.coroutines.CancellationException
 import org.slf4j.LoggerFactory
 import java.time.Clock
@@ -18,6 +19,7 @@ class WellnessSync(
     private val repo: WellnessRepository,
     private val clock: Clock,
     private val zone: ZoneId,
+    private val rings: RingsSync? = null,
 ) {
     @Suppress("TooGenericExceptionCaught")
     suspend fun refreshIfDue() {
@@ -45,13 +47,30 @@ class WellnessSync(
                 val days = result.days.mapNotNull(::usable).filter { it.date in range }
                 repo.replaceRange(range.start, range.endInclusive, days, now)
                 repo.pruneBefore(WellnessPolicy.pruneCutoff(today))
-                repo.saveState(attempted.copy(lastStatus = WellnessFetchStatus.OK, lastSuccessAt = now))
+                val ok = attempted.copy(lastStatus = WellnessFetchStatus.OK, lastSuccessAt = now)
+                repo.saveState(ok)
                 log.info("Wellness refresh finished: status={}, days={}", WellnessFetchStatus.OK, days.size)
+                refreshRings(today, ok)
             }
             WellnessFetchResult.KeyRejected -> stopped(attempted, WellnessFetchStatus.KEY_REJECTED)
             is WellnessFetchResult.RateLimited ->
                 stopped(attempted.copy(retryAfter = result.until), WellnessFetchStatus.RATE_LIMITED)
             WellnessFetchResult.Unavailable -> stopped(attempted, WellnessFetchStatus.UNAVAILABLE)
+        }
+    }
+
+    /** A ring failure keeps the cache and the OK status (020 R3); only a 429 delays the next refresh. */
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun refreshRings(
+        today: LocalDate,
+        ok: WellnessState,
+    ) {
+        try {
+            rings?.refresh(today)?.let { repo.saveState(ok.copy(retryAfter = it)) }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            log.warn("Rings refresh failed unexpectedly: {}", e::class.simpleName)
         }
     }
 

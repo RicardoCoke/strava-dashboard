@@ -100,6 +100,15 @@ object WellnessDaysTable : Table("wellness_days") {
     override val primaryKey = PrimaryKey(date)
 }
 
+/** One row per fetched local date for the rings (feature 020); null values mean Garmin had no data that day. */
+object RingDaysTable : Table("ring_days") {
+    val date = text("date")
+    val sleepS = integer("sleep_s").nullable()
+    val strain = double("strain").nullable()
+    val fetchedAt = long("fetched_at")
+    override val primaryKey = PrimaryKey(date)
+}
+
 object WellnessStateTable : Table("wellness_state") {
     val id = integer("id")
     val lastSuccessAt = long("last_success_at").nullable()
