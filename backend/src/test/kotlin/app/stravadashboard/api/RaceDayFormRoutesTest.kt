@@ -14,23 +14,18 @@ import app.stravadashboard.module
 import app.stravadashboard.persistence.DatabaseFactory
 import app.stravadashboard.persistence.ExposedRunRepository
 import app.stravadashboard.testsupport.FakePlanSource
+import app.stravadashboard.testsupport.GarminFake
 import app.stravadashboard.testsupport.TEST_ZONE
+import app.stravadashboard.testsupport.browser
 import app.stravadashboard.testsupport.samplePlanText
 import app.stravadashboard.testsupport.sixteenWeekPlanText
 import app.stravadashboard.testsupport.summary
 import app.stravadashboard.testsupport.testConfig
 import io.ktor.client.HttpClient
-import io.ktor.client.engine.mock.MockEngine
-import io.ktor.client.engine.mock.respond
-import io.ktor.client.plugins.cookies.HttpCookies
-import io.ktor.client.request.HttpRequestData
 import io.ktor.client.request.get
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
-import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
-import io.ktor.http.Url
-import io.ktor.http.headersOf
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import kotlinx.coroutines.runBlocking
@@ -48,8 +43,7 @@ import kotlin.test.assertTrue
 /** Feature 011: `GET /api/race-day-form`. Today is Saturday 2026-10-31; the 16-week plan ends Sunday 2026-12-06. */
 class RaceDayFormRoutesTest {
     private val now = Instant.parse("2026-10-31T10:00:00Z")
-    private val stravaRequests = mutableListOf<HttpRequestData>()
-    private val jsonHeaders = headersOf(HttpHeaders.ContentType, "application/json")
+    private val garmin = GarminFake()
     private val plan = FakePlanSource()
     private val lthr = LthrSetting.Valid(Bpm(175))
 
@@ -59,36 +53,11 @@ class RaceDayFormRoutesTest {
         config: AppConfig,
         block: suspend ApplicationTestBuilder.() -> Unit,
     ) = testApplication {
-        val engine =
-            MockEngine { request ->
-                stravaRequests += request
-                when (request.url.encodedPath) {
-                    "/oauth/token" ->
-                        respond(
-                            """{"access_token":"a","refresh_token":"r","expires_at":${now.epochSecond + 99_999},
-                               "athlete":{"id":7}}""",
-                            HttpStatusCode.OK,
-                            jsonHeaders,
-                        )
-                    else -> respond("[]", HttpStatusCode.OK, jsonHeaders)
-                }
-            }
-        application { module(config, Clock.fixed(now, TEST_ZONE), TEST_ZONE, engine, plan) }
+        application { module(config, Clock.fixed(now, TEST_ZONE), TEST_ZONE, plan, garminEngine = garmin.engine) }
         block()
     }
 
-    private suspend fun ApplicationTestBuilder.connectedBrowser(): HttpClient {
-        val browser =
-            createClient {
-                install(HttpCookies)
-                followRedirects = false
-            }
-        val login = browser.get("/auth/strava/login")
-        val state = Url(requireNotNull(login.headers[HttpHeaders.Location])).parameters["state"]
-        browser.get("/auth/strava/callback?state=$state&code=invented&scope=read,activity:read_all")
-        stravaRequests.clear()
-        return browser
-    }
+    private fun ApplicationTestBuilder.connectedBrowser(): HttpClient = browser()
 
     /** Three easy runs on 24, 27 and 30 Oct: 50 moving minutes at 140 bpm each (load 50.0, easy rate 1.0). */
     private fun seedEasyRuns(config: AppConfig) =
@@ -114,14 +83,6 @@ class RaceDayFormRoutesTest {
         val response = get("/api/race-day-form")
         return response.status to response.json()["error"]?.jsonPrimitive?.content
     }
-
-    @Test
-    fun `R10 - 401 without session`() =
-        app(config()) {
-            val response = client.get("/api/race-day-form")
-            assertEquals(HttpStatusCode.Unauthorized, response.status)
-            assertEquals("not_connected", response.json()["error"]?.jsonPrimitive?.content)
-        }
 
     @Test
     fun `R10 - 200 exact JSON shape`() {
@@ -155,7 +116,7 @@ class RaceDayFormRoutesTest {
             val days = body.getValue("days").jsonArray.map { it.jsonObject }
             assertEquals(79, days.size)
             assertEquals(keys("date kind load fitness fatigue form readyLow readyHigh"), days.first().keys)
-            assertTrue(stravaRequests.isEmpty())
+            assertTrue(garmin.requests.isEmpty())
         }
     }
 

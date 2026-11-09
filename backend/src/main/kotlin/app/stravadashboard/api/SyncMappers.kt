@@ -14,7 +14,7 @@ fun SyncSnapshot.toDto(): SyncStatusResponse =
                 SyncStatus.OK -> "ok"
                 SyncStatus.PARTIAL -> "partial"
                 SyncStatus.RATE_LIMITED -> "rateLimited"
-                SyncStatus.STRAVA_UNAVAILABLE -> "stravaUnavailable"
+                SyncStatus.SOURCE_UNAVAILABLE -> "garminUnavailable"
             },
         lastSyncedAt = info.lastSyncedAt?.toIsoSeconds(),
         retryAfter = info.retryAfter?.toIsoSeconds(),

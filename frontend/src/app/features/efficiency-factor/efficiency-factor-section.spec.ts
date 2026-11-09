@@ -43,7 +43,7 @@ describe('EfficiencyFactorSection', () => {
     expect(status?.querySelector('app-ring-spinner')).not.toBeNull();
   });
 
-  it('014 R11 - shows error state with retry; ignores 401; rejects bad body', () => {
+  it('014 R11 - shows error state with retry', () => {
     http
       .expectOne('/api/efficiency-factor')
       .flush({ error: 'internal_error', message: 'x' }, { status: 500, statusText: 'Error' });
@@ -55,13 +55,6 @@ describe('EfficiencyFactorSection', () => {
     element().querySelector<HTMLButtonElement>('button.retry')?.click();
     fixture.detectChanges();
     expect(text()).toContain('Loading efficiency factor…');
-    http
-      .expectOne('/api/efficiency-factor')
-      .flush({ error: 'not_connected', message: 'x' }, { status: 401, statusText: 'Unauthorized' });
-    fixture.detectChanges();
-    expect(element().querySelector('[role="alert"]')).toBeNull();
-    expect(text()).toContain('Loading efficiency factor…');
-    fixture.detectChanges();
   });
 
   it('014 R11 - unexpected body shows error', () => {

@@ -1,9 +1,7 @@
-import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Router, provideRouter } from '@angular/router';
 import { RunWeatherResponse } from '../../../core/api/run-weather.models';
-import { apiErrorInterceptor } from '../../../core/interceptors/api-error.interceptor';
 import { trainingPlan } from '../../../testing/training-plan-fixtures';
 import { TrainingPlanStore } from '../training-plan.store';
 import { BuildCalendarSection } from './build-calendar-section';
@@ -84,33 +82,5 @@ describe('BuildCalendarSection weather', () => {
     weatherRequest().flush({ days: [] });
     fixture.detectChanges();
     expect(element().querySelector('.weather-credit')).toBeNull();
-  });
-});
-
-describe('BuildCalendarSection weather with the API error interceptor', () => {
-  it('018 R8 - 401 adds nothing to the section', () => {
-    TestBed.configureTestingModule({
-      providers: [
-        provideRouter([]),
-        provideHttpClient(withInterceptors([apiErrorInterceptor])),
-        provideHttpClientTesting(),
-        TrainingPlanStore,
-      ],
-    });
-    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
-    const fixture = TestBed.createComponent(BuildCalendarSection);
-    const http = TestBed.inject(HttpTestingController);
-    fixture.detectChanges();
-    http.expectOne('/api/training-plan').flush(trainingPlan());
-    http
-      .expectOne('/api/run-weather')
-      .flush({ error: 'not_connected', message: 'x' }, { status: 401, statusText: 'Error' });
-    fixture.detectChanges();
-
-    const element = fixture.nativeElement as HTMLElement;
-    expect(navigate).toHaveBeenCalledWith(['/connect'], {});
-    expect(element.querySelectorAll('.day').length).toBeGreaterThan(0);
-    expect(element.querySelector('.weather')).toBeNull();
-    expect(element.querySelector('.weather-credit')).toBeNull();
   });
 });

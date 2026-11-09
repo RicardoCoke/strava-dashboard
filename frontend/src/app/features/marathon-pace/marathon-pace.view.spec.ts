@@ -13,7 +13,6 @@ describe('marathon pace view helpers', () => {
     new HttpErrorResponse({ status, error, statusText: 'Error' });
 
   it('R7 - maps error responses to card states', () => {
-    expect(stateFromError(httpError(401, { error: 'not_connected', message: 'x' }))).toBeNull();
     expect(
       stateFromError(httpError(404, { error: 'marathon_pace_not_configured', message: 'x' })),
     ).toEqual({ kind: 'notConfigured' });

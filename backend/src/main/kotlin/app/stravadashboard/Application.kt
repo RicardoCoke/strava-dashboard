@@ -4,18 +4,13 @@ import app.stravadashboard.api.ErrorResponse
 import app.stravadashboard.api.XsrfProtection
 import app.stravadashboard.api.forPerson
 import app.stravadashboard.api.healthRoutes
-import app.stravadashboard.auth.OAuthState
-import app.stravadashboard.auth.UserSession
-import app.stravadashboard.auth.authRoutes
 import app.stravadashboard.config.AppConfig
 import app.stravadashboard.domain.Person
 import app.stravadashboard.domain.ports.TrainingPlanSource
 import app.stravadashboard.persistence.TrainingPlanFileSource
-import app.stravadashboard.strava.stravaHttpClient
 import app.stravadashboard.weather.OpenMeteoClient
 import app.stravadashboard.weather.openMeteoHttpClient
 import io.ktor.client.engine.HttpClientEngine
-import io.ktor.client.engine.cio.CIO
 import io.ktor.client.engine.java.Java
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
@@ -31,9 +26,6 @@ import io.ktor.server.request.path
 import io.ktor.server.response.respond
 import io.ktor.server.routing.route
 import io.ktor.server.routing.routing
-import io.ktor.server.sessions.SessionTransportTransformerMessageAuthentication
-import io.ktor.server.sessions.Sessions
-import io.ktor.server.sessions.cookie
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -43,9 +35,6 @@ import java.time.Clock
 import java.time.ZoneId
 
 private val log = LoggerFactory.getLogger("app.stravadashboard.Application")
-
-private const val SESSION_MAX_AGE_SECONDS = 30L * 24 * 60 * 60
-private const val OAUTH_STATE_MAX_AGE_SECONDS = 600L
 
 fun main() {
     val config = AppConfig.fromEnvironment()
@@ -60,45 +49,35 @@ fun Application.module(
     config: AppConfig,
     clock: Clock = Clock.systemUTC(),
     zone: ZoneId = ZoneId.systemDefault(),
-    stravaEngine: HttpClientEngine = CIO.create(),
     trainingPlanSource: TrainingPlanSource = TrainingPlanFileSource(config.trainingPlanCsvPath),
     garminEngine: HttpClientEngine? = null,
     weatherEngine: HttpClientEngine? = null,
 ) {
-    installServerPlugins(config)
+    installServerPlugins()
 
-    val http = stravaHttpClient(stravaEngine)
-    monitor.subscribe(ApplicationStopped) { http.close() }
     val weatherSource = if (config.weatherHome == null) null else openMeteoSource(weatherEngine)
     val deps =
-        SharedDeps(http, config.weatherHome, weatherSource, backgroundSyncScope(), garminEngine, clock, zone)
+        SharedDeps(config.weatherHome, weatherSource, backgroundSyncScope(), garminEngine, clock, zone)
 
     val ricardoStores = PersonStores(config.dbPath)
     val marinaSettings = config.marina
     val marinaStores = marinaSettings?.let { PersonStores(it.dbPath) }
-    val ricardo = personStack(config.ricardo, ricardoStores, marinaStores, trainingPlanSource, deps)
+    val ricardo = personStack(config.ricardo, ricardoStores, trainingPlanSource, deps)
     val marina =
         marinaSettings?.let {
             val planSource = TrainingPlanFileSource(it.trainingPlanCsvPath)
-            personStack(it, requireNotNull(marinaStores), ricardoStores, planSource, deps)
+            personStack(it, requireNotNull(marinaStores), planSource, deps)
         }
 
     routing {
         healthRoutes()
-        authRoutes(
-            config,
-            buildMap {
-                put(Person.RICARDO, ricardo.connect)
-                marina?.let { put(Person.MARINA, it.connect) }
-            },
-        )
         forPerson(Person.RICARDO) { ricardo.routes(this, marina?.otherSync) }
         forPerson(Person.MARINA) {
             if (marina != null) {
                 marina.routes(this, ricardo.otherSync)
             } else {
                 route("/api/{...}") {
-                    handle { call.respond(HttpStatusCode.Unauthorized, ErrorResponse.NOT_CONNECTED) }
+                    handle { call.respond(HttpStatusCode.NotFound, ErrorResponse.PERSON_NOT_CONFIGURED) }
                 }
             }
         }
@@ -116,18 +95,18 @@ private fun Application.openMeteoSource(engine: HttpClientEngine?): OpenMeteoCli
     return OpenMeteoClient(http)
 }
 
-private fun Application.installServerPlugins(config: AppConfig) {
+private fun Application.installServerPlugins() {
     install(ContentNegotiation) { json() }
     install(CallLogging)
     installStatusPages()
-    installSessions(config)
-    install(XsrfProtection) { secureCookies = config.secureCookies }
+    // Served over plain HTTP on the home network (feature 021), so the XSRF cookie can't be Secure.
+    install(XsrfProtection) { secureCookies = false }
 }
 
 private fun Application.installStatusPages() {
     install(StatusPages) {
         exception<Throwable> { call, cause ->
-            // Path only: query strings can carry the OAuth code.
+            // Path only: never the query string.
             log.error("Unhandled error on {}", call.request.path(), cause)
             call.respond(HttpStatusCode.InternalServerError, ErrorResponse.INTERNAL)
         }
@@ -139,26 +118,4 @@ private fun Application.backgroundSyncScope(): CoroutineScope {
     val scope = CoroutineScope(coroutineContext + SupervisorJob(coroutineContext[Job]))
     monitor.subscribe(ApplicationStopped) { scope.cancel() }
     return scope
-}
-
-private fun Application.installSessions(config: AppConfig) {
-    val signer = SessionTransportTransformerMessageAuthentication(config.sessionSecret)
-    install(Sessions) {
-        cookie<UserSession>("sd_session") {
-            cookie.path = "/"
-            cookie.httpOnly = true
-            cookie.secure = config.secureCookies
-            cookie.maxAgeInSeconds = SESSION_MAX_AGE_SECONDS
-            cookie.extensions["SameSite"] = "Lax"
-            transform(signer)
-        }
-        cookie<OAuthState>("sd_oauth_state") {
-            cookie.path = "/auth"
-            cookie.httpOnly = true
-            cookie.secure = config.secureCookies
-            cookie.maxAgeInSeconds = OAUTH_STATE_MAX_AGE_SECONDS
-            cookie.extensions["SameSite"] = "Lax"
-            transform(signer)
-        }
-    }
 }

@@ -26,6 +26,9 @@ val TEST_ZONE: ZoneId = ZoneOffset.UTC
 
 /** Thursday 2026-10-29, 10:00 UTC: the fixed "today" used by the spec examples. */
 val NOW: Instant = Instant.parse("2026-10-29T10:00:00Z")
+
+/** A cut-over before every test date, for tests that aren't about it (feature 021). */
+val NO_CUT_OVER: LocalDate = LocalDate.of(2000, 1, 1)
 val TODAY: LocalDate = LocalDate.of(2026, 10, 29)
 
 fun fixedClock(instant: Instant = NOW): Clock = Clock.fixed(instant, TEST_ZONE)
@@ -104,9 +107,8 @@ fun testConfig(dbPath: String = tempDbPath()): AppConfig =
     AppConfig(
         host = "127.0.0.1",
         port = 8080,
-        stravaClientId = "12345",
-        stravaClientSecret = "test-client-secret",
-        stravaRedirectUri = "http://localhost:4200/auth/strava/callback",
-        sessionSecretHex = "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
         dbPath = dbPath,
+        garminApiKey = "invented-garmin-key",
+        // Before every test date, so the cut-over doesn't hide test runs; R6 tests set their own.
+        garminActivitiesFrom = NO_CUT_OVER,
     )

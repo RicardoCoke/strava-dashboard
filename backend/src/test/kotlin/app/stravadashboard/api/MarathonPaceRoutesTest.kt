@@ -8,23 +8,18 @@ import app.stravadashboard.domain.ports.ActivityDetail
 import app.stravadashboard.module
 import app.stravadashboard.persistence.DatabaseFactory
 import app.stravadashboard.persistence.ExposedRunRepository
-import app.stravadashboard.persistence.ExposedTokenRepository
+import app.stravadashboard.testsupport.GARMIN_LIST_PATH
+import app.stravadashboard.testsupport.GarminFake
 import app.stravadashboard.testsupport.TEST_ZONE
+import app.stravadashboard.testsupport.browser
 import app.stravadashboard.testsupport.kmLap
 import app.stravadashboard.testsupport.summary
 import app.stravadashboard.testsupport.testConfig
 import io.ktor.client.HttpClient
-import io.ktor.client.engine.mock.MockEngine
-import io.ktor.client.engine.mock.respond
-import io.ktor.client.plugins.cookies.HttpCookies
-import io.ktor.client.request.HttpRequestData
 import io.ktor.client.request.get
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
-import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
-import io.ktor.http.Url
-import io.ktor.http.headersOf
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import kotlinx.coroutines.runBlocking
@@ -46,8 +41,7 @@ class MarathonPaceRoutesTest {
     // Saturday 2026-10-31, as in the spec examples.
     private val now = Instant.parse("2026-10-31T10:00:00Z")
     private val clock = Clock.fixed(now, TEST_ZONE)
-    private val stravaRequests = mutableListOf<HttpRequestData>()
-    private val jsonHeaders = headersOf(HttpHeaders.ContentType, "application/json")
+    private val garmin = GarminFake()
 
     private fun config(setting: MarathonPaceSetting): AppConfig = testConfig().copy(marathonPace = setting)
 
@@ -55,36 +49,11 @@ class MarathonPaceRoutesTest {
         config: AppConfig,
         block: suspend ApplicationTestBuilder.() -> Unit,
     ) = testApplication {
-        val engine =
-            MockEngine { request ->
-                stravaRequests += request
-                if (request.url.encodedPath == "/oauth/token") {
-                    respond(
-                        """{"access_token":"a","refresh_token":"r","expires_at":${now.epochSecond + 99_999},
-                           "athlete":{"id":7}}""",
-                        HttpStatusCode.OK,
-                        jsonHeaders,
-                    )
-                } else {
-                    respond("[]", HttpStatusCode.OK, jsonHeaders)
-                }
-            }
-        application { module(config, clock, TEST_ZONE, engine) }
+        application { module(config, clock, TEST_ZONE, garminEngine = garmin.engine) }
         block()
     }
 
-    private suspend fun ApplicationTestBuilder.connectedBrowser(): HttpClient {
-        val browser =
-            createClient {
-                install(HttpCookies)
-                followRedirects = false
-            }
-        val login = browser.get("/auth/strava/login")
-        val state = Url(requireNotNull(login.headers[HttpHeaders.Location])).parameters["state"]
-        browser.get("/auth/strava/callback?state=$state&code=invented&scope=read,activity:read_all")
-        stravaRequests.clear()
-        return browser
-    }
+    private fun ApplicationTestBuilder.connectedBrowser(): HttpClient = browser()
 
     /** Tue 2026-10-27: 16 km with 6.4 km at goal pace. Thu 2026-10-29: 10 km on the treadmill. */
     private fun seedRuns(config: AppConfig) =
@@ -133,7 +102,7 @@ class MarathonPaceRoutesTest {
                 body.getValue("summary").toString(),
             )
             assertEquals(JsonPrimitive(0), body["runsPendingLaps"])
-            assertTrue(stravaRequests.isEmpty())
+            assertTrue(garmin.requests.isEmpty())
         }
     }
 
@@ -148,32 +117,6 @@ class MarathonPaceRoutesTest {
                     .jsonObject
             assertEquals("null", summary["thisWeekSharePercent"].toString())
         }
-
-    @Test
-    fun `R5 - not connected gives 401`() =
-        app(config(MarathonPaceSetting.Valid(SecondsPerKm(255)))) {
-            val response = client.get("/api/marathon-pace")
-            assertEquals(HttpStatusCode.Unauthorized, response.status)
-            assertEquals(
-                """{"error":"not_connected","message":"Connect your Strava account."}""",
-                response.bodyAsText(),
-            )
-        }
-
-    @Test
-    fun `R5 - session without stored tokens gives 401`() {
-        val config = config(MarathonPaceSetting.Valid(SecondsPerKm(255)))
-        app(config) {
-            val browser = connectedBrowser().also { seedRuns(config) }
-            runBlocking { ExposedTokenRepository(DatabaseFactory.connect(config.dbPath)).delete() }
-            val response = browser.get("/api/marathon-pace")
-            assertEquals(HttpStatusCode.Unauthorized, response.status)
-            assertEquals(
-                """{"error":"not_connected","message":"Connect your Strava account."}""",
-                response.bodyAsText(),
-            )
-        }
-    }
 
     @Test
     fun `R5 - not configured gives 404`() =
@@ -200,7 +143,7 @@ class MarathonPaceRoutesTest {
         }
 
     @Test
-    fun `R5 - never calls Strava`() {
+    fun `R5 - makes no Garmin calls`() {
         listOf(
             MarathonPaceSetting.Valid(SecondsPerKm(255)),
             MarathonPaceSetting.NotConfigured,
@@ -210,8 +153,8 @@ class MarathonPaceRoutesTest {
                 val browser = connectedBrowser()
                 browser.get("/api/marathon-pace")
                 client.get("/api/marathon-pace")
-                assertTrue(stravaRequests.isEmpty(), setting.toString())
-                assertFalse(stravaRequests.any { it.url.encodedPath.startsWith("/api/v3") })
+                assertTrue(garmin.requests.isEmpty(), setting.toString())
+                assertFalse(garmin.requests.any { it.url.encodedPath == GARMIN_LIST_PATH })
             }
         }
     }

@@ -56,7 +56,9 @@ class GarminRingDayTest {
                     handler(request)
                 },
             )
-        return runBlocking { GarminWellnessSource(http, "invented-key", fixedClock()).fetchDay(day, withHeartRate) }
+        return runBlocking {
+            GarminWellnessSource(GarminConnect(http, "invented-key", fixedClock())).fetchDay(day, withHeartRate)
+        }
     }
 
     @Test

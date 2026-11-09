@@ -1,4 +1,3 @@
-import { HttpErrorResponse } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -144,9 +143,8 @@ export class WeeklySummaryBell implements OnInit {
             this.state.set({ kind: 'error' });
           }
         },
-        error: (error: unknown) => {
-          // A 401 is handled by the interceptor, which navigates to /connect.
-          if (!quiet && !(error instanceof HttpErrorResponse && error.status === 401)) {
+        error: () => {
+          if (!quiet) {
             this.state.set({ kind: 'error' });
           }
         },

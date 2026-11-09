@@ -1,12 +1,5 @@
-import { HttpErrorResponse } from '@angular/common/http';
 import { efficiencyFactor } from '../../testing/efficiency-factor-fixtures';
-import {
-  changeText,
-  changeTone,
-  efStateFromError,
-  emptyText,
-  footnoteText,
-} from './efficiency-factor.view';
+import { changeText, changeTone, emptyText, footnoteText } from './efficiency-factor.view';
 
 const change = (percent: number) => ({
   percent,
@@ -44,11 +37,5 @@ describe('efficiency factor view helpers', () => {
     expect(emptyText(efficiencyFactor({ points: [], runsPendingDetail: 1 }))).toBe(
       "Moving time is still importing for 1 run. The chart will appear when it's done.",
     );
-  });
-
-  it('014 R11 - 401 leaves the card alone, other failures are errors', () => {
-    expect(efStateFromError(new HttpErrorResponse({ status: 401 }))).toBeNull();
-    expect(efStateFromError(new HttpErrorResponse({ status: 500 }))).toEqual({ kind: 'error' });
-    expect(efStateFromError(new Error('x'))).toEqual({ kind: 'error' });
   });
 });

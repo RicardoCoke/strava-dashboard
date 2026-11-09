@@ -84,7 +84,7 @@ describe('RunningDashboardPage', () => {
     sync.status.set(syncStatus({ status: 'partial', runsPendingDetail: 12 }));
     http.expectOne('/api/dashboard/running').flush(dashboard());
     fixture.detectChanges();
-    expect(text()).toContain('Still importing runs from Strava (12 remaining).');
+    expect(text()).toContain('Still importing runs from Garmin Connect (12 remaining).');
   });
 
   it('010 R4 - selection kept after reload, falls back when gone', () => {
@@ -130,12 +130,12 @@ describe('RunningDashboardPage', () => {
     sync.status.set(syncStatus({ status: 'syncing', nextSyncInSeconds: null }));
     fixture.detectChanges();
     expect(text()).toContain('Loading your runs…');
-    expect(text()).toContain('Syncing with Strava…');
+    expect(text()).toContain('Syncing with Garmin Connect…');
 
     http.expectOne('/api/dashboard/running').flush(null, { status: 500, statusText: 'Error' });
     fixture.detectChanges();
     expect(text()).toContain("Couldn't load your dashboard.");
-    expect(text()).toContain('Syncing with Strava…');
+    expect(text()).toContain('Syncing with Garmin Connect…');
   });
 
   it('009 R8 - banner disappears when sync finishes ok', () => {

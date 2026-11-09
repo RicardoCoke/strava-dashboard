@@ -1,7 +1,5 @@
-import { HttpErrorResponse } from '@angular/common/http';
 import { emptyLongRunDrift, longRunDrift } from '../../testing/long-run-drift-fixtures';
 import {
-  driftStateFromError,
   emptyKind,
   excludedText,
   formatSignedPct,
@@ -65,10 +63,5 @@ describe('long-run drift view', () => {
       }),
     ).toBe('noDrift');
     expect(emptyKind(longRunDrift())).toBeNull();
-  });
-
-  it('R6 - 401 is left to the interceptor', () => {
-    expect(driftStateFromError(new HttpErrorResponse({ status: 401 }))).toBeNull();
-    expect(driftStateFromError(new HttpErrorResponse({ status: 500 }))).toEqual({ kind: 'error' });
   });
 });

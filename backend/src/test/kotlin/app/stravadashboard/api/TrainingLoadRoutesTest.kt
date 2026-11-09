@@ -10,24 +10,18 @@ import app.stravadashboard.domain.model.HrHistogramStatus
 import app.stravadashboard.module
 import app.stravadashboard.persistence.DatabaseFactory
 import app.stravadashboard.persistence.ExposedRunRepository
+import app.stravadashboard.testsupport.GARMIN_LIST_PATH
+import app.stravadashboard.testsupport.GarminFake
 import app.stravadashboard.testsupport.TEST_ZONE
+import app.stravadashboard.testsupport.browser
 import app.stravadashboard.testsupport.summary
 import app.stravadashboard.testsupport.syncAndWait
 import app.stravadashboard.testsupport.testConfig
 import io.ktor.client.HttpClient
-import io.ktor.client.engine.mock.MockEngine
-import io.ktor.client.engine.mock.MockRequestHandleScope
-import io.ktor.client.engine.mock.respond
-import io.ktor.client.plugins.cookies.HttpCookies
-import io.ktor.client.request.HttpRequestData
-import io.ktor.client.request.HttpResponseData
 import io.ktor.client.request.get
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
-import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
-import io.ktor.http.Url
-import io.ktor.http.headersOf
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import kotlinx.coroutines.async
@@ -50,54 +44,19 @@ class TrainingLoadRoutesTest {
     // Saturday 2026-10-31, as in the spec examples.
     private val now = Instant.parse("2026-10-31T10:00:00Z")
     private val clock = Clock.fixed(now, TEST_ZONE)
-    private val stravaRequests = mutableListOf<HttpRequestData>()
-    private val jsonHeaders = headersOf(HttpHeaders.ContentType, "application/json")
-    private var revoked = false
-    private var rateLimited = false
+    private val garmin = GarminFake()
 
     private fun config(lthr: LthrSetting): AppConfig = testConfig().copy(lthr = lthr)
-
-    private fun MockRequestHandleScope.strava(request: HttpRequestData): HttpResponseData =
-        when {
-            revoked -> respond("{}", HttpStatusCode.Unauthorized, jsonHeaders)
-            rateLimited && request.url.encodedPath != "/oauth/token" ->
-                respond("{}", HttpStatusCode.TooManyRequests, jsonHeaders)
-            request.url.encodedPath == "/oauth/token" ->
-                respond(
-                    """{"access_token":"a","refresh_token":"r","expires_at":${now.epochSecond + 99_999},
-                       "athlete":{"id":7}}""",
-                    HttpStatusCode.OK,
-                    jsonHeaders,
-                )
-            request.url.encodedPath == "/api/v3/athlete/activities" -> respond("[]", HttpStatusCode.OK, jsonHeaders)
-            else -> respond("""{"id":1,"laps":[]}""", HttpStatusCode.OK, jsonHeaders)
-        }
 
     private fun app(
         config: AppConfig,
         block: suspend ApplicationTestBuilder.() -> Unit,
     ) = testApplication {
-        val engine =
-            MockEngine { request ->
-                stravaRequests += request
-                strava(request)
-            }
-        application { module(config, clock, TEST_ZONE, engine) }
+        application { module(config, clock, TEST_ZONE, garminEngine = garmin.engine) }
         block()
     }
 
-    private suspend fun ApplicationTestBuilder.connectedBrowser(): HttpClient {
-        val browser =
-            createClient {
-                install(HttpCookies)
-                followRedirects = false
-            }
-        val login = browser.get("/auth/strava/login")
-        val state = Url(requireNotNull(login.headers[HttpHeaders.Location])).parameters["state"]
-        browser.get("/auth/strava/callback?state=$state&code=invented&scope=read,activity:read_all")
-        stravaRequests.clear()
-        return browser
-    }
+    private fun ApplicationTestBuilder.connectedBrowser(): HttpClient = browser()
 
     /** One run on Fri 2026-10-30 with 50 minutes at 140 bpm: load 50.0 for LTHR 175. */
     private fun seedRun(config: AppConfig) =
@@ -115,10 +74,10 @@ class TrainingLoadRoutesTest {
 
     private fun keys(names: String): Set<String> = names.split(" ").toSet()
 
-    private fun listCalls(): Int = stravaRequests.count { it.url.encodedPath == "/api/v3/athlete/activities" }
+    private fun listCalls(): Int = garmin.requests.count { it.url.encodedPath == GARMIN_LIST_PATH }
 
     @Test
-    fun `009 R1 - read endpoints make no Strava calls when a sync is due`() =
+    fun `009 R1 - read endpoints make makes no Garmin calls when a sync is due`() =
         app(config(LthrSetting.Valid(Bpm(175)))) {
             val browser = connectedBrowser()
             val statuses =
@@ -136,7 +95,7 @@ class TrainingLoadRoutesTest {
         val config = config(LthrSetting.Valid(Bpm(175)))
         app(config) {
             val browser = connectedBrowser().also { seedRun(config) }
-            rateLimited = true
+            garmin.failWith = HttpStatusCode.TooManyRequests
             browser.syncAndWait()
             val response = browser.get("/api/training-load")
             assertEquals(HttpStatusCode.OK, response.status)
@@ -153,14 +112,6 @@ class TrainingLoadRoutesTest {
     }
 
     @Test
-    fun `R9 - 401 without session`() =
-        app(config(LthrSetting.Valid(Bpm(175)))) {
-            val response = client.get("/api/training-load")
-            assertEquals(HttpStatusCode.Unauthorized, response.status)
-            assertEquals("not_connected", response.json()["error"]?.jsonPrimitive?.content)
-        }
-
-    @Test
     fun `R9 - 404 not configured without sync`() =
         app(config(LthrSetting.NotConfigured)) {
             val response = connectedBrowser().get("/api/training-load")
@@ -169,7 +120,7 @@ class TrainingLoadRoutesTest {
                 """{"error":"training_load_not_configured","message":"No threshold heart rate is configured."}""",
                 response.bodyAsText(),
             )
-            assertTrue(stravaRequests.isEmpty())
+            assertTrue(garmin.requests.isEmpty())
         }
 
     @Test
@@ -182,7 +133,7 @@ class TrainingLoadRoutesTest {
                     """"message":"LTHR_BPM is not a whole number between 100 and 220."}""",
                 response.bodyAsText(),
             )
-            assertTrue(stravaRequests.isEmpty())
+            assertTrue(garmin.requests.isEmpty())
         }
 
     @Test

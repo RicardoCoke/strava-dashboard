@@ -43,15 +43,14 @@ describe('App', () => {
     );
   });
 
-  it('002 R2 - footer shows Powered by Strava on dashboard and connect', async () => {
+  it('021 R2 - /connect redirects to the dashboard, which keeps the footer', async () => {
     const fixture = TestBed.createComponent(App);
     const router = TestBed.inject(Router);
-    for (const url of ['/', '/connect']) {
-      await router.navigateByUrl(url);
-      await fixture.whenStable();
-      const footer = (fixture.nativeElement as HTMLElement).querySelector('footer');
-      expect(footer?.textContent).toContain('Powered by Strava');
-    }
+    await router.navigateByUrl('/connect');
+    await fixture.whenStable();
+    expect(router.url).toBe('/');
+    const footer = (fixture.nativeElement as HTMLElement).querySelector('footer');
+    expect(footer?.textContent).toContain('Powered by Strava');
     TestBed.inject(HttpTestingController).match('/api/dashboard/running');
   });
 });

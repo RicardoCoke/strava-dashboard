@@ -3,17 +3,13 @@ import { ApplicationConfig, provideBrowserGlobalErrorListeners } from '@angular/
 import { provideRouter, withComponentInputBinding } from '@angular/router';
 import { provideEchartsCore } from 'ngx-echarts';
 import { routes } from './app.routes';
-import { apiErrorInterceptor } from './core/interceptors/api-error.interceptor';
 import { personInterceptor } from './core/interceptors/person.interceptor';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes, withComponentInputBinding()),
-    provideHttpClient(
-      withInterceptors([personInterceptor, apiErrorInterceptor]),
-      withXsrfConfiguration({}),
-    ),
+    provideHttpClient(withInterceptors([personInterceptor]), withXsrfConfiguration({})),
     // ECharts loads lazily, so it stays out of the initial bundle.
     provideEchartsCore({
       echarts: () => import('./shared/chart/echarts-setup').then((m) => m.echarts),

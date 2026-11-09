@@ -59,7 +59,7 @@ class GarminWellnessSourceTest {
                     handler(request)
                 },
             )
-        return GarminWellnessSource(http, key, clock)
+        return GarminWellnessSource(GarminConnect(http, key, clock))
     }
 
     private fun fetch(

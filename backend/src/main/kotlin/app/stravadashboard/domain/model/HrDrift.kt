@@ -1,7 +1,7 @@
 package app.stravadashboard.domain.model
 
 /**
- * One sample per entry: seconds since start, smoothed speed, heart rate and, when Strava sends it, the moving flag.
+ * One sample per entry: seconds since start, smoothed speed, heart rate and, if sent, the moving flag.
  * Used transiently during a sync, never stored.
  */
 data class DriftStream(

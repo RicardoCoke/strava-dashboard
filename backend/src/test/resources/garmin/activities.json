@@ -1,0 +1,24 @@
+[
+  {
+    "activityId": 111,
+    "activityName": "Invented tempo 5x6min",
+    "description": "Treadmill notes",
+    "startTimeLocal": "2026-10-25 23:30:00",
+    "startTimeGMT": "2026-10-26 03:30:00",
+    "activityType": { "typeId": 1, "typeKey": "running", "parentTypeId": 17 },
+    "distance": 10049.0,
+    "movingDuration": 2700.4,
+    "averageHR": 151.3,
+    "startLatitude": 3.917,
+    "startLongitude": 3.917,
+    "ownerFullName": "Invented Person"
+  },
+  {
+    "activityId": 222,
+    "activityName": "Invented ride",
+    "startTimeLocal": "2026-10-24 10:00:00",
+    "startTimeGMT": "2026-10-24 08:00:00",
+    "activityType": { "typeId": 2, "typeKey": "cycling", "parentTypeId": 17 },
+    "distance": 30000.0
+  }
+]

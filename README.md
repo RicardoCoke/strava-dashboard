@@ -1,16 +1,17 @@
 # Strava Dashboard
 
-A personal web dashboard for Strava activities: a Kotlin/Ktor backend and an Angular frontend.
+A personal running dashboard: a Kotlin/Ktor backend and an Angular frontend. Activities, resting HR and HRV come from
+the Garmin Connect Personal API (feature 021); runs synced from Strava before that stay in the local database.
 
 ## Requirements
 - JDK 21
 - Node.js 22 or newer
-- A Strava API application: https://www.strava.com/settings/api
-  - Set **Authorization Callback Domain** to `localhost`
+- A Garmin Connect Personal API key per person: https://connect.garmin.com/app/settings/personalApiToken
+- No login: the app has no authentication, so only serve it on a trusted home network (`HOST` decides where it listens)
 
 ## First-time setup
 ```bash
-cp .env.example .env              # fill in STRAVA_CLIENT_ID, STRAVA_CLIENT_SECRET, SESSION_SECRET
+cp .env.example .env              # fill in DB_PATH and GARMIN_API_KEY
 ./scripts/setup-frontend.sh       # creates the Angular app in ./frontend (one time)
 cd backend && ./gradlew test      # downloads dependencies and runs the backend tests
 ```
@@ -21,7 +22,7 @@ cd backend && ./gradlew test      # downloads dependencies and runs the backend 
 cd backend && ./gradlew run       # http://localhost:8080/api/health
 
 # terminal 2
-cd frontend && npm start          # http://localhost:4200 (proxies /api and /auth to the backend)
+cd frontend && npm start          # http://localhost:4200 (proxies /api to the backend)
 ```
 
 ## Working with Claude Code

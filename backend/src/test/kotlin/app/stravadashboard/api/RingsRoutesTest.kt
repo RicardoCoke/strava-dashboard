@@ -9,18 +9,17 @@ import app.stravadashboard.persistence.DatabaseFactory
 import app.stravadashboard.persistence.ExposedRingDayRepository
 import app.stravadashboard.persistence.ExposedWellnessRepository
 import app.stravadashboard.testsupport.TEST_ZONE
+import app.stravadashboard.testsupport.browser
 import app.stravadashboard.testsupport.testConfig
 import app.stravadashboard.testsupport.wellnessDay
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
-import io.ktor.client.plugins.cookies.HttpCookies
 import io.ktor.client.request.HttpRequestData
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
-import io.ktor.http.Url
 import io.ktor.http.headersOf
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
@@ -39,7 +38,6 @@ class RingsRoutesTest {
     private val clock = Clock.fixed(now, TEST_ZONE)
     private val jsonHeaders = headersOf(HttpHeaders.ContentType, "application/json")
     private val garminRequests = mutableListOf<HttpRequestData>()
-    private val stravaRequests = mutableListOf<HttpRequestData>()
 
     private fun config(key: String? = "invented-key"): AppConfig =
         testConfig().copy(lthr = LthrSetting.Valid(Bpm(170)), garminApiKey = key)
@@ -48,40 +46,16 @@ class RingsRoutesTest {
         config: AppConfig,
         block: suspend ApplicationTestBuilder.() -> Unit,
     ) = testApplication {
-        val strava =
-            MockEngine { request ->
-                stravaRequests += request
-                if (request.url.encodedPath == "/oauth/token") {
-                    respond(
-                        """{"access_token":"a","refresh_token":"r","expires_at":${now.epochSecond + 99_999},
-                           "athlete":{"id":7}}""",
-                        HttpStatusCode.OK,
-                        jsonHeaders,
-                    )
-                } else {
-                    respond("[]", HttpStatusCode.OK, jsonHeaders)
-                }
-            }
         val garmin =
             MockEngine { request ->
                 garminRequests += request
                 respond("{}", HttpStatusCode.OK, jsonHeaders)
             }
-        application { module(config, clock, TEST_ZONE, strava, garminEngine = garmin) }
+        application { module(config, clock, TEST_ZONE, garminEngine = garmin) }
         block()
     }
 
-    private suspend fun ApplicationTestBuilder.connectedBrowser(): HttpClient {
-        val browser =
-            createClient {
-                install(HttpCookies)
-                followRedirects = false
-            }
-        val login = browser.get("/auth/strava/login")
-        val state = Url(requireNotNull(login.headers[HttpHeaders.Location])).parameters["state"]
-        browser.get("/auth/strava/callback?state=$state&code=invented&scope=read,activity:read_all")
-        return browser
-    }
+    private fun ApplicationTestBuilder.connectedBrowser(): HttpClient = browser()
 
     /** 3 baseline days and today: the RingsCalculatorTest recovery case plus strains. */
     private fun seed(config: AppConfig) =
@@ -103,7 +77,6 @@ class RingsRoutesTest {
         app(config) {
             val browser = connectedBrowser()
             garminRequests.clear()
-            stravaRequests.clear()
             val response = browser.get("/api/rings")
             assertEquals(HttpStatusCode.OK, response.status)
             assertEquals(
@@ -115,7 +88,6 @@ class RingsRoutesTest {
             )
             // R7 AC7.5: cache only, no external calls.
             assertTrue(garminRequests.isEmpty())
-            assertTrue(stravaRequests.isEmpty())
         }
     }
 
@@ -125,13 +97,5 @@ class RingsRoutesTest {
             val response = connectedBrowser().get("/api/rings")
             assertEquals(HttpStatusCode.OK, response.status)
             assertEquals("""{"date":"2026-11-09","sleep":null,"recovery":null,"strain":null}""", response.bodyAsText())
-        }
-
-    @Test
-    fun `R7 - rings require session`() =
-        app(config()) {
-            val response = client.get("/api/rings")
-            assertEquals(HttpStatusCode.Unauthorized, response.status)
-            assertTrue("not_connected" in response.bodyAsText())
         }
 }

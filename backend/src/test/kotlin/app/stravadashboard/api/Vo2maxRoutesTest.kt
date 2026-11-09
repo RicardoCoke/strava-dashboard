@@ -9,24 +9,18 @@ import app.stravadashboard.domain.ports.ActivityDetail
 import app.stravadashboard.module
 import app.stravadashboard.persistence.DatabaseFactory
 import app.stravadashboard.persistence.ExposedRunRepository
+import app.stravadashboard.testsupport.GARMIN_LIST_PATH
+import app.stravadashboard.testsupport.GarminFake
 import app.stravadashboard.testsupport.TEST_ZONE
+import app.stravadashboard.testsupport.browser
 import app.stravadashboard.testsupport.summary
 import app.stravadashboard.testsupport.syncAndWait
 import app.stravadashboard.testsupport.testConfig
 import io.ktor.client.HttpClient
-import io.ktor.client.engine.mock.MockEngine
-import io.ktor.client.engine.mock.MockRequestHandleScope
-import io.ktor.client.engine.mock.respond
-import io.ktor.client.plugins.cookies.HttpCookies
-import io.ktor.client.request.HttpRequestData
-import io.ktor.client.request.HttpResponseData
 import io.ktor.client.request.get
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
-import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
-import io.ktor.http.Url
-import io.ktor.http.headersOf
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import kotlinx.coroutines.async
@@ -49,54 +43,19 @@ class Vo2maxRoutesTest {
     // Saturday 2026-10-31, as in the spec examples.
     private val now = Instant.parse("2026-10-31T10:00:00Z")
     private val clock = Clock.fixed(now, TEST_ZONE)
-    private val stravaRequests = mutableListOf<HttpRequestData>()
-    private val jsonHeaders = headersOf(HttpHeaders.ContentType, "application/json")
-    private var revoked = false
-    private var stravaFailure: HttpStatusCode? = null
+    private val garmin = GarminFake()
 
     private fun config(maxHr: MaxHrSetting): AppConfig = testConfig().copy(maxHr = maxHr)
-
-    private fun MockRequestHandleScope.strava(request: HttpRequestData): HttpResponseData =
-        when {
-            revoked -> respond("{}", HttpStatusCode.Unauthorized, jsonHeaders)
-            stravaFailure != null && request.url.encodedPath != "/oauth/token" ->
-                respond("{}", requireNotNull(stravaFailure), jsonHeaders)
-            request.url.encodedPath == "/oauth/token" ->
-                respond(
-                    """{"access_token":"a","refresh_token":"r","expires_at":${now.epochSecond + 99_999},
-                       "athlete":{"id":7}}""",
-                    HttpStatusCode.OK,
-                    jsonHeaders,
-                )
-            request.url.encodedPath == "/api/v3/athlete/activities" -> respond("[]", HttpStatusCode.OK, jsonHeaders)
-            else -> respond("""{"id":1,"laps":[]}""", HttpStatusCode.OK, jsonHeaders)
-        }
 
     private fun app(
         config: AppConfig,
         block: suspend ApplicationTestBuilder.() -> Unit,
     ) = testApplication {
-        val engine =
-            MockEngine { request ->
-                stravaRequests += request
-                strava(request)
-            }
-        application { module(config, clock, TEST_ZONE, engine) }
+        application { module(config, clock, TEST_ZONE, garminEngine = garmin.engine) }
         block()
     }
 
-    private suspend fun ApplicationTestBuilder.connectedBrowser(): HttpClient {
-        val browser =
-            createClient {
-                install(HttpCookies)
-                followRedirects = false
-            }
-        val login = browser.get("/auth/strava/login")
-        val state = Url(requireNotNull(login.headers[HttpHeaders.Location])).parameters["state"]
-        browser.get("/auth/strava/callback?state=$state&code=invented&scope=read,activity:read_all")
-        stravaRequests.clear()
-        return browser
-    }
+    private fun ApplicationTestBuilder.connectedBrowser(): HttpClient = browser()
 
     /** An outdoor easy run on Fri 2026-10-30: 10 km in 3000 s at HR 150 → VO2max 57.16 with max HR 194. */
     private fun seedRun(config: AppConfig) =
@@ -111,14 +70,6 @@ class Vo2maxRoutesTest {
     private fun keys(names: String): Set<String> = names.split(" ").toSet()
 
     @Test
-    fun `R9 - 401 without session`() =
-        app(config(MaxHrSetting.Default)) {
-            val response = client.get("/api/vo2max")
-            assertEquals(HttpStatusCode.Unauthorized, response.status)
-            assertEquals("not_connected", response.json()["error"]?.jsonPrimitive?.content)
-        }
-
-    @Test
     fun `R9 - 422 invalid config without sync`() =
         app(config(MaxHrSetting.Invalid)) {
             val response = connectedBrowser().get("/api/vo2max")
@@ -128,7 +79,7 @@ class Vo2maxRoutesTest {
                     """"message":"MAX_HR_BPM is not a whole number between 120 and 230."}""",
                 response.bodyAsText(),
             )
-            assertTrue(stravaRequests.isEmpty())
+            assertTrue(garmin.requests.isEmpty())
         }
 
     @Test
@@ -173,7 +124,7 @@ class Vo2maxRoutesTest {
     }
 
     @Test
-    fun `009 R1 - read endpoints make no Strava calls when a sync is due`() =
+    fun `009 R1 - read endpoints make makes no Garmin calls when a sync is due`() =
         app(config(MaxHrSetting.Default)) {
             val browser = connectedBrowser()
             val statuses =
@@ -183,17 +134,17 @@ class Vo2maxRoutesTest {
                         .awaitAll()
                 }
             assertEquals(HttpStatusCode.OK, statuses[0])
-            assertEquals(0, stravaRequests.count { it.url.encodedPath == "/api/v3/athlete/activities" })
+            assertEquals(0, garmin.requests.count { it.url.encodedPath == GARMIN_LIST_PATH })
         }
 
     @Test
     fun `R9 - rate limited or unavailable sync still serves stored data`() {
         listOf(HttpStatusCode.TooManyRequests, HttpStatusCode.InternalServerError).forEach { failure ->
-            stravaFailure = null
+            garmin.failWith = null
             val config = config(MaxHrSetting.Default)
             app(config) {
                 val browser = connectedBrowser().also { seedRun(config) }
-                stravaFailure = failure
+                garmin.failWith = failure
                 browser.syncAndWait()
                 val response = browser.get("/api/vo2max")
                 assertEquals(HttpStatusCode.OK, response.status, "$failure")

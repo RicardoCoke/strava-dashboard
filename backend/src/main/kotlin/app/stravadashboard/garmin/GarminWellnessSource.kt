@@ -10,102 +10,41 @@ import app.stravadashboard.domain.rings.HrSample
 import app.stravadashboard.domain.wellness.HrvMs
 import app.stravadashboard.domain.wellness.WellnessDay
 import app.stravadashboard.domain.wellness.WellnessFetchResult
-import app.stravadashboard.domain.wellness.WellnessPolicy
-import io.ktor.client.HttpClient
-import io.ktor.client.call.NoTransformationFoundException
 import io.ktor.client.call.body
-import io.ktor.client.plugins.contentnegotiation.exclude
-import io.ktor.client.request.HttpRequestBuilder
-import io.ktor.client.request.accept
-import io.ktor.client.request.get
-import io.ktor.client.request.header
 import io.ktor.client.request.parameter
-import io.ktor.client.request.post
 import io.ktor.client.request.url
-import io.ktor.client.statement.HttpResponse
-import io.ktor.http.ContentType
-import io.ktor.http.HttpHeaders
-import io.ktor.http.HttpStatusCode
-import io.ktor.http.isSuccess
-import io.ktor.serialization.ContentConvertException
-import kotlinx.serialization.SerializationException
 import org.slf4j.LoggerFactory
-import java.io.IOException
-import java.nio.channels.UnresolvedAddressException
-import java.time.Clock
-import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.format.DateTimeParseException
 
-/** One Garmin call: its decoded body, or the fetch result to stop with. */
-private sealed interface Call<out T> {
-    data class Ok<T>(
-        val value: T,
-    ) : Call<T>
-
-    data class Failed(
-        val result: WellnessFetchResult,
-    ) : Call<Nothing>
-}
-
-private inline fun <T, R> Call<T>.then(next: (T) -> Call<R>): Call<R> =
-    when (this) {
-        is Call.Ok -> next(value)
-        is Call.Failed -> this
-    }
-
-private class AccessToken(
-    val value: String,
-    val expiresAt: Instant,
-)
-
 /**
- * Daily resting HR and HRV from the Garmin Connect Personal API (feature 015). The personal API key is exchanged for
- * an access token (kept in memory until shortly before it expires), then resting HR comes from the daily summaries
- * and HRV from the overnight HRV summaries, merged by local date. Only the status code or the exception class is
- * logged, never the key, token, URL, query or body.
+ * Daily resting HR and HRV (feature 015): resting HR from the daily summaries and HRV from the overnight HRV
+ * summaries, merged by local date; and one day's sleep and heart rate for the rings (feature 020). The token and
+ * error handling live in [GarminConnect].
  */
-@Suppress("TooManyFunctions") // One client for every Garmin call; the token and error handling are shared.
 class GarminWellnessSource(
-    private val http: HttpClient,
-    private val apiKey: String,
-    private val clock: Clock,
+    private val garmin: GarminConnect,
 ) : WellnessSource,
     RingDaySource {
-    private var token: AccessToken? = null
-
     override suspend fun fetch(
         oldest: LocalDate,
         newest: LocalDate,
     ): WellnessFetchResult {
-        val reusedToken = validToken() != null
-        val result = attempt(oldest, newest)
-        // A cached token Garmin no longer accepts gets one retry with a fresh token.
-        return if (result == WellnessFetchResult.KeyRejected && reusedToken) attempt(oldest, newest) else result
-    }
-
-    private suspend fun attempt(
-        oldest: LocalDate,
-        newest: LocalDate,
-    ): WellnessFetchResult {
         val days =
-            accessToken().then { access ->
-                call<GarminDailySummariesDto>("summaries", access) {
-                    url(BASE_URL + SUMMARIES_PATH)
+            garmin
+                .getJson("summaries", { it.body<GarminDailySummariesDto>() }) {
+                    url(GarminConnect.BASE_URL + SUMMARIES_PATH)
                     parameter("startDate", oldest.toString())
                     parameter("endDate", newest.toString())
                 }.then { summaries ->
-                    call(
-                        "hrv",
-                        access,
-                        empty = GarminHrvDailyDto(emptyList()),
-                    ) { url("$BASE_URL$HRV_PATH/$oldest/$newest") }
-                        .then { hrv -> Call.Ok(summaries to hrv) }
+                    garmin
+                        .getJson("hrv", { it.body<GarminHrvDailyDto>() }, empty = GarminHrvDailyDto(emptyList())) {
+                            url("${GarminConnect.BASE_URL}$HRV_PATH/$oldest/$newest")
+                        }.then { hrv -> GarminCall.Ok(summaries to hrv) }
                 }
-            }
         return when (days) {
-            is Call.Ok -> {
+            is GarminCall.Ok -> {
                 val (summaries, hrv) = days.value
                 // Counts only: the values are health data.
                 log.info(
@@ -117,7 +56,7 @@ class GarminWellnessSource(
                 )
                 WellnessFetchResult.Success(merge(summaries, hrv))
             }
-            is Call.Failed -> days.result
+            else -> days.toWellness()
         }
     }
 
@@ -125,155 +64,37 @@ class GarminWellnessSource(
         date: LocalDate,
         withHeartRate: Boolean,
     ): DayFetchResult {
-        val reusedToken = validToken() != null
-        val result = attemptDay(date, withHeartRate)
-        val rejected = result == DayFetchResult.Failed(WellnessFetchResult.KeyRejected)
-        return if (rejected && reusedToken) attemptDay(date, withHeartRate) else result
-    }
-
-    private suspend fun attemptDay(
-        date: LocalDate,
-        withHeartRate: Boolean,
-    ): DayFetchResult {
         val day =
-            accessToken().then { access ->
-                call("sleep", access, empty = GarminDailySleepDto()) {
-                    url(BASE_URL + SLEEP_PATH)
+            garmin
+                .getJson("sleep", { it.body<GarminDailySleepDto>() }, empty = GarminDailySleepDto()) {
+                    url(GarminConnect.BASE_URL + SLEEP_PATH)
                     parameter("date", date.toString())
                 }.then { sleep ->
                     if (!withHeartRate) {
-                        Call.Ok(DayReading(sleep.sleepTimeSeconds, null))
+                        GarminCall.Ok(DayReading(sleep.sleepTimeSeconds, null))
                     } else {
-                        call("heart rate", access, empty = GarminDailyHeartRateDto()) {
-                            url(BASE_URL + HEART_RATE_PATH)
-                            parameter("date", date.toString())
-                        }.then { hr -> Call.Ok(DayReading(sleep.sleepTimeSeconds, samples(hr))) }
+                        garmin
+                            .getJson(
+                                "heart rate",
+                                { it.body<GarminDailyHeartRateDto>() },
+                                empty = GarminDailyHeartRateDto(),
+                            ) {
+                                url(GarminConnect.BASE_URL + HEART_RATE_PATH)
+                                parameter("date", date.toString())
+                            }.then { hr -> GarminCall.Ok(DayReading(sleep.sleepTimeSeconds, samples(hr))) }
                     }
                 }
-            }
         return when (day) {
-            is Call.Ok -> DayFetchResult.Ok(day.value)
-            is Call.Failed -> DayFetchResult.Failed(day.result)
+            is GarminCall.Ok -> DayFetchResult.Ok(day.value)
+            else -> DayFetchResult.Failed(day.toWellness())
         }
-    }
-
-    private fun validToken(): AccessToken? = token?.takeIf { clock.instant() < it.expiresAt }
-
-    private suspend fun accessToken(): Call<String> {
-        validToken()?.let { return Call.Ok(it.value) }
-        token = null
-        // The token endpoint answers with the bare token as plain text and rejects `Accept: application/json` (406),
-        // which ContentNegotiation would otherwise add to every request.
-        val call =
-            request<String>("token") {
-                http.post(BASE_URL + TOKEN_PATH) {
-                    header(HttpHeaders.Authorization, "ApiKey $apiKey")
-                    exclude(ContentType.Application.Json)
-                    accept(ContentType.Any)
-                }
-            }
-        val value = (call as? Call.Ok)?.value?.trim()
-        return when {
-            call is Call.Failed -> call
-            value.isNullOrEmpty() -> {
-                log.warn("Garmin Connect returned an empty token")
-                Call.Failed(WellnessFetchResult.Unavailable)
-            }
-            else -> {
-                // shortcut: assumes the documented 24 h lifetime instead of reading the JWT's `exp`.
-                token = AccessToken(value, clock.instant().plus(MAX_TOKEN_LIFETIME).minus(TOKEN_MARGIN))
-                Call.Ok(value)
-            }
-        }
-    }
-
-    /** [empty] is what a 204 ("no data") means for this call; without it a 204 is unexpected. */
-    private suspend inline fun <reified T> call(
-        name: String,
-        access: String,
-        empty: T? = null,
-        crossinline block: HttpRequestBuilder.() -> Unit,
-    ): Call<T> {
-        val result =
-            request(name, empty) {
-                http.get {
-                    block()
-                    header(HttpHeaders.Authorization, "Bearer $access")
-                    accept(ContentType.Application.Json)
-                }
-            }
-        if (result == Call.Failed(WellnessFetchResult.KeyRejected)) token = null
-        return result
-    }
-
-    /** [name] (token, summaries or hrv) goes in failure logs so they say which call failed. */
-    private suspend inline fun <reified T> request(
-        name: String,
-        empty: T? = null,
-        send: () -> HttpResponse,
-    ): Call<T> =
-        try {
-            map(name, send(), empty)
-        } catch (e: IOException) {
-            unavailable(name, e)
-        } catch (e: UnresolvedAddressException) {
-            unavailable(name, e)
-        } catch (e: SerializationException) {
-            unavailable(name, e)
-        } catch (e: ContentConvertException) {
-            // Its message can quote the response body, so only the class name is logged.
-            unavailable(name, e)
-        } catch (e: NoTransformationFoundException) {
-            // A 200 that isn't JSON, such as an HTML page from a proxy.
-            unavailable(name, e)
-        }
-
-    private suspend inline fun <reified T> map(
-        name: String,
-        response: HttpResponse,
-        empty: T?,
-    ): Call<T> =
-        when {
-            response.status == HttpStatusCode.NoContent && empty != null -> Call.Ok(empty)
-            response.status == HttpStatusCode.NoContent -> {
-                log.warn("Garmin Connect {} returned status 204", name)
-                Call.Failed(WellnessFetchResult.Unavailable)
-            }
-            response.status.isSuccess() -> Call.Ok(response.body())
-            response.status in REJECTED -> Call.Failed(WellnessFetchResult.KeyRejected)
-            response.status == HttpStatusCode.TooManyRequests ->
-                Call.Failed(WellnessFetchResult.RateLimited(retryAt(response.headers[HttpHeaders.RetryAfter])))
-            else -> {
-                log.warn("Garmin Connect {} returned status {}", name, response.status.value)
-                Call.Failed(WellnessFetchResult.Unavailable)
-            }
-        }
-
-    /** `Retry-After` in whole seconds (1 to 86400); anything else waits the 15-minute fallback. */
-    private fun retryAt(header: String?): Instant {
-        val seconds = header?.trim()?.toLongOrNull()?.takeIf { it in 1..MAX_RETRY_AFTER_SECONDS }
-        return clock.instant().plus(seconds?.let(Duration::ofSeconds) ?: WellnessPolicy.RATE_LIMIT_FALLBACK)
-    }
-
-    private fun unavailable(
-        name: String,
-        e: Exception,
-    ): Call<Nothing> {
-        log.warn("Garmin Connect {} request failed: {}", name, e::class.simpleName)
-        return Call.Failed(WellnessFetchResult.Unavailable)
     }
 
     private companion object {
-        const val BASE_URL = "https://personal.connectapi.garmin.com"
-        const val TOKEN_PATH = "/personalapitoken-service/personal-api/personal-api-key/token"
         const val SUMMARIES_PATH = "/usersummary-service/v2/dailysummaries"
         const val HRV_PATH = "/hrv-service/hrv/daily"
         const val SLEEP_PATH = "/wellness-service/wellness/dailySleep"
         const val HEART_RATE_PATH = "/wellness-service/wellness/dailyHeartRate"
-        const val MAX_RETRY_AFTER_SECONDS = 86_400L
-        val MAX_TOKEN_LIFETIME: Duration = Duration.ofHours(24)
-        val TOKEN_MARGIN: Duration = Duration.ofMinutes(5)
-        val REJECTED = setOf(HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden)
         val log = LoggerFactory.getLogger(GarminWellnessSource::class.java)
 
         /** One day per date seen in either response; an element whose date isn't ISO is skipped. */
@@ -316,3 +137,11 @@ class GarminWellnessSource(
             }
     }
 }
+
+/** A failed call as the wellness result; 404 counts as unavailable, as it did before feature 021. */
+private fun GarminCall<*>.toWellness(): WellnessFetchResult =
+    when (this) {
+        GarminCall.KeyRejected -> WellnessFetchResult.KeyRejected
+        is GarminCall.RateLimited -> WellnessFetchResult.RateLimited(until)
+        else -> WellnessFetchResult.Unavailable
+    }

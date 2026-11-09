@@ -12,7 +12,7 @@ import java.time.ZoneId
 
 /**
  * Refreshes the wellness cache from Garmin Connect (feature 015, R3 and R4). Runs inside the background sync job and
- * never touches Strava state. Failures keep the cached rows; only statuses, counts and class names are logged.
+ * never touches activity sync state. Failures keep the cached rows; only statuses, counts and class names are logged.
  */
 class WellnessSync(
     private val source: WellnessSource,

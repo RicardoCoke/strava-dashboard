@@ -3,19 +3,18 @@ package app.stravadashboard.api
 import app.stravadashboard.config.WeatherLocation
 import app.stravadashboard.module
 import app.stravadashboard.testsupport.FakePlanSource
-import app.stravadashboard.testsupport.NOW
+import app.stravadashboard.testsupport.GarminFake
 import app.stravadashboard.testsupport.TEST_ZONE
+import app.stravadashboard.testsupport.browser
 import app.stravadashboard.testsupport.testConfig
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
-import io.ktor.client.plugins.cookies.HttpCookies
 import io.ktor.client.request.HttpRequestData
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
-import io.ktor.http.Url
 import io.ktor.http.headersOf
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
@@ -26,7 +25,7 @@ import kotlin.test.assertEquals
 
 // All forecast values here are invented.
 class RunWeatherRoutesTest {
-    private val stravaRequests = mutableListOf<HttpRequestData>()
+    private val garmin = GarminFake()
     private val weatherRequests = mutableListOf<HttpRequestData>()
     private val clock = Clock.fixed(Instant.parse("2026-11-05T10:00:00Z"), TEST_ZONE)
     private val json = headersOf(HttpHeaders.ContentType, "application/json")
@@ -43,16 +42,6 @@ class RunWeatherRoutesTest {
         weatherStatus: HttpStatusCode = HttpStatusCode.OK,
         block: suspend ApplicationTestBuilder.() -> Unit,
     ) = testApplication {
-        val strava =
-            MockEngine { request ->
-                stravaRequests += request
-                respond(
-                    """{"access_token":"a","refresh_token":"r","expires_at":${NOW.epochSecond + 99_999_999},
-                       "athlete":{"id":7}}""",
-                    HttpStatusCode.OK,
-                    json,
-                )
-            }
         val weather =
             MockEngine { request ->
                 weatherRequests += request
@@ -63,26 +52,15 @@ class RunWeatherRoutesTest {
                 testConfig().copy(weatherHome = home),
                 clock,
                 TEST_ZONE,
-                strava,
                 FakePlanSource(),
+                garminEngine = garmin.engine,
                 weatherEngine = weather,
             )
         }
         block()
     }
 
-    private suspend fun ApplicationTestBuilder.connectedBrowser(): HttpClient {
-        val browser =
-            createClient {
-                install(HttpCookies)
-                followRedirects = false
-            }
-        val login = browser.get("/auth/strava/login")
-        val state = Url(requireNotNull(login.headers[HttpHeaders.Location])).parameters["state"]
-        browser.get("/auth/strava/callback?state=$state&code=invented&scope=read,activity:read_all")
-        stravaRequests.clear()
-        return browser
-    }
+    private fun ApplicationTestBuilder.connectedBrowser(): HttpClient = browser()
 
     @Test
     fun `R6 - returns the exact JSON`() =
@@ -95,14 +73,6 @@ class RunWeatherRoutesTest {
                     """{"date":"2026-11-07","condition":"rain","rainMm":1.2}]}""",
                 response.bodyAsText(),
             )
-        }
-
-    @Test
-    fun `R6 - not connected is 401`() =
-        app {
-            val response = client.get("/api/run-weather")
-            assertEquals(HttpStatusCode.Unauthorized, response.status)
-            assertEquals(emptyList(), weatherRequests)
         }
 
     @Test
@@ -133,6 +103,6 @@ class RunWeatherRoutesTest {
         app {
             connectedBrowser().get("/api/run-weather")
             assertEquals(1, weatherRequests.size)
-            assertEquals(emptyList(), stravaRequests)
+            assertEquals(emptyList(), garmin.requests)
         }
 }

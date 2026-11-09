@@ -1,0 +1,14 @@
+{
+  "activityId": 111,
+  "activityName": "Invented tempo 5x6min",
+  "description": "Treadmill notes",
+  "summaryDTO": {
+    "startTimeLocal": "2026-10-25T23:30:00.0",
+    "startLatitude": 3.917,
+    "distance": 10049.0,
+    "duration": 2800.0,
+    "movingDuration": 2700.4,
+    "averageHR": 151.3
+  },
+  "splitSummaries": [{ "splitType": "INTERVAL_ACTIVE", "noOfSplits": 5, "distance": 6000.0 }]
+}

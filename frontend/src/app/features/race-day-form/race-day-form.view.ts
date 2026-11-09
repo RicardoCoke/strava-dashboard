@@ -30,13 +30,10 @@ function stringField(body: unknown, key: string): string | null {
   return typeof value === 'string' ? value : null;
 }
 
-/** The card state for a failed request, or null for a 401 (the interceptor redirects to /connect). */
-export function raceDayFormStateFromError(error: unknown): RaceDayFormState | null {
+/** The card state for a failed request. */
+export function raceDayFormStateFromError(error: unknown): RaceDayFormState {
   if (!(error instanceof HttpErrorResponse)) {
     return { kind: 'error' };
-  }
-  if (error.status === 401) {
-    return null;
   }
   const code = stringField(error.error, 'error') ?? '';
   const message = stringField(error.error, 'message');

@@ -3,15 +3,6 @@ package app.stravadashboard.persistence
 import org.jetbrains.exposed.sql.ReferenceOption
 import org.jetbrains.exposed.sql.Table
 
-object StravaTokensTable : Table("strava_tokens") {
-    val athleteId = long("athlete_id")
-    val accessToken = text("access_token")
-    val refreshToken = text("refresh_token")
-    val expiresAt = long("expires_at")
-    val scope = text("scope")
-    override val primaryKey = PrimaryKey(athleteId)
-}
-
 object RunsTable : Table("runs") {
     val id = long("id")
     val name = text("name")
@@ -85,7 +76,6 @@ object SyncStateTable : Table("sync_state") {
     val lastSuccessfulSyncAt = long("last_successful_sync_at").nullable()
     val rateLimitedUntil = long("rate_limited_until").nullable()
     val lastStatus = text("last_status").nullable()
-    val ownerAthleteId = long("owner_athlete_id").nullable()
     val historyStart = long("history_start").nullable()
     val lastAttemptAt = long("last_attempt_at").nullable()
     override val primaryKey = PrimaryKey(id)

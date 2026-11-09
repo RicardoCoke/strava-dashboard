@@ -8,12 +8,12 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-class StravaCallBudgetTest {
+class CallBudgetTest {
     @Test
     fun `R4 - budget resets on quarter hour boundaries`() {
         // NOW is 10:00:00 UTC, the start of a window.
         val clock = MutableClock(NOW.plus(Duration.ofMinutes(14)))
-        val budget = StravaCallBudget(clock, callsPerWindow = 2)
+        val budget = CallBudget(clock, callsPerWindow = 2)
 
         assertTrue(budget.tryConsume())
         assertTrue(budget.tryConsume())

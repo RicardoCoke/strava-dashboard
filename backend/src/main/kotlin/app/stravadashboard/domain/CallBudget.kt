@@ -10,11 +10,10 @@ data class BudgetView(
 )
 
 /**
- * Counts Strava calls per fixed 15-minute block of UTC epoch time, the blocks Strava's own rate limit uses. 80 of
- * Strava's 100 leaves room for token refreshes and the client's retries, which aren't counted. In memory only: a
- * restart starts the count again at zero.
+ * Counts activity-source calls per fixed 15-minute block of UTC epoch time (Strava-era limit, kept for Garmin, whose
+ * limits are unpublished). Token calls aren't counted. In memory only: a restart starts the count again at zero.
  */
-class StravaCallBudget(
+class CallBudget(
     private val clock: Clock,
     private val callsPerWindow: Int = CALLS_PER_WINDOW,
 ) {

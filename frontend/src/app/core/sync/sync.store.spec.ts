@@ -1,11 +1,9 @@
-import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { Injector } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { Router } from '@angular/router';
 import { syncStatus } from '../../testing/sync-store-stub';
 import { SyncStatusResponse } from '../api/sync.models';
-import { apiErrorInterceptor } from '../interceptors/api-error.interceptor';
 import { ERROR_RETRY_MS, MIN_DELAY_MS, POLL_INTERVAL_MS, SyncStore } from './sync.store';
 
 describe('SyncStore', () => {
@@ -19,11 +17,7 @@ describe('SyncStore', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     TestBed.configureTestingModule({
-      providers: [
-        provideHttpClient(withInterceptors([apiErrorInterceptor])),
-        provideHttpClientTesting(),
-        { provide: Router, useValue: { navigate: vi.fn(), navigateByUrl: vi.fn() } },
-      ],
+      providers: [provideHttpClient(), provideHttpClientTesting()],
     });
     http = TestBed.inject(HttpTestingController);
     // A child injector stands in for the page: destroying it is leaving the page.
@@ -49,6 +43,15 @@ describe('SyncStore', () => {
     http.expectNone('/api/sync');
     vi.advanceTimersByTime(1);
     answer('POST', syncing());
+  });
+
+  it('021 R7 - notConfigured shows the status and schedules no further requests', () => {
+    answer('GET', syncStatus({ status: 'notConfigured', nextSyncInSeconds: null }));
+    expect(store.bannerState()).toEqual(
+      syncStatus({ status: 'notConfigured', nextSyncInSeconds: null }),
+    );
+    vi.advanceTimersByTime(60 * 60 * 1000);
+    http.expectNone('/api/sync');
   });
 
   it('R7 - posts after one second when a sync is due now', () => {
@@ -96,15 +99,6 @@ describe('SyncStore', () => {
     http.expectNone('/api/sync');
     vi.advanceTimersByTime(1);
     answer('GET', syncStatus());
-    expect(store.failed()).toBe(false);
-  });
-
-  it('R7 - a 401 stops the store', () => {
-    http
-      .expectOne('/api/sync')
-      .flush({ error: 'not_connected', message: 'x' }, { status: 401, statusText: 'Unauthorized' });
-    vi.advanceTimersByTime(ERROR_RETRY_MS * 2);
-    http.expectNone('/api/sync');
     expect(store.failed()).toBe(false);
   });
 

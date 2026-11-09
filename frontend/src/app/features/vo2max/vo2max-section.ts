@@ -150,7 +150,7 @@ export class Vo2maxSection implements OnInit {
         },
         error: (error: unknown) => {
           const next = normalizedStateFromError(error);
-          if (next && !quiet) {
+          if (!quiet) {
             this.normalizedState.set(next);
           }
         },
@@ -175,7 +175,7 @@ export class Vo2maxSection implements OnInit {
         },
         error: (error: unknown) => {
           const next = vo2maxStateFromError(error);
-          if (next && !quiet) {
+          if (!quiet) {
             this.state.set(next);
           }
         },

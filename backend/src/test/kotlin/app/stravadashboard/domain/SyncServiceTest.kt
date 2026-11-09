@@ -21,8 +21,10 @@ import app.stravadashboard.persistence.ExposedSyncStateRepository
 import app.stravadashboard.testsupport.FakeActivitySource
 import app.stravadashboard.testsupport.MutableClock
 import app.stravadashboard.testsupport.NOW
+import app.stravadashboard.testsupport.NO_CUT_OVER
 import app.stravadashboard.testsupport.TEST_ZONE
 import app.stravadashboard.testsupport.kmLap
+import app.stravadashboard.testsupport.run
 import app.stravadashboard.testsupport.summary
 import app.stravadashboard.testsupport.tempDbPath
 import ch.qos.logback.classic.Logger
@@ -35,6 +37,7 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.LoggerFactory
 import java.time.Duration
 import java.time.Instant
+import java.time.LocalDate
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -49,7 +52,7 @@ class SyncServiceTest {
     private val syncState = ExposedSyncStateRepository(database)
     private val source = FakeActivitySource()
     private val clock = MutableClock()
-    private val service = SyncService(source, runs, syncState, clock, TEST_ZONE)
+    private val service = SyncService(source, runs, syncState, clock, TEST_ZONE, NO_CUT_OVER)
 
     // History start for today 2026-10-29 is 2026-03-19 (6 months + 41 days back); the list starts the day before.
     private val backfillStart = Instant.parse("2026-03-18T00:00:00Z")
@@ -328,7 +331,7 @@ class SyncServiceTest {
 
         val info = sync()
 
-        assertEquals(SyncStatus.STRAVA_UNAVAILABLE, info.status)
+        assertEquals(SyncStatus.SOURCE_UNAVAILABLE, info.status)
         assertEquals(lastSynced, info.lastSyncedAt)
         assertEquals(1, runBlocking { runs.findAll() }.size)
     }
@@ -464,13 +467,13 @@ class SyncServiceTest {
     }
 
     @Test
-    fun `016 R1 - revoked access on splits refetch requires reauth and writes nothing`() {
+    fun `016 R1 - unavailable source on splits refetch writes nothing`() {
         storePre016Details(summary(1, daysAgo(10)))
         source.activities = emptyList()
         source.failFromCall = 2
-        source.failure = SourceResult.ReauthRequired
+        source.failure = SourceResult.Unavailable
 
-        assertIs<SyncOutcome.ReauthRequired>(runBlocking { service.syncIfDue() })
+        assertEquals(SyncStatus.SOURCE_UNAVAILABLE, sync().status)
         assertNull(runBlocking { runs.findAll() }.single().splits)
     }
 
@@ -482,7 +485,7 @@ class SyncServiceTest {
 
         val info = sync()
 
-        assertEquals(SyncStatus.STRAVA_UNAVAILABLE, info.status)
+        assertEquals(SyncStatus.SOURCE_UNAVAILABLE, info.status)
         assertEquals(1, info.runsPendingDetail)
         assertNull(runBlocking { runs.findAll() }.single().splits)
     }
@@ -607,16 +610,8 @@ class SyncServiceTest {
         source.failFromCall = 3
         source.failure = SourceResult.Unavailable
 
-        assertEquals(SyncStatus.STRAVA_UNAVAILABLE, sync().status)
+        assertEquals(SyncStatus.SOURCE_UNAVAILABLE, sync().status)
         assertNull(runBlocking { runs.findAll() }.single().hrHistogram)
-    }
-
-    @Test
-    fun `R3 - revoked access returns reauth required`() {
-        source.activities = listOf(summary(1, daysAgo(1)))
-        source.failFromCall = 1
-        source.failure = SourceResult.ReauthRequired
-        assertIs<SyncOutcome.ReauthRequired>(runBlocking { service.syncIfDue() })
     }
 
     @Test
@@ -640,7 +635,8 @@ class SyncServiceTest {
 
     @Test
     fun `R4 - budget running out during list pass keeps cursor`() {
-        val tiny = SyncService(source, runs, syncState, clock, TEST_ZONE, StravaCallBudget(clock, callsPerWindow = 1))
+        val tiny =
+            SyncService(source, runs, syncState, clock, TEST_ZONE, NO_CUT_OVER, CallBudget(clock, callsPerWindow = 1))
         source.activities = (1..250L).map { summary(it, firstKeptDay.plus(Duration.ofHours(it))) }
 
         val info = assertIs<SyncOutcome.Done>(runBlocking { tiny.syncIfDue() }).info
@@ -656,10 +652,10 @@ class SyncServiceTest {
         source.activities = listOf(summary(1, daysAgo(1)))
         source.failFromCall = 1
 
-        assertEquals(SyncStatus.STRAVA_UNAVAILABLE, sync().status)
+        assertEquals(SyncStatus.SOURCE_UNAVAILABLE, sync().status)
 
         val state = runBlocking { syncState.get() }
-        assertEquals(SyncStatus.STRAVA_UNAVAILABLE, state.lastStatus)
+        assertEquals(SyncStatus.SOURCE_UNAVAILABLE, state.lastStatus)
         assertEquals(NOW, state.lastAttemptAt)
     }
 
@@ -678,10 +674,77 @@ class SyncServiceTest {
                 root.detachAppender(appender)
             }
 
-        assertEquals(SyncStatus.STRAVA_UNAVAILABLE, info.status)
+        assertEquals(SyncStatus.SOURCE_UNAVAILABLE, info.status)
         assertEquals(NOW, runBlocking { syncState.get() }.lastAttemptAt)
         val logged = appender.list.joinToString("\n") { it.formattedMessage + (it.throwableProxy?.message ?: "") }
         assertTrue("IllegalStateException" in logged)
         assertFalse("Invented secret detail" in logged)
+    }
+
+    // Feature 021: NOW is Thu 2026-10-29, so a cut-over on Mon 2026-10-26 keeps three days of "Garmin" runs.
+    private val cutOver = LocalDate.of(2026, 10, 26)
+    private val cutOverService = SyncService(source, runs, syncState, clock, TEST_ZONE, cutOver)
+
+    @Test
+    fun `021 R3 - activities before the cut-over are not stored`() {
+        // A Strava run already stored on 10-20; Garmin lists the same run (a new ID) and one after the cut-over.
+        runBlocking { runs.upsertSummaries(listOf(summary(1, daysAgo(9)))) }
+        source.activities = listOf(summary(2, daysAgo(9)), summary(3, daysAgo(1)))
+
+        assertIs<SyncOutcome.Done>(runBlocking { cutOverService.syncIfDue() })
+
+        assertEquals(listOf(1L, 3L), runBlocking { runs.findAll() }.map { it.id.value }.sorted())
+    }
+
+    @Test
+    fun `021 R6 - runs before the cut-over get no source calls and stay unchanged`() {
+        // Pending in every way and inside the 7-day recheck window, but from before the cut-over.
+        runBlocking { runs.upsertSummaries(listOf(summary(1, daysAgo(4), heartRate = 150.0))) }
+        val before = runBlocking { runs.findAll() }
+
+        val info = assertIs<SyncOutcome.Done>(runBlocking { cutOverService.syncIfDue() }).info
+
+        assertEquals(listOf("list:1"), source.calls)
+        assertEquals(before, runBlocking { runs.findAll() })
+        assertEquals(0, info.runsPendingDetail)
+        assertEquals(SyncStatus.OK, info.status)
+    }
+
+    @Test
+    fun `021 R6 - pending count ignores runs before the cut-over`() {
+        val old = run(id = 1, date = LocalDate.of(2026, 10, 25), laps = null)
+        val new = run(id = 2, date = LocalDate.of(2026, 10, 28), laps = null)
+        assertEquals(1, SyncPolicy.pendingCount(listOf(old, new), cutOver))
+        assertEquals(
+            listOf(2L),
+            SyncPolicy.plan(SyncPhase.MISSING_DETAILS, listOf(old, new), NOW, cutOver).map {
+                it.run.id.value
+            },
+        )
+    }
+
+    @Test
+    fun `021 R6 - a fresh store imports from the cut-over once, then lists incrementally`() {
+        // A cut-over 20 days back, so the 7-day window can take over once the import is recorded.
+        val earlier = SyncService(source, runs, syncState, clock, TEST_ZONE, LocalDate.of(2026, 10, 9))
+        source.activities = listOf(summary(1, daysAgo(2)))
+        assertIs<SyncOutcome.Done>(runBlocking { earlier.syncIfDue() })
+        assertEquals(listOf(Instant.parse("2026-10-09T00:00:00Z")), source.listAfters)
+        assertEquals(backfillStart, runBlocking { syncState.get() }.historyStart)
+        clock.advance(Duration.ofMinutes(20))
+        source.listAfters.clear()
+
+        assertIs<SyncOutcome.Done>(runBlocking { earlier.syncIfDue() })
+
+        assertEquals(listOf(NOW.plus(Duration.ofMinutes(20)).minus(Duration.ofDays(7))), source.listAfters)
+    }
+
+    @Test
+    fun `021 R6 - listAfter is never before the cut-over`() {
+        val start = cutOver.atStartOfDay(TEST_ZONE).toInstant()
+        assertEquals(start, SyncPolicy.listAfter(SyncState(), NOW, TEST_ZONE, cutOver))
+        val imported = SyncState(listCursor = daysAgo(20), historyStart = backfillStart)
+        assertEquals(start, SyncPolicy.listAfter(imported, NOW, TEST_ZONE, cutOver))
+        assertEquals(daysAgo(20), SyncPolicy.listAfter(imported, NOW, TEST_ZONE, NO_CUT_OVER))
     }
 }

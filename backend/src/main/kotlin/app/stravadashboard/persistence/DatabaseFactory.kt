@@ -30,7 +30,6 @@ object DatabaseFactory {
             )
         transaction(database) {
             SchemaUtils.create(
-                StravaTokensTable,
                 RunsTable,
                 RunLapsTable,
                 RunSplitsTable,

@@ -8,26 +8,25 @@ import app.stravadashboard.config.PersonSettings
 import app.stravadashboard.config.WeatherLocation
 import app.stravadashboard.domain.model.ActivityId
 import app.stravadashboard.domain.model.Bpm
-import app.stravadashboard.domain.ports.StoredTokens
 import app.stravadashboard.domain.ports.SyncState
 import app.stravadashboard.module
 import app.stravadashboard.persistence.DatabaseFactory
 import app.stravadashboard.persistence.ExposedRunRepository
 import app.stravadashboard.persistence.ExposedSyncStateRepository
-import app.stravadashboard.persistence.ExposedTokenRepository
+import app.stravadashboard.testsupport.GARMIN_TOKEN_PATH
 import app.stravadashboard.testsupport.NOW
 import app.stravadashboard.testsupport.TEST_ZONE
+import app.stravadashboard.testsupport.browser
 import app.stravadashboard.testsupport.fixedClock
 import app.stravadashboard.testsupport.summary
+import app.stravadashboard.testsupport.syncAndWait
 import app.stravadashboard.testsupport.tempDbPath
 import app.stravadashboard.testsupport.testConfig
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
-import io.ktor.client.plugins.cookies.HttpCookies
 import io.ktor.client.plugins.cookies.cookies
 import io.ktor.client.request.HttpRequestData
-import io.ktor.client.request.forms.FormDataContent
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -35,7 +34,6 @@ import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
-import io.ktor.http.Url
 import io.ktor.http.headersOf
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
@@ -52,40 +50,34 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
-import kotlin.test.assertNotNull
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-private const val MARINA_CLIENT = "2222"
-private const val RICARDO_CLIENT = "12345"
+private const val RICARDO_KEY = "invented-garmin-key"
+private const val MARINA_KEY = "marina-garmin"
 
 /** That one person's data, settings and failures stay theirs (feature 019). Everything here is invented. */
 class PersonIsolationTest {
     private val marina =
         PersonSettings(
-            stravaClientId = MARINA_CLIENT,
-            stravaClientSecret = "marina-secret",
             dbPath = tempDbPath(),
             trainingPlanCsvPath = null,
             trainingPlanStartDate = LocalDate.of(2026, 8, 3),
             lthr = LthrSetting.Valid(Bpm(163)),
             maxHr = MaxHrSetting.Default,
             marathonPace = MarathonPaceSetting.NotConfigured,
-            garminApiKey = null,
+            garminApiKey = MARINA_KEY,
+            garminActivitiesFrom = LocalDate.of(2000, 1, 1),
             buildWeeks = 18,
         )
     private val config = testConfig().copy(lthr = LthrSetting.Valid(Bpm(175)), marina = marina)
     private val ricardoDb = DatabaseFactory.connect(config.dbPath)
     private val marinaDb = DatabaseFactory.connect(marina.dbPath)
-    private val ricardoTokens = ExposedTokenRepository(ricardoDb)
-    private val marinaTokens = ExposedTokenRepository(marinaDb)
     private val ricardoRuns = ExposedRunRepository(ricardoDb)
     private val marinaRuns = ExposedRunRepository(marinaDb)
 
-    private val stravaRequests = CopyOnWriteArrayList<HttpRequestData>()
     private val garminRequests = CopyOnWriteArrayList<HttpRequestData>()
     private val weatherRequests = CopyOnWriteArrayList<HttpRequestData>()
-    private var rejectRefreshFor: String? = null
+    private var rejectKey: String? = null
     private val json = headersOf(HttpHeaders.ContentType, "application/json")
 
     private val routes =
@@ -106,58 +98,29 @@ class PersonIsolationTest {
             "/api/run-weather",
         )
 
-    private fun form(request: HttpRequestData) = (request.body as FormDataContent).formData
-
+    /** Each key gets its own access token, so every data call shows whose key it was made with. */
     private fun app(
         appConfig: AppConfig = config,
         clock: Clock = fixedClock(),
         block: suspend ApplicationTestBuilder.() -> Unit,
     ) = testApplication {
-        val strava =
-            MockEngine { request ->
-                stravaRequests += request
-                when {
-                    request.url.encodedPath != "/oauth/token" -> respond("[]", HttpStatusCode.OK, json)
-                    form(request)["client_id"] == rejectRefreshFor && form(request)["grant_type"] == "refresh_token" ->
-                        respond("", HttpStatusCode.BadRequest)
-                    else -> {
-                        val client = form(request)["client_id"]
-                        val athlete = if (client == MARINA_CLIENT) 8 else 7
-                        respond(
-                            """{"access_token":"access-$client","refresh_token":"refresh-$client",
-                               "expires_at":${NOW.epochSecond + 21600},"athlete":{"id":$athlete}}""",
-                            HttpStatusCode.OK,
-                            json,
-                        )
-                    }
-                }
-            }
         val garmin =
             MockEngine { request ->
                 garminRequests += request
-                respond("invented-token", HttpStatusCode.OK, json)
+                val key = request.headers[HttpHeaders.Authorization]?.removePrefix("ApiKey ")
+                when {
+                    request.url.encodedPath != GARMIN_TOKEN_PATH -> respond("[]", HttpStatusCode.OK, json)
+                    key == rejectKey -> respond("", HttpStatusCode.Unauthorized)
+                    else -> respond("access-$key", HttpStatusCode.OK)
+                }
             }
         val weather =
             MockEngine { request ->
                 weatherRequests += request
                 respond("""{"hourly":{"time":[],"precipitation":[],"cloud_cover":[]}}""", HttpStatusCode.OK, json)
             }
-        application {
-            module(appConfig, clock, TEST_ZONE, strava, garminEngine = garmin, weatherEngine = weather)
-        }
+        application { module(appConfig, clock, TEST_ZONE, garminEngine = garmin, weatherEngine = weather) }
         block()
-    }
-
-    private fun ApplicationTestBuilder.browser(): HttpClient =
-        createClient {
-            install(HttpCookies)
-            followRedirects = false
-        }
-
-    private suspend fun HttpClient.connect(person: String = "ricardo") {
-        val login = get("/auth/strava/login?person=$person")
-        val state = Url(requireNotNull(login.headers[HttpHeaders.Location])).parameters["state"]
-        get("/auth/strava/callback?state=$state&code=invented&scope=activity:read_all")
     }
 
     private suspend fun HttpClient.getAs(
@@ -182,15 +145,8 @@ class PersonIsolationTest {
         return false
     }
 
-    private fun stravaCalledWith(bearer: String): Boolean =
-        stravaRequests.any { it.headers[HttpHeaders.Authorization] == "Bearer $bearer" }
-
-    private fun tokens(
-        athlete: Long,
-        access: String,
-        refresh: String = "$access-refresh",
-        expires: Instant = NOW.plus(Duration.ofDays(1)),
-    ) = StoredTokens(athlete, access, refresh, expires, "activity:read_all")
+    private fun garminCalledWith(key: String): Boolean =
+        garminRequests.any { it.headers[HttpHeaders.Authorization] == "Bearer access-$key" }
 
     private fun jdbc(
         path: String,
@@ -199,14 +155,17 @@ class PersonIsolationTest {
         connection.createStatement().use(block)
     }
 
-    /** The schema and every row of the tables that hold data. */
-    private fun snapshot(path: String): List<String> {
+    /** The schema and every row of [tables]. */
+    private fun snapshot(
+        path: String,
+        tables: List<String> = listOf("runs", "sync_state"),
+    ): List<String> {
         val out = mutableListOf<String>()
         jdbc(path) { statement ->
             statement.executeQuery("SELECT sql FROM sqlite_master WHERE sql IS NOT NULL ORDER BY sql").use {
                 while (it.next()) out += it.getString(1)
             }
-            for (table in listOf("strava_tokens", "runs", "sync_state")) {
+            for (table in tables) {
                 statement.executeQuery("SELECT * FROM $table").use { rows ->
                     val columns = rows.metaData.columnCount
                     while (rows.next()) out += (1..columns).joinToString { "${rows.getObject(it)}" }
@@ -219,13 +178,48 @@ class PersonIsolationTest {
     @Test
     fun `R2 - existing database file is unchanged at startup`() {
         runBlocking {
-            ricardoTokens.save(tokens(7, "ricardo-access"))
             ricardoRuns.upsertSummaries(listOf(summary(500, NOW.minus(Duration.ofDays(1)))))
-            ExposedSyncStateRepository(ricardoDb).save(SyncState(listCursor = NOW, ownerAthleteId = 7))
+            ExposedSyncStateRepository(ricardoDb).save(SyncState(listCursor = NOW))
         }
         val before = snapshot(config.dbPath)
         app { assertEquals(HttpStatusCode.OK, client.get("/api/health").status) }
         assertEquals(before, snapshot(config.dbPath))
+    }
+
+    @Test
+    fun `021 R9 - legacy strava_tokens and owner column are left untouched`() {
+        jdbc(config.dbPath) {
+            it.execute(
+                "CREATE TABLE strava_tokens (id INTEGER PRIMARY KEY, athlete_id BIGINT, access_token TEXT, " +
+                    "refresh_token TEXT, expires_at BIGINT, scope TEXT)",
+            )
+            it.execute("INSERT INTO strava_tokens VALUES (1, 7, 'invented-a', 'invented-r', 1, 'activity:read_all')")
+            it.execute("ALTER TABLE sync_state ADD COLUMN owner_athlete_id BIGINT")
+            it.execute("INSERT INTO sync_state (id, owner_athlete_id) VALUES (1, 7)")
+        }
+
+        fun legacy() =
+            mutableListOf<String>().also { out ->
+                jdbc(config.dbPath) { statement ->
+                    statement.executeQuery("SELECT * FROM strava_tokens").use { rows ->
+                        while (rows.next()) out += (1..6).joinToString { "${rows.getObject(it)}" }
+                    }
+                    statement.executeQuery("SELECT owner_athlete_id FROM sync_state").use { rows ->
+                        while (rows.next()) out += "${rows.getObject(1)}"
+                    }
+                }
+            }
+        val before = legacy()
+
+        app {
+            assertEquals(
+                "ok",
+                Regex("\"status\":\"(\\w+)\"").find(browser().syncAndWait().bodyAsText())?.groupValues?.get(1),
+            )
+        }
+
+        assertEquals(listOf("1, 7, invented-a, invented-r, 1, activity:read_all", "7"), before)
+        assertEquals(before, legacy())
     }
 
     @Test
@@ -253,22 +247,16 @@ class PersonIsolationTest {
     fun `R2 - each person reads only their runs and sync status`() {
         runBlocking {
             val start = NOW.minus(Duration.ofHours(1))
-            ricardoTokens.save(tokens(7, "ricardo-access"))
-            marinaTokens.save(tokens(8, "marina-access"))
             ricardoRuns.upsertSummaries(listOf(summary(1, start, distanceMeters = 10_000.0)))
             // Five runs is the minimum for a weekly summary, so only Marina has one.
             marinaRuns.upsertSummaries(
                 (1L..5L).map { summary(it, NOW.minus(Duration.ofHours(it)), distanceMeters = 4_000.0) },
             )
-            ExposedSyncStateRepository(ricardoDb).save(SyncState(lastSuccessfulSyncAt = NOW, ownerAthleteId = 7))
-            ExposedSyncStateRepository(marinaDb).save(
-                SyncState(lastSuccessfulSyncAt = NOW.minus(Duration.ofDays(2)), ownerAthleteId = 8),
-            )
+            ExposedSyncStateRepository(ricardoDb).save(SyncState(lastSuccessfulSyncAt = NOW))
+            ExposedSyncStateRepository(marinaDb).save(SyncState(lastSuccessfulSyncAt = NOW.minus(Duration.ofDays(2))))
         }
         app {
             val browser = browser()
-            browser.connect("marina")
-            // Connecting replaced nothing of Ricardo's, and each read below answers from its own file.
             for (path in listOf("/api/dashboard/running", "/api/weekly-summaries", "/api/sync")) {
                 assertNotEquals(
                     browser.getAs("ricardo", path).bodyAsText(),
@@ -280,201 +268,110 @@ class PersonIsolationTest {
     }
 
     @Test
-    fun `R3 - post sync follows the person`() {
-        runBlocking { ricardoTokens.save(tokens(7, "ricardo-access")) }
-        app {
-            val browser = browser()
-            browser.connect()
-            val response = browser.postSyncAs("marina")
-            assertEquals(HttpStatusCode.Unauthorized, response.status)
-            assertTrue("not_connected" in response.bodyAsText())
+    fun `R3 - post sync follows the person`() =
+        app(config.copy(marina = marina.copy(garminApiKey = null))) {
+            val response = browser().postSyncAs("marina")
+            assertEquals(HttpStatusCode.OK, response.status)
+            assertTrue("\"notConfigured\"" in response.bodyAsText())
         }
-    }
 
     @Test
-    fun `R4 - unsigned cookie is 401 for both`() {
-        runBlocking {
-            ricardoTokens.save(tokens(7, "ricardo-access"))
-            marinaTokens.save(tokens(8, "marina-access"))
-        }
-        app {
-            for (person in listOf("ricardo", "marina")) {
-                val response =
-                    client.get("/api/dashboard/running") {
-                        header("X-Person", person)
-                        header(HttpHeaders.Cookie, "sd_session=%7B%22athleteId%22%3A7%7D")
-                    }
-                assertEquals(HttpStatusCode.Unauthorized, response.status, person)
-            }
-        }
-    }
-
-    @Test
-    fun `R4 - revoke affects one person`() {
-        runBlocking { marinaTokens.save(tokens(8, "marina-access", expires = NOW.minus(Duration.ofDays(1)))) }
-        rejectRefreshFor = MARINA_CLIENT
+    fun `021 R8 - a rejected key affects one person`() {
+        rejectKey = MARINA_KEY
         app {
             val browser = browser()
-            browser.connect()
             browser.postSyncAs("marina")
 
-            val revoked =
-                waitUntil { "strava_reauth_required" in browser.getAs("marina", "/api/sync").bodyAsText() }
-
-            assertTrue(revoked)
-            assertEquals(HttpStatusCode.Unauthorized, browser.getAs("marina", "/api/sync").status)
-            assertNull(runBlocking { marinaTokens.find() })
-            assertNotNull(runBlocking { ricardoTokens.find() })
+            assertTrue(waitUntil { "\"garminUnavailable\"" in browser.getAs("marina", "/api/sync").bodyAsText() })
+            assertTrue(waitUntil { garminCalledWith(RICARDO_KEY) })
             assertEquals(HttpStatusCode.OK, browser.getAs("ricardo", "/api/dashboard/running").status)
         }
     }
 
     @Test
-    fun `R6 - post as marina starts ricardo too`() {
-        runBlocking { marinaTokens.save(tokens(8, "marina-access")) }
+    fun `R6 - post as marina starts ricardo too`() =
         app {
             val browser = browser()
-            browser.connect()
             assertEquals(HttpStatusCode.OK, browser.postSyncAs("marina").status)
-            assertTrue(waitUntil { stravaCalledWith("marina-access") })
-            assertTrue(waitUntil { stravaCalledWith("access-$RICARDO_CLIENT") })
+            assertTrue(waitUntil { garminCalledWith(MARINA_KEY) })
+            assertTrue(waitUntil { garminCalledWith(RICARDO_KEY) })
         }
-    }
 
     @Test
-    fun `R6 - unconnected person not started`() =
-        app {
+    fun `R6 - person without a key is not started`() =
+        app(config.copy(marina = marina.copy(garminApiKey = null))) {
             val browser = browser()
-            browser.connect()
             browser.postSyncAs("ricardo")
-            assertTrue(waitUntil { stravaCalledWith("access-$RICARDO_CLIENT") })
+            assertTrue(waitUntil { garminCalledWith(RICARDO_KEY) })
 
-            assertFalse(stravaCalledWith("access-$MARINA_CLIENT"))
-            assertTrue("not_connected" in browser.getAs("marina", "/api/sync").bodyAsText())
+            assertFalse(garminRequests.any { it.headers[HttpHeaders.Authorization] == "ApiKey $MARINA_KEY" })
+            assertTrue("\"notConfigured\"" in browser.getAs("marina", "/api/sync").bodyAsText())
         }
 
     @Test
     fun `R6 - other failure keeps response`() =
         app {
             val browser = browser()
-            browser.connect()
-            // Reading Marina's tokens now throws, as it would with a broken database file.
-            jdbc(marina.dbPath) { it.execute("DROP TABLE strava_tokens") }
+            // Reading Marina's sync state now throws, as it would with a broken database file.
+            jdbc(marina.dbPath) { it.execute("DROP TABLE sync_state") }
 
             val response = browser.postSyncAs("ricardo")
 
             assertEquals(HttpStatusCode.OK, response.status)
             assertTrue("\"status\"" in response.bodyAsText())
-            assertTrue(waitUntil { stravaCalledWith("access-$RICARDO_CLIENT") })
+            assertTrue(waitUntil { garminCalledWith(RICARDO_KEY) })
         }
 
     @Test
     fun `R6 - budgets are separate`() {
         runBlocking {
-            marinaTokens.save(tokens(8, "marina-access"))
-            ExposedSyncStateRepository(marinaDb).save(
-                SyncState(rateLimitedUntil = NOW.plus(Duration.ofHours(1)), ownerAthleteId = 8),
-            )
+            ExposedSyncStateRepository(marinaDb).save(SyncState(rateLimitedUntil = NOW.plus(Duration.ofHours(1))))
         }
         app {
-            val browser = browser()
-            browser.connect()
-            browser.postSyncAs("ricardo")
+            browser().postSyncAs("ricardo")
 
-            assertTrue(waitUntil { stravaCalledWith("access-$RICARDO_CLIENT") })
-            assertFalse(stravaCalledWith("marina-access"))
+            assertTrue(waitUntil { garminCalledWith(RICARDO_KEY) })
+            assertFalse(garminCalledWith(MARINA_KEY))
         }
     }
 
     @Test
-    fun `R6 - refresh uses own credentials`() =
+    fun `R7 - load uses marina lthr`() =
         app {
             val browser = browser()
-            browser.connect()
-            val expired = NOW.minus(Duration.ofDays(1))
-            runBlocking {
-                ricardoTokens.save(tokens(7, "old-r", refresh = "refresh-r", expires = expired))
-                marinaTokens.save(tokens(8, "old-m", refresh = "refresh-m", expires = expired))
-            }
-
-            browser.postSyncAs("ricardo")
-
-            fun refreshOf(token: String) =
-                stravaRequests
-                    .filter { it.url.encodedPath == "/oauth/token" }
-                    .map(::form)
-                    .firstOrNull { it["refresh_token"] == token }
-            assertTrue(waitUntil { refreshOf("refresh-r") != null && refreshOf("refresh-m") != null })
-            assertEquals(RICARDO_CLIENT, refreshOf("refresh-r")?.get("client_id"))
-            assertEquals("test-client-secret", refreshOf("refresh-r")?.get("client_secret"))
-            assertEquals(MARINA_CLIENT, refreshOf("refresh-m")?.get("client_id"))
-            assertEquals("marina-secret", refreshOf("refresh-m")?.get("client_secret"))
-        }
-
-    @Test
-    fun `R7 - load uses marina lthr`() {
-        runBlocking { marinaTokens.save(tokens(8, "marina-access")) }
-        app {
-            val browser = browser()
-            browser.connect()
             assertTrue("\"lthrBpm\":163" in browser.getAs("marina", "/api/training-load").bodyAsText())
             assertTrue("\"lthrBpm\":175" in browser.getAs("ricardo", "/api/training-load").bodyAsText())
         }
-    }
 
     @Test
-    fun `R10 - other cards still load without her goal pace`() {
-        runBlocking { marinaTokens.save(tokens(8, "marina-access")) }
+    fun `R10 - other cards still load without her goal pace`() =
         app {
             val browser = browser()
-            browser.connect()
             for (path in routes) {
                 val status = browser.getAs("marina", path).status
                 assertNotEquals(HttpStatusCode.Unauthorized, status, path)
                 assertNotEquals(HttpStatusCode.InternalServerError, status, path)
             }
         }
-    }
 
     private fun garminKeys() = garminRequests.mapNotNull { it.headers[HttpHeaders.Authorization] }
 
     @Test
-    fun `R11 - each key is used for its own person`() {
-        val both =
-            config.copy(garminApiKey = "ricardo-garmin", marina = marina.copy(garminApiKey = "marina-garmin"))
-        runBlocking { marinaTokens.save(tokens(8, "marina-access")) }
-        app(both) {
-            val browser = browser()
-            browser.connect()
-            browser.postSyncAs("marina")
-            assertTrue(waitUntil { "ApiKey marina-garmin" in garminKeys() && "ApiKey ricardo-garmin" in garminKeys() })
+    fun `R11 - each key is used for its own person`() =
+        app {
+            browser().postSyncAs("marina")
+            assertTrue(waitUntil { "ApiKey $MARINA_KEY" in garminKeys() && "ApiKey $RICARDO_KEY" in garminKeys() })
             assertEquals(
-                setOf("ApiKey marina-garmin", "ApiKey ricardo-garmin"),
+                setOf("ApiKey $MARINA_KEY", "ApiKey $RICARDO_KEY"),
                 garminKeys().filter { "ApiKey" in it }.toSet(),
             )
         }
-    }
-
-    @Test
-    fun `R11 - no garmin call without her key`() {
-        val onlyRicardo = config.copy(garminApiKey = "ricardo-garmin")
-        app(onlyRicardo) {
-            val browser = browser()
-            browser.connect("marina")
-            browser.postSyncAs("marina")
-            assertTrue(waitUntil { stravaCalledWith("access-$MARINA_CLIENT") })
-            assertTrue(waitUntil { "\"syncing\"" !in browser.getAs("marina", "/api/sync").bodyAsText() })
-            assertTrue(garminRequests.isEmpty())
-        }
-    }
 
     @Test
     fun `R12 - same home for both`() {
         val withHome = config.copy(weatherHome = WeatherLocation(10.5, 20.5))
-        runBlocking { marinaTokens.save(tokens(8, "marina-access")) }
         app(withHome) {
             val browser = browser()
-            browser.connect()
             for (person in listOf("ricardo", "marina")) {
                 weatherRequests.clear()
                 browser.getAs(person, "/api/run-weather")
@@ -507,11 +404,8 @@ class PersonIsolationTest {
                         trainingPlanStartDate = LocalDate.of(2026, 11, 30),
                     ),
             )
-        runBlocking { marinaTokens.save(tokens(8, "marina-access")) }
         app(withPlan, Clock.fixed(Instant.parse("2026-12-05T10:00:00Z"), TEST_ZONE)) {
-            val browser = browser()
-            browser.connect()
-            browser.getAs("marina", "/api/run-weather")
+            browser().getAs("marina", "/api/run-weather")
             assertEquals(
                 listOf("10.5", "39.47"),
                 weatherRequests.map { it.url.parameters["latitude"] },
@@ -542,10 +436,8 @@ class PersonIsolationTest {
                 trainingPlanCsvPath = planFile("WEEK 1"),
                 marina = marina.copy(trainingPlanCsvPath = planFile("Week 17")),
             )
-        runBlocking { marinaTokens.save(tokens(8, "marina-access")) }
         app(withPlans) {
             val browser = browser()
-            browser.connect()
             val ricardoPlan = browser.getAs("ricardo", "/api/training-plan").bodyAsText()
             val marinaPlan = browser.getAs("marina", "/api/training-plan").bodyAsText()
             assertTrue("\"label\":\"WEEK 1\"" in ricardoPlan)
@@ -560,7 +452,6 @@ class PersonIsolationTest {
         runBlocking { ricardoRuns.upsertSummaries(listOf(summary(1, NOW.minus(Duration.ofHours(1))))) }
         app {
             val browser = browser()
-            browser.connect()
             for (path in routes) {
                 val plain = browser.get(path)
                 val named = browser.getAs("ricardo", path)

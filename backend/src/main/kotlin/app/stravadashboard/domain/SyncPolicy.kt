@@ -51,8 +51,11 @@ internal object SyncPolicy {
      * Runs waiting for a detail call (first, the 008 lap-HR refetch or the 016 splits refetch), outdoor workouts
      * waiting for a streams call, runs waiting for HR streams, or long runs waiting for drift streams.
      */
-    fun pendingCount(all: List<RunActivity>): Int =
-        all.count {
+    fun pendingCount(
+        all: List<RunActivity>,
+        activitiesFrom: LocalDate,
+    ): Int =
+        sinceCutOver(all, activitiesFrom).count {
             it.detailFetchedAt == null ||
                 needsLapHeartRate(it) ||
                 needsSplits(it) ||
@@ -65,8 +68,9 @@ internal object SyncPolicy {
         phase: SyncPhase,
         all: List<RunActivity>,
         now: Instant,
+        activitiesFrom: LocalDate,
     ): List<ActivityCall> {
-        val newestFirst = all.sortedByDescending { it.startUtc }
+        val newestFirst = sinceCutOver(all, activitiesFrom).sortedByDescending { it.startUtc }
         return when (phase) {
             SyncPhase.MISSING_DETAILS ->
                 (
@@ -90,18 +94,26 @@ internal object SyncPolicy {
     /**
      * `after` for the list call: the backfill start until an import from the history start has finished, then the
      * cursor or 7 days ago. A store imported with a shorter history ([SyncState.historyStart] null, from before
-     * feature 005) is re-listed once from the backfill start.
+     * feature 005) is re-listed once from the backfill start. Never before [activitiesFrom] (feature 021).
      */
     fun listAfter(
         state: SyncState,
         now: Instant,
         zone: ZoneId,
+        activitiesFrom: LocalDate,
     ): Instant {
         val required = backfillStart(now, zone)
         val cursor = state.listCursor
         val historyImported = state.historyStart?.let { it <= required } ?: false
-        return if (cursor != null && historyImported) minOf(cursor, now.minus(RECHECK_WINDOW)) else required
+        val after = if (cursor != null && historyImported) minOf(cursor, now.minus(RECHECK_WINDOW)) else required
+        return maxOf(after, activitiesFrom.atStartOfDay(zone).toInstant())
     }
+
+    /** Runs on or after the cut-over; earlier ones are the Strava history, which a sync never touches (feature 021). */
+    private fun sinceCutOver(
+        all: List<RunActivity>,
+        activitiesFrom: LocalDate,
+    ): List<RunActivity> = all.filter { !it.localDate.isBefore(activitiesFrom) }
 
     /** The first local date kept: 6 months and 41 days before today. */
     fun historyStart(today: LocalDate): LocalDate = today.minusMonths(HISTORY_MONTHS).minusDays(LOAD_WARMUP_DAYS)
@@ -124,7 +136,6 @@ internal object SyncPolicy {
     fun failureOf(result: SourceResult<*>): SourceResult<Nothing> =
         when (result) {
             is SourceResult.RateLimited -> result
-            SourceResult.ReauthRequired -> SourceResult.ReauthRequired
             else -> SourceResult.Unavailable
         }
 

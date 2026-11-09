@@ -15,8 +15,8 @@ data class Lap(
 )
 
 /**
- * One per-km split of a run's detail (feature 016). Optional fields are null when Strava leaves them out;
- * [gradeAdjustedSpeed] is Strava's grade-adjusted speed for the split.
+ * One per-km split of a run's detail (feature 016). Optional fields are null when the source leaves them out;
+ * [gradeAdjustedSpeed] is Strava's grade-adjusted speed (Garmin FIT files have none).
  */
 data class Split(
     val index: Int,

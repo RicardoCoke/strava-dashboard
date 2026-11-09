@@ -1,4 +1,3 @@
-import { HttpErrorResponse } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -76,10 +75,8 @@ export class RingsSection implements OnInit {
             this.state.set({ kind: 'error' });
           }
         },
-        error: (error: unknown) => {
-          // A 401 is handled by the interceptor.
-          const unauthorized = error instanceof HttpErrorResponse && error.status === 401;
-          if (!quiet && !unauthorized) {
+        error: () => {
+          if (!quiet) {
             this.state.set({ kind: 'error' });
           }
         },

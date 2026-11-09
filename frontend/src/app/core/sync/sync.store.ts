@@ -1,4 +1,3 @@
-import { HttpErrorResponse } from '@angular/common/http';
 import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Observable, Subscription, timer } from 'rxjs';
@@ -52,12 +51,7 @@ export class SyncStore {
     this.next?.unsubscribe();
     this.next = request.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (body) => (isSyncStatusResponse(body) ? this.receive(body) : this.fail()),
-      error: (error: unknown) => {
-        // A 401 goes to the interceptor, which navigates to /connect; nothing is left to sync.
-        if (!(error instanceof HttpErrorResponse && error.status === 401)) {
-          this.fail();
-        }
-      },
+      error: () => this.fail(),
     });
   }
 
@@ -65,6 +59,10 @@ export class SyncStore {
     const wasSyncing = this.statusSignal()?.status === 'syncing';
     this.failedSignal.set(false);
     this.statusSignal.set(status);
+    // Without a Garmin key nothing syncs, so nothing is scheduled (feature 021).
+    if (status.status === 'notConfigured') {
+      return;
+    }
     if (status.status === 'syncing') {
       this.later(POLL_INTERVAL_MS, () => this.api.getStatus());
       return;

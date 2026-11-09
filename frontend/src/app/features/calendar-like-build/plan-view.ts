@@ -43,16 +43,13 @@ export function isTrainingPlanResponse(body: unknown): body is TrainingPlanRespo
   );
 }
 
-/** The section state for a failed request, or null for a 401 (the interceptor redirects to /connect). */
-export function planErrorState(error: unknown): PlanState | null {
+/** The section state for a failed request. */
+export function planErrorState(error: unknown): PlanState {
   if (!(error instanceof HttpErrorResponse)) {
     return { kind: 'error', reason: 'other', message: null };
   }
   const code = stringField(error.error, 'error');
   const message = stringField(error.error, 'message');
-  if (error.status === 401) {
-    return null;
-  }
   if (error.status === 404 && code === 'training_plan_not_configured') {
     return { kind: 'notConfigured' };
   }

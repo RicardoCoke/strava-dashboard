@@ -1,4 +1,3 @@
-import { HttpErrorResponse } from '@angular/common/http';
 import {
   EfChange,
   EfCurrent,
@@ -17,11 +16,6 @@ export const NO_CHANGE_NOTE = 'Not enough data yet for a change since the start 
 
 function runs(count: number): string {
   return `${count} ${count === 1 ? 'run' : 'runs'}`;
-}
-
-/** The card state for a failed request, or null for a 401 (the interceptor redirects to /connect). */
-export function efStateFromError(error: unknown): EfficiencyFactorState | null {
-  return error instanceof HttpErrorResponse && error.status === 401 ? null : { kind: 'error' };
 }
 
 /** "4-week average of 6 runs to 29 Oct". */

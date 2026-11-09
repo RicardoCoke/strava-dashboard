@@ -14,11 +14,11 @@ import app.stravadashboard.domain.model.Split
 import app.stravadashboard.domain.model.StreamPaceResult
 import app.stravadashboard.domain.model.StreamPaceStatus
 import app.stravadashboard.domain.ports.ActivityDetail
-import app.stravadashboard.domain.ports.StoredTokens
 import app.stravadashboard.domain.ports.SyncState
 import app.stravadashboard.testsupport.FakeActivitySource
 import app.stravadashboard.testsupport.MutableClock
 import app.stravadashboard.testsupport.NOW
+import app.stravadashboard.testsupport.NO_CUT_OVER
 import app.stravadashboard.testsupport.TEST_ZONE
 import app.stravadashboard.testsupport.kmLap
 import app.stravadashboard.testsupport.summary
@@ -90,13 +90,20 @@ class ExposedRunRepositoryTest {
         val source = FakeActivitySource()
         source.activities = listOf(summary(1, NOW.minus(Duration.ofDays(2))))
         val clock = MutableClock()
-        val first = SyncService(source, runs, ExposedSyncStateRepository(database), clock, TEST_ZONE)
+        val first = SyncService(source, runs, ExposedSyncStateRepository(database), clock, TEST_ZONE, NO_CUT_OVER)
         assertIs<SyncOutcome.Done>(runBlocking { first.syncIfDue() })
 
         // A new connection to the same file, as after a backend restart.
         val reopened = DatabaseFactory.connect(dbPath)
         val restarted =
-            SyncService(source, ExposedRunRepository(reopened), ExposedSyncStateRepository(reopened), clock, TEST_ZONE)
+            SyncService(
+                source,
+                ExposedRunRepository(reopened),
+                ExposedSyncStateRepository(reopened),
+                clock,
+                TEST_ZONE,
+                NO_CUT_OVER,
+            )
         source.listAfters.clear()
         clock.advance(Duration.ofMinutes(20))
         runBlocking { restarted.syncIfDue() }
@@ -283,15 +290,4 @@ class ExposedRunRepositoryTest {
         assertNull(stored.splits)
         DatabaseFactory.connect(path) // a second start must not add the column again
     }
-
-    @Test
-    fun `token repository keeps at most one row`() =
-        runBlocking {
-            val tokens = ExposedTokenRepository(database)
-            tokens.save(StoredTokens(1, "a", "r", NOW, "activity:read_all"))
-            tokens.save(StoredTokens(2, "b", "s", NOW, "activity:read_all"))
-            assertEquals(2, tokens.find()?.athleteId)
-            tokens.delete()
-            assertNull(tokens.find())
-        }
 }

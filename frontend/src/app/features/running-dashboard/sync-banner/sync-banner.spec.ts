@@ -8,24 +8,29 @@ describe('SyncBanner', () => {
     const retryAfter = '2026-10-29T10:15:00Z';
     const saved = '2026-10-29T08:12:03Z';
     expect(syncBannerText('none')).toBeNull();
-    expect(syncBannerText('failed')).toBe("Couldn't check the Strava sync. Showing saved data.");
+    expect(syncBannerText('failed')).toBe(
+      "Couldn't check the Garmin Connect sync. Showing saved data.",
+    );
     expect(syncBannerText(syncStatus({ status: 'syncing', nextSyncInSeconds: null }))).toBe(
-      'Syncing with Strava…',
+      'Syncing with Garmin Connect…',
     );
     expect(syncBannerText(syncStatus({ status: 'partial', runsPendingDetail: 5 }))).toBe(
-      'Still importing runs from Strava (5 remaining). This continues automatically.',
+      'Still importing runs from Garmin Connect (5 remaining). This continues automatically.',
     );
     expect(syncBannerText(syncStatus({ status: 'rateLimited', retryAfter }))).toBe(
-      `Strava rate limit reached. Showing saved data; syncing resumes after ${formatDate(retryAfter, 'HH:mm', 'en-US')}.`,
+      `Garmin Connect rate limit reached. Showing saved data; syncing resumes after ${formatDate(retryAfter, 'HH:mm', 'en-US')}.`,
     );
     expect(syncBannerText(syncStatus({ status: 'rateLimited' }))).toBe(
-      'Strava rate limit reached. Showing saved data; syncing resumes after a while.',
+      'Garmin Connect rate limit reached. Showing saved data; syncing resumes after a while.',
     );
-    expect(syncBannerText(syncStatus({ status: 'stravaUnavailable', lastSyncedAt: saved }))).toBe(
-      `Couldn't sync with Strava. Showing data saved at ${formatDate(saved, 'd MMM y, HH:mm', 'en-US')}.`,
+    expect(syncBannerText(syncStatus({ status: 'garminUnavailable', lastSyncedAt: saved }))).toBe(
+      `Couldn't sync with Garmin Connect. Showing data saved at ${formatDate(saved, 'd MMM y, HH:mm', 'en-US')}.`,
     );
-    expect(syncBannerText(syncStatus({ status: 'stravaUnavailable', lastSyncedAt: null }))).toBe(
-      "Couldn't sync with Strava. No data saved yet.",
+    expect(syncBannerText(syncStatus({ status: 'garminUnavailable', lastSyncedAt: null }))).toBe(
+      "Couldn't sync with Garmin Connect. No data saved yet.",
+    );
+    expect(syncBannerText(syncStatus({ status: 'notConfigured', nextSyncInSeconds: null }))).toBe(
+      "Garmin Connect isn't set up for this person. Showing saved runs.",
     );
     expect(syncBannerText(syncStatus())).toBeNull();
   });
@@ -38,7 +43,7 @@ describe('SyncBanner', () => {
     );
     fixture.detectChanges();
     const banner = (fixture.nativeElement as HTMLElement).querySelector('.banner');
-    expect(banner?.textContent?.trim()).toBe('Syncing with Strava…');
+    expect(banner?.textContent?.trim()).toBe('Syncing with Garmin Connect…');
     expect(banner?.getAttribute('role')).toBe('status');
   });
 

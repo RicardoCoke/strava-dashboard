@@ -1,4 +1,3 @@
-import { HttpErrorResponse } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -114,9 +113,8 @@ export class RunningDashboardPage implements OnInit {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (data) => this.state.set({ kind: 'loaded', data }),
-        error: (error: unknown) => {
-          // A 401 is handled by the interceptor, which navigates to /connect.
-          if (!quiet && !(error instanceof HttpErrorResponse && error.status === 401)) {
+        error: () => {
+          if (!quiet) {
             this.state.set({ kind: 'error' });
           }
         },

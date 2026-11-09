@@ -24,11 +24,11 @@ object GradeAdjustment {
     fun equivalentSpeed(split: Split): MetersPerSecond? {
         val distance = split.distance.value
         val seconds = split.movingTime.value
-        val stravaSpeed = split.gradeAdjustedSpeed?.value
+        val gradeAdjusted = split.gradeAdjustedSpeed?.value
         val elevation = split.elevationDifference?.value
         return when {
             seconds <= 0 || distance <= 0.0 -> null
-            stravaSpeed != null && stravaSpeed > 0.0 -> MetersPerSecond(stravaSpeed)
+            gradeAdjusted != null && gradeAdjusted > 0.0 -> MetersPerSecond(gradeAdjusted)
             elevation == null -> MetersPerSecond(distance / seconds)
             else -> {
                 val grade = (elevation / distance).coerceIn(-MAX_FALLBACK_GRADE, MAX_FALLBACK_GRADE)
