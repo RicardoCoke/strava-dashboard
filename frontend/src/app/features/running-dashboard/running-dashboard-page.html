@@ -5,6 +5,7 @@
     <app-weekly-summary-bell />
   </div>
 </header>
+<app-rings-section />
 <app-sync-banner [state]="sync.bannerState()" />
 @if (sync.status()?.status === 'syncing') {
   <app-ring-spinner class="sync-spinner" />

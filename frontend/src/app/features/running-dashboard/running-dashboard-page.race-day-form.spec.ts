@@ -10,6 +10,7 @@ import { stubTrainingLoadSection } from '../../testing/training-load-stub';
 import { stubEfficiencyFactorSection } from '../../testing/efficiency-factor-stub';
 import { stubVo2maxSection } from '../../testing/vo2max-stub';
 import { stubMarathonPaceSection } from '../../testing/marathon-pace-stub';
+import { stubRingsSection } from '../../testing/rings-stub';
 import { stubWellnessSection } from '../../testing/wellness-stub';
 import { stubWeeklySummaryBell } from '../../testing/weekly-summary-stub';
 import { RunningDashboardPage } from './running-dashboard-page';
@@ -30,6 +31,7 @@ describe('RunningDashboardPage with the race-day form card', () => {
     stubTrainingLoadSection();
     stubMarathonPaceSection();
     stubWellnessSection();
+    stubRingsSection();
     stubPlanSection();
     stubSyncStore();
     stubWeeklySummaryBell();

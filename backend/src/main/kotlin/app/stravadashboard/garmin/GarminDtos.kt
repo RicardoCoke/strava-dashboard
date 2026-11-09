@@ -31,3 +31,15 @@ internal data class GarminHrvSummaryDto(
     val calendarDate: String,
     val lastNightAvg: Double? = null,
 )
+
+/** `GET /wellness-service/wellness/dailySleep?date=`; [sleepTimeSeconds] is time asleep (naps excluded). */
+@Serializable
+internal data class GarminDailySleepDto(
+    val sleepTimeSeconds: Int? = null,
+)
+
+/** `GET /wellness-service/wellness/dailyHeartRate?date=`; each value is `[epochMillis, bpm or null]`, ~2 min apart. */
+@Serializable
+internal data class GarminDailyHeartRateDto(
+    val heartRateValues: List<List<Double?>>? = null,
+)

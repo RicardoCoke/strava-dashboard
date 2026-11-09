@@ -10,6 +10,7 @@ import { stubEfficiencyFactorSection } from '../../testing/efficiency-factor-stu
 import { stubVo2maxSection } from '../../testing/vo2max-stub';
 import { stubMarathonPaceSection } from '../../testing/marathon-pace-stub';
 import { stubRaceDayFormSection } from '../../testing/race-day-form-stub';
+import { stubRingsSection } from '../../testing/rings-stub';
 import { stubWellnessSection } from '../../testing/wellness-stub';
 import { stubWeeklySummaryBell } from '../../testing/weekly-summary-stub';
 import { stubRunWeather } from '../../testing/run-weather-stub';
@@ -30,6 +31,7 @@ describe('RunningDashboardPage with the training load card', () => {
     stubEfficiencyFactorSection();
     stubLongRunDriftSection();
     stubWellnessSection();
+    stubRingsSection();
     stubSyncStore();
     stubWeeklySummaryBell();
     stubMarathonPaceSection();

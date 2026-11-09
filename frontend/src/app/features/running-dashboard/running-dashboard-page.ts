@@ -22,6 +22,7 @@ import { EfficiencyFactorSection } from '../efficiency-factor/efficiency-factor-
 import { LongRunDriftSection } from '../long-run-drift/long-run-drift-section';
 import { MarathonPaceSection } from '../marathon-pace/marathon-pace-section/marathon-pace-section';
 import { RaceDayFormSection } from '../race-day-form/race-day-form-section';
+import { RingsSection } from '../rings/rings-section';
 import { TrainingLoadSection } from '../training-load/training-load-section';
 import { Vo2maxSection } from '../vo2max/vo2max-section';
 import { WeeklySummaryBell } from '../weekly-summary/weekly-summary-bell';
@@ -50,6 +51,7 @@ function hasNoRuns(data: RunningDashboardResponse): boolean {
     TrainingLoadSection,
     RaceDayFormSection,
     WellnessSection,
+    RingsSection,
     PersonSwitch,
     WeeklySummaryBell,
     Vo2maxSection,

@@ -72,14 +72,14 @@ private fun WellnessState.toDto(): WellnessSourceDto =
     )
 
 /** `+5.6`, `−1.2` (U+2212) or `0.0`. */
-private fun signedOneDecimal(value: Double): String =
+internal fun signedOneDecimal(value: Double): String =
     when {
         value > 0 -> "+%.1f".format(Locale.ROOT, value)
         value < 0 -> MINUS + "%.1f".format(Locale.ROOT, -value)
         else -> "0.0"
     }
 
-private fun signedInt(value: Int): String =
+internal fun signedInt(value: Int): String =
     when {
         value > 0 -> "+$value"
         value < 0 -> "$MINUS${-value}"

@@ -10,6 +10,7 @@ import { stubLongRunDriftSection } from '../../testing/long-run-drift-stub';
 import { stubEfficiencyFactorSection } from '../../testing/efficiency-factor-stub';
 import { stubVo2maxSection } from '../../testing/vo2max-stub';
 import { stubMarathonPaceSection } from '../../testing/marathon-pace-stub';
+import { stubRingsSection } from '../../testing/rings-stub';
 import { stubWellnessSection } from '../../testing/wellness-stub';
 import { stubWeeklySummaryBell } from '../../testing/weekly-summary-stub';
 import { RunningDashboardPage } from './running-dashboard-page';
@@ -31,6 +32,7 @@ describe('RunningDashboardPage redesign', () => {
     stubEfficiencyFactorSection();
     stubLongRunDriftSection();
     stubWellnessSection();
+    stubRingsSection();
     sync = stubSyncStore();
     stubWeeklySummaryBell();
     stubTrainingLoadSection();

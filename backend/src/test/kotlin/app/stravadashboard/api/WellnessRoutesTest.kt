@@ -286,7 +286,8 @@ class WellnessRoutesTest {
             val browser = connectedBrowser()
             browser.syncAndWait()
 
-            assertEquals(3, garminRequests.size)
+            // Token, summaries, HRV, then sleep and heart rate for each of 32 ring days (020).
+            assertEquals(3 + 32 * 2, garminRequests.size)
             val body = browser.get("/api/wellness").json()
             assertEquals("1", body.text("daysWithData"))
             assertEquals("ok", body.getValue("source").jsonObject.text("status"))
@@ -311,7 +312,7 @@ class WellnessRoutesTest {
         val withKey = syncOnce(config())
 
         assertEquals(0, withoutKey.third)
-        assertEquals(3, withKey.third)
+        assertEquals(3 + 32 * 2, withKey.third)
         assertEquals(withoutKey.first, withKey.first)
         assertEquals(withoutKey.second, withKey.second)
     }

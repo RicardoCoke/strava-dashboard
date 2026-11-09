@@ -7,8 +7,10 @@ import app.stravadashboard.config.PersonSettings
 import app.stravadashboard.domain.model.Bpm
 import app.stravadashboard.domain.model.SecondsPerKm
 import app.stravadashboard.domain.ports.StoredTokens
+import app.stravadashboard.domain.rings.RingDay
 import app.stravadashboard.module
 import app.stravadashboard.persistence.DatabaseFactory
+import app.stravadashboard.persistence.ExposedRingDayRepository
 import app.stravadashboard.persistence.ExposedRunRepository
 import app.stravadashboard.persistence.ExposedSyncStateRepository
 import app.stravadashboard.persistence.ExposedTokenRepository
@@ -99,6 +101,7 @@ class PersonRoutesTest {
             "/api/efficiency-factor",
             "/api/marathon-pace",
             "/api/wellness",
+            "/api/rings",
             "/api/weekly-summaries",
             "/api/run-weather",
         )
@@ -124,7 +127,9 @@ class PersonRoutesTest {
                     respond("[]", HttpStatusCode.OK, json)
                 }
             }
-        application { module(appConfig, fixedClock(), TEST_ZONE, engine) }
+        // Garmin answers empty, so a configured key never reaches the network.
+        val garmin = MockEngine { respond("{}", HttpStatusCode.OK, json) }
+        application { module(appConfig, fixedClock(), TEST_ZONE, engine, garminEngine = garmin) }
         block()
     }
 
@@ -439,6 +444,34 @@ class PersonRoutesTest {
             val named = browser.getAs("ricardo", "/api/dashboard/running").bodyAsText()
             assertEquals(plain, named)
             assertFalse("access" in plain)
+        }
+    }
+
+    @Test
+    fun `020 R7 - rings follow X-Person`() {
+        seedTokens()
+        val today = NOW.atZone(TEST_ZONE).toLocalDate()
+        runBlocking {
+            ExposedRingDayRepository(ricardoDb).upsert(today, RingDay(null, 12.0), NOW)
+            ExposedRingDayRepository(marinaDb).upsert(today, RingDay(null, 6.5), NOW)
+        }
+        val keys =
+            config.copy(garminApiKey = "ricardo-key", marina = marinaSettings.copy(garminApiKey = "marina-key"))
+        app(keys) {
+            val browser = browser()
+            browser.connect()
+            val strain = { person: String ->
+                runBlocking {
+                    Json
+                        .parseToJsonElement(browser.getAs(person, "/api/rings").bodyAsText())
+                        .jsonObject["strain"]!!
+                        .jsonObject["value"]!!
+                        .jsonPrimitive
+                        .content
+                }
+            }
+            assertEquals("12.0", strain("ricardo"))
+            assertEquals("6.5", strain("marina"))
         }
     }
 }

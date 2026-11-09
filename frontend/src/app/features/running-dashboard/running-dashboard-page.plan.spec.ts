@@ -10,6 +10,7 @@ import { stubLongRunDriftSection } from '../../testing/long-run-drift-stub';
 import { stubEfficiencyFactorSection } from '../../testing/efficiency-factor-stub';
 import { stubVo2maxSection } from '../../testing/vo2max-stub';
 import { stubMarathonPaceSection } from '../../testing/marathon-pace-stub';
+import { stubRingsSection } from '../../testing/rings-stub';
 import { stubWellnessSection } from '../../testing/wellness-stub';
 import { stubWeeklySummaryBell } from '../../testing/weekly-summary-stub';
 import { stubRunWeather } from '../../testing/run-weather-stub';
@@ -29,6 +30,7 @@ describe('RunningDashboardPage with the marathon build section', () => {
     stubEfficiencyFactorSection();
     stubLongRunDriftSection();
     stubWellnessSection();
+    stubRingsSection();
     stubSyncStore();
     stubWeeklySummaryBell();
     stubTrainingLoadSection();
@@ -51,8 +53,14 @@ describe('RunningDashboardPage with the marathon build section', () => {
     planRequest.flush(trainingPlan());
     fixture.detectChanges();
     const order = Array.from(element().children).map((child) => child.tagName.toLowerCase());
-    // Headline tiles and weekly distance sit at the top, above the build calendar.
-    expect(order.slice(0, 4)).toEqual(['header', 'app-sync-banner', 'app-headline-tiles', 'div']);
+    // 020 AC8.1: the rings sit first under the header; headline tiles and weekly distance follow.
+    expect(order.slice(0, 5)).toEqual([
+      'header',
+      'app-rings-section',
+      'app-sync-banner',
+      'app-headline-tiles',
+      'div',
+    ]);
     // 017 AC11.1: the weekly summary bell sits in the header, after the Running heading.
     const header = Array.from(element().querySelector('header')?.children ?? []);
     expect(header.map((child) => child.tagName.toLowerCase())).toEqual(['h1', 'div']);

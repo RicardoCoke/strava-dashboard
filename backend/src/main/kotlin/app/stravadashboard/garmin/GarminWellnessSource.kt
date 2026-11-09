@@ -2,7 +2,11 @@ package app.stravadashboard.garmin
 
 import app.stravadashboard.domain.model.Bpm
 import app.stravadashboard.domain.model.roundHalfUpToInt
+import app.stravadashboard.domain.ports.RingDaySource
 import app.stravadashboard.domain.ports.WellnessSource
+import app.stravadashboard.domain.rings.DayFetchResult
+import app.stravadashboard.domain.rings.DayReading
+import app.stravadashboard.domain.rings.HrSample
 import app.stravadashboard.domain.wellness.HrvMs
 import app.stravadashboard.domain.wellness.WellnessDay
 import app.stravadashboard.domain.wellness.WellnessFetchResult
@@ -62,11 +66,13 @@ private class AccessToken(
  * and HRV from the overnight HRV summaries, merged by local date. Only the status code or the exception class is
  * logged, never the key, token, URL, query or body.
  */
+@Suppress("TooManyFunctions") // One client for every Garmin call; the token and error handling are shared.
 class GarminWellnessSource(
     private val http: HttpClient,
     private val apiKey: String,
     private val clock: Clock,
-) : WellnessSource {
+) : WellnessSource,
+    RingDaySource {
     private var token: AccessToken? = null
 
     override suspend fun fetch(
@@ -112,6 +118,42 @@ class GarminWellnessSource(
                 WellnessFetchResult.Success(merge(summaries, hrv))
             }
             is Call.Failed -> days.result
+        }
+    }
+
+    override suspend fun fetchDay(
+        date: LocalDate,
+        withHeartRate: Boolean,
+    ): DayFetchResult {
+        val reusedToken = validToken() != null
+        val result = attemptDay(date, withHeartRate)
+        val rejected = result == DayFetchResult.Failed(WellnessFetchResult.KeyRejected)
+        return if (rejected && reusedToken) attemptDay(date, withHeartRate) else result
+    }
+
+    private suspend fun attemptDay(
+        date: LocalDate,
+        withHeartRate: Boolean,
+    ): DayFetchResult {
+        val day =
+            accessToken().then { access ->
+                call("sleep", access, empty = GarminDailySleepDto()) {
+                    url(BASE_URL + SLEEP_PATH)
+                    parameter("date", date.toString())
+                }.then { sleep ->
+                    if (!withHeartRate) {
+                        Call.Ok(DayReading(sleep.sleepTimeSeconds, null))
+                    } else {
+                        call("heart rate", access, empty = GarminDailyHeartRateDto()) {
+                            url(BASE_URL + HEART_RATE_PATH)
+                            parameter("date", date.toString())
+                        }.then { hr -> Call.Ok(DayReading(sleep.sleepTimeSeconds, samples(hr))) }
+                    }
+                }
+            }
+        return when (day) {
+            is Call.Ok -> DayFetchResult.Ok(day.value)
+            is Call.Failed -> DayFetchResult.Failed(day.result)
         }
     }
 
@@ -226,6 +268,8 @@ class GarminWellnessSource(
         const val TOKEN_PATH = "/personalapitoken-service/personal-api/personal-api-key/token"
         const val SUMMARIES_PATH = "/usersummary-service/v2/dailysummaries"
         const val HRV_PATH = "/hrv-service/hrv/daily"
+        const val SLEEP_PATH = "/wellness-service/wellness/dailySleep"
+        const val HEART_RATE_PATH = "/wellness-service/wellness/dailyHeartRate"
         const val MAX_RETRY_AFTER_SECONDS = 86_400L
         val MAX_TOKEN_LIFETIME: Duration = Duration.ofHours(24)
         val TOKEN_MARGIN: Duration = Duration.ofMinutes(5)
@@ -255,6 +299,13 @@ class GarminWellnessSource(
                 )
             }
         }
+
+        /** Malformed pairs are skipped; a null or fractional bpm is kept as no reading or rounded. */
+        fun samples(dto: GarminDailyHeartRateDto): List<HrSample> =
+            dto.heartRateValues.orEmpty().mapNotNull { pair ->
+                val at = pair.getOrNull(0)?.toLong() ?: return@mapNotNull null
+                HrSample(Instant.ofEpochMilli(at), pair.getOrNull(1)?.let(::roundHalfUpToInt))
+            }
 
         @Suppress("SwallowedException")
         fun date(text: String): LocalDate? =
