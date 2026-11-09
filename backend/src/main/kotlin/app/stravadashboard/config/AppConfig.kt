@@ -32,6 +32,8 @@ data class AppConfig(
     val weatherHome: WeatherLocation? = null,
     /** Marina's own settings (feature 019), or null when she isn't set up. */
     val marina: PersonSettings? = null,
+    /** The built Angular app, served in production. Null in dev, where `ng serve` serves it. */
+    val frontendDir: String? = null,
 ) {
     val sessionSecret: ByteArray get() = HexFormat.of().parseHex(sessionSecretHex)
 
@@ -110,6 +112,7 @@ data class AppConfig(
                 garminApiKey = env["GARMIN_API_KEY"]?.trim()?.takeIf { it.isNotEmpty() },
                 weatherHome = WeatherLocation.parse(env["WEATHER_LATITUDE"], env["WEATHER_LONGITUDE"]),
                 marina = marinaSettings(env, env.required("DB_PATH")),
+                frontendDir = env["FRONTEND_DIR"]?.trim()?.takeIf { it.isNotEmpty() },
             )
 
         private fun validSessionSecret(hex: String): String {
