@@ -51,7 +51,7 @@ class RingsRoutesTest {
                 garminRequests += request
                 respond("{}", HttpStatusCode.OK, jsonHeaders)
             }
-        application { module(config, clock, TEST_ZONE, garminEngine = garmin) }
+        application { module(config, clock, TEST_ZONE, garminEngine = garmin, syncAtStartup = false) }
         block()
     }
 

@@ -53,7 +53,16 @@ class RaceDayFormRoutesTest {
         config: AppConfig,
         block: suspend ApplicationTestBuilder.() -> Unit,
     ) = testApplication {
-        application { module(config, Clock.fixed(now, TEST_ZONE), TEST_ZONE, plan, garminEngine = garmin.engine) }
+        application {
+            module(
+                config,
+                Clock.fixed(now, TEST_ZONE),
+                TEST_ZONE,
+                plan,
+                garminEngine = garmin.engine,
+                syncAtStartup = false,
+            )
+        }
         block()
     }
 

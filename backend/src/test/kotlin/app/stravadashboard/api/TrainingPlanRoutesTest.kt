@@ -32,7 +32,16 @@ class TrainingPlanRoutesTest {
 
     private fun app(block: suspend ApplicationTestBuilder.() -> Unit) =
         testApplication {
-            application { module(config, clock, TEST_ZONE, source, garminEngine = garmin.engine) }
+            application {
+                module(
+                    config,
+                    clock,
+                    TEST_ZONE,
+                    source,
+                    garminEngine = garmin.engine,
+                    syncAtStartup = false,
+                )
+            }
             block()
         }
 

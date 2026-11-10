@@ -75,7 +75,7 @@ class WellnessRoutesTest {
                 garminRequests += request
                 respond(garminBody(request.url.encodedPath), garminStatus, jsonHeaders)
             }
-        application { module(config, clock, TEST_ZONE, garminEngine = garmin) }
+        application { module(config, clock, TEST_ZONE, garminEngine = garmin, syncAtStartup = false) }
         block()
     }
 

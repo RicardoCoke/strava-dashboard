@@ -119,7 +119,9 @@ class PersonIsolationTest {
                 weatherRequests += request
                 respond("""{"hourly":{"time":[],"precipitation":[],"cloud_cover":[]}}""", HttpStatusCode.OK, json)
             }
-        application { module(appConfig, clock, TEST_ZONE, garminEngine = garmin, weatherEngine = weather) }
+        application {
+            module(appConfig, clock, TEST_ZONE, garminEngine = garmin, weatherEngine = weather, syncAtStartup = false)
+        }
         block()
     }
 

@@ -55,6 +55,7 @@ class RunWeatherRoutesTest {
                 FakePlanSource(),
                 garminEngine = garmin.engine,
                 weatherEngine = weather,
+                syncAtStartup = false,
             )
         }
         block()

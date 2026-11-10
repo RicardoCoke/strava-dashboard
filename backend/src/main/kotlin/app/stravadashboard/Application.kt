@@ -31,6 +31,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
 import java.time.Clock
 import java.time.ZoneId
@@ -44,7 +45,7 @@ fun main() {
     }.start(wait = true)
 }
 
-// The engines and plan source are test seams; every other dependency is built here.
+// The engines, plan source and syncAtStartup are test seams; every other dependency is built here.
 @Suppress("LongParameterList")
 fun Application.module(
     config: AppConfig,
@@ -53,6 +54,7 @@ fun Application.module(
     trainingPlanSource: TrainingPlanSource = TrainingPlanFileSource(config.trainingPlanCsvPath),
     garminEngine: HttpClientEngine? = null,
     weatherEngine: HttpClientEngine? = null,
+    syncAtStartup: Boolean = true,
 ) {
     installServerPlugins()
 
@@ -69,6 +71,8 @@ fun Application.module(
             val planSource = TrainingPlanFileSource(it.trainingPlanCsvPath)
             personStack(it, requireNotNull(marinaStores), planSource, deps)
         }
+    // Fresh data as soon as the Pi boots, without waiting for a page to open (feature 022).
+    if (syncAtStartup) launch { listOfNotNull(ricardo, marina).forEach { it.otherSync.startIfConfigured() } }
 
     routing {
         config.frontendDir?.let { frontendRoutes(it) }
