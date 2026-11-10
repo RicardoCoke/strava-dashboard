@@ -16,10 +16,6 @@ import kotlin.test.assertTrue
 class AppConfigTest {
     private val required =
         mapOf(
-            "STRAVA_CLIENT_ID" to "12345",
-            "STRAVA_CLIENT_SECRET" to "client-secret-value",
-            "STRAVA_REDIRECT_URI" to "http://localhost:4200/auth/strava/callback",
-            "SESSION_SECRET" to "ab".repeat(32),
             "DB_PATH" to "data/test.db",
         )
 
@@ -75,18 +71,31 @@ class AppConfigTest {
     }
 
     @Test
-    fun `rejects a session secret shorter than 32 bytes or not hex`() {
-        assertFailsWith<IllegalArgumentException> { AppConfig.fromEnvironment(required + ("SESSION_SECRET" to "ab")) }
-        assertFailsWith<IllegalArgumentException> {
-            AppConfig.fromEnvironment(required + ("SESSION_SECRET" to "zz".repeat(32)))
-        }
+    fun `toString never prints secrets`() {
+        val text = AppConfig.fromEnvironment(required + ("GARMIN_API_KEY" to "invented-garmin-key")).toString()
+        assertFalse("invented-garmin-key" in text)
+        assertTrue("garminApiKey=<set>" in text)
     }
 
     @Test
-    fun `toString never prints secrets`() {
-        val text = AppConfig.fromEnvironment(required).toString()
-        assertFalse("client-secret-value" in text)
-        assertFalse("ab".repeat(32) in text)
+    fun `021 R7 - cut-over dates per person with default and validation`() {
+        assertEquals(LocalDate.of(2026, 11, 10), AppConfig.fromEnvironment(required).garminActivitiesFrom)
+        val marina =
+            required + ("MARINA_DB_PATH" to "data/marina.db") + ("MARINA_GARMIN_ACTIVITIES_FROM" to "2026-11-12")
+        val config = AppConfig.fromEnvironment(marina)
+        assertEquals(LocalDate.of(2026, 11, 10), config.ricardo.garminActivitiesFrom)
+        assertEquals(LocalDate.of(2026, 11, 12), config.marina?.garminActivitiesFrom)
+        val failure =
+            assertFailsWith<IllegalArgumentException> {
+                AppConfig.fromEnvironment(required + ("GARMIN_ACTIVITIES_FROM" to "11/09/2026"))
+            }
+        assertEquals("GARMIN_ACTIVITIES_FROM must be an ISO date (YYYY-MM-DD)", failure.message)
+    }
+
+    @Test
+    fun `021 R9 - starts with only DB_PATH and ignores Strava keys`() {
+        val leftovers = mapOf("STRAVA_CLIENT_ID" to "1", "SESSION_SECRET" to "zz", "STRAVA_REDIRECT_URI" to "x")
+        assertEquals(AppConfig.fromEnvironment(required), AppConfig.fromEnvironment(required + leftovers))
     }
 
     @Test
@@ -193,12 +202,5 @@ class AppConfigTest {
         assertTrue("maxHr=<set>" in text)
         assertFalse("193" in text)
         assertEquals("Configured(<redacted>)", MaxHrSetting.Configured(Bpm(193)).toString())
-    }
-
-    @Test
-    fun `secure cookies only for https redirect`() {
-        assertFalse(AppConfig.fromEnvironment(required).secureCookies)
-        val https = required + ("STRAVA_REDIRECT_URI" to "https://example.test/auth/strava/callback")
-        assertTrue(AppConfig.fromEnvironment(https).secureCookies)
     }
 }

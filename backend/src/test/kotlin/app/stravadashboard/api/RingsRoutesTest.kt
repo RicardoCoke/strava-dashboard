@@ -9,18 +9,17 @@ import app.stravadashboard.persistence.DatabaseFactory
 import app.stravadashboard.persistence.ExposedRingDayRepository
 import app.stravadashboard.persistence.ExposedWellnessRepository
 import app.stravadashboard.testsupport.TEST_ZONE
+import app.stravadashboard.testsupport.browser
 import app.stravadashboard.testsupport.testConfig
 import app.stravadashboard.testsupport.wellnessDay
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
-import io.ktor.client.plugins.cookies.HttpCookies
 import io.ktor.client.request.HttpRequestData
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
-import io.ktor.http.Url
 import io.ktor.http.headersOf
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
@@ -39,7 +38,6 @@ class RingsRoutesTest {
     private val clock = Clock.fixed(now, TEST_ZONE)
     private val jsonHeaders = headersOf(HttpHeaders.ContentType, "application/json")
     private val garminRequests = mutableListOf<HttpRequestData>()
-    private val stravaRequests = mutableListOf<HttpRequestData>()
 
     private fun config(key: String? = "invented-key"): AppConfig =
         testConfig().copy(lthr = LthrSetting.Valid(Bpm(170)), garminApiKey = key)
@@ -48,40 +46,16 @@ class RingsRoutesTest {
         config: AppConfig,
         block: suspend ApplicationTestBuilder.() -> Unit,
     ) = testApplication {
-        val strava =
-            MockEngine { request ->
-                stravaRequests += request
-                if (request.url.encodedPath == "/oauth/token") {
-                    respond(
-                        """{"access_token":"a","refresh_token":"r","expires_at":${now.epochSecond + 99_999},
-                           "athlete":{"id":7}}""",
-                        HttpStatusCode.OK,
-                        jsonHeaders,
-                    )
-                } else {
-                    respond("[]", HttpStatusCode.OK, jsonHeaders)
-                }
-            }
         val garmin =
             MockEngine { request ->
                 garminRequests += request
                 respond("{}", HttpStatusCode.OK, jsonHeaders)
             }
-        application { module(config, clock, TEST_ZONE, strava, garminEngine = garmin) }
+        application { module(config, clock, TEST_ZONE, garminEngine = garmin) }
         block()
     }
 
-    private suspend fun ApplicationTestBuilder.connectedBrowser(): HttpClient {
-        val browser =
-            createClient {
-                install(HttpCookies)
-                followRedirects = false
-            }
-        val login = browser.get("/auth/strava/login")
-        val state = Url(requireNotNull(login.headers[HttpHeaders.Location])).parameters["state"]
-        browser.get("/auth/strava/callback?state=$state&code=invented&scope=read,activity:read_all")
-        return browser
-    }
+    private fun ApplicationTestBuilder.connectedBrowser(): HttpClient = browser()
 
     /** 3 baseline days and today: the RingsCalculatorTest recovery case plus strains. */
     private fun seed(config: AppConfig) =
@@ -103,7 +77,6 @@ class RingsRoutesTest {
         app(config) {
             val browser = connectedBrowser()
             garminRequests.clear()
-            stravaRequests.clear()
             val response = browser.get("/api/rings")
             assertEquals(HttpStatusCode.OK, response.status)
             assertEquals(
@@ -115,7 +88,6 @@ class RingsRoutesTest {
             )
             // R7 AC7.5: cache only, no external calls.
             assertTrue(garminRequests.isEmpty())
-            assertTrue(stravaRequests.isEmpty())
         }
     }
 
@@ -128,10 +100,81 @@ class RingsRoutesTest {
         }
 
     @Test
-    fun `R7 - rings require session`() =
-        app(config()) {
-            val response = client.get("/api/rings")
-            assertEquals(HttpStatusCode.Unauthorized, response.status)
-            assertTrue("not_connected" in response.bodyAsText())
+    fun `R5 - history returns one entry per day ascending and today matches rings`() {
+        val config = config()
+        seed(config)
+        app(config) {
+            val browser = connectedBrowser()
+            garminRequests.clear()
+            val response = browser.get("/api/rings/history?days=7")
+            assertEquals(HttpStatusCode.OK, response.status)
+            val body = response.bodyAsText()
+            val dates = Regex(""""date":"([0-9-]+)"""").findAll(body).map { it.groupValues[1] }.toList()
+            assertEquals((6L downTo 0L).map { today.minusDays(it).toString() }, dates)
+            assertTrue(
+                body.endsWith(
+                    """{"date":"2026-11-09","sleepPercent":82,"recoveryPercent":75,"recoveryZone":"green",""" +
+                        """"strain":12.9}]}""",
+                ),
+                body,
+            )
+            // A day with no row at all is all nulls, not zeros.
+            assertTrue(
+                """{"date":"2026-11-03","sleepPercent":null,"recoveryPercent":null,"recoveryZone":null,"strain":null}"""
+                    in body,
+            )
+            assertEquals(30, Regex("\"date\"").findAll(browser.get("/api/rings/history?days=30").bodyAsText()).count())
+            assertEquals(90, Regex("\"date\"").findAll(browser.get("/api/rings/history?days=90").bodyAsText()).count())
+            // AC5.9: cache only, no external calls.
+            assertTrue(garminRequests.isEmpty())
         }
+    }
+
+    @Test
+    fun `R5 - invalid days gives 400`() =
+        app(config()) {
+            val browser = connectedBrowser()
+            for (query in listOf("", "?days=14", "?days=0", "?days=abc")) {
+                val response = browser.get("/api/rings/history$query")
+                assertEquals(HttpStatusCode.BadRequest, response.status, query)
+                assertEquals(
+                    """{"error":"invalid_days","message":"days must be 7, 30 or 90."}""",
+                    response.bodyAsText(),
+                )
+            }
+        }
+
+    @Test
+    fun `R5 - no garmin key gives all nulls`() =
+        app(config(key = null)) {
+            val body = connectedBrowser().get("/api/rings/history?days=7").bodyAsText()
+            assertEquals(
+                7,
+                Regex(
+                    """"sleepPercent":null,"recoveryPercent":null,"recoveryZone":null,"strain":null""",
+                ).findAll(body).count(),
+            )
+        }
+
+    @Test
+    fun `R4 - rings response unchanged by older rows`() {
+        val config = config()
+        seed(config)
+        runBlocking {
+            val database = DatabaseFactory.connect(config.dbPath)
+            val old = (100L..119L).map { wellnessDay(today.minusDays(it), 40, 90.0) }
+            ExposedWellnessRepository(database).replaceRange(today.minusDays(119), today.minusDays(100), old, now)
+            val rings = ExposedRingDayRepository(database)
+            (63L..92L).forEach { rings.upsert(today.minusDays(it), RingDay(10_000, 20.0), now) }
+        }
+        app(config) {
+            assertEquals(
+                """{"date":"2026-11-09",""" +
+                    """"sleep":{"percent":82,"fill":0.82,"deltaLabel":null},""" +
+                    """"recovery":{"percent":75,"zone":"green","fill":0.75,"deltaLabel":null},""" +
+                    """"strain":{"value":12.9,"fill":0.614,"deltaLabel":"+1.9 vs 30-day avg"}}""",
+                connectedBrowser().get("/api/rings").bodyAsText(),
+            )
+        }
+    }
 }

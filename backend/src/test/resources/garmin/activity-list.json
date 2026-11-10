@@ -1,0 +1,45 @@
+[
+  {
+    "activityId": 21000000001,
+    "activityName": "Invented 6x800m",
+    "description": "6x800m @ 3:45",
+    "startTimeLocal": "2026-11-10 07:30:00",
+    "startTimeGMT": "2026-11-10 06:30:00",
+    "activityType": { "typeId": 1, "typeKey": "running", "parentTypeId": 17 },
+    "distance": 9800.5,
+    "movingDuration": 2712.6,
+    "averageHR": 152.0,
+    "startLatitude": 38.7,
+    "startLongitude": -9.1
+  },
+  {
+    "activityId": 21000000002,
+    "activityName": "Invented treadmill",
+    "startTimeLocal": "2026-11-11 18:00:00.0",
+    "startTimeGMT": "2026-11-11 18:00:00.0",
+    "activityType": { "typeKey": "treadmill_running" },
+    "distance": 8000.0
+  },
+  {
+    "activityId": 21000000003,
+    "activityName": null,
+    "startTimeLocal": "2026-11-12 08:00:00",
+    "startTimeGMT": "2026-11-12 08:00:00",
+    "activityType": { "typeKey": "trail_running" }
+  },
+  {
+    "activityId": 21000000004,
+    "activityName": "Invented ride",
+    "startTimeLocal": "2026-11-12 09:00:00",
+    "startTimeGMT": "2026-11-12 09:00:00",
+    "activityType": { "typeKey": "cycling" },
+    "distance": 30000.0
+  },
+  {
+    "activityId": 21000000005,
+    "activityName": "Invented bad date",
+    "startTimeLocal": "12/11/2026 10:00",
+    "startTimeGMT": "12/11/2026 10:00",
+    "activityType": { "typeKey": "running" }
+  }
+]

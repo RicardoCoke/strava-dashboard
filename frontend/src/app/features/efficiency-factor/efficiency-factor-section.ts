@@ -22,7 +22,6 @@ import {
   changeText,
   changeTone,
   currentCaption,
-  efStateFromError,
   emptyText,
   footnoteText,
 } from './efficiency-factor.view';
@@ -106,10 +105,9 @@ export class EfficiencyFactorSection implements OnInit {
             this.state.set({ kind: 'error' });
           }
         },
-        error: (error: unknown) => {
-          const next = efStateFromError(error);
-          if (next && !quiet) {
-            this.state.set(next);
+        error: () => {
+          if (!quiet) {
+            this.state.set({ kind: 'error' });
           }
         },
       });

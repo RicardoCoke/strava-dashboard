@@ -9,30 +9,22 @@ import app.stravadashboard.domain.ports.ActivityDetail
 import app.stravadashboard.module
 import app.stravadashboard.persistence.DatabaseFactory
 import app.stravadashboard.persistence.ExposedRunRepository
+import app.stravadashboard.testsupport.GarminFake
 import app.stravadashboard.testsupport.TEST_ZONE
+import app.stravadashboard.testsupport.browser
 import app.stravadashboard.testsupport.summary
 import app.stravadashboard.testsupport.testConfig
 import io.ktor.client.HttpClient
-import io.ktor.client.engine.mock.MockEngine
-import io.ktor.client.engine.mock.MockRequestHandleScope
-import io.ktor.client.engine.mock.respond
-import io.ktor.client.plugins.cookies.HttpCookies
-import io.ktor.client.request.HttpRequestData
-import io.ktor.client.request.HttpResponseData
 import io.ktor.client.request.get
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
-import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
-import io.ktor.http.Url
-import io.ktor.http.headersOf
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import java.time.Clock
 import java.time.Instant
 import kotlin.test.Test
@@ -44,47 +36,17 @@ class LongRunDriftRoutesTest {
     // Saturday 2026-10-31, as in the spec examples.
     private val now = Instant.parse("2026-10-31T10:00:00Z")
     private val clock = Clock.fixed(now, TEST_ZONE)
-    private val stravaRequests = mutableListOf<HttpRequestData>()
-    private val jsonHeaders = headersOf(HttpHeaders.ContentType, "application/json")
-
-    private fun MockRequestHandleScope.strava(request: HttpRequestData): HttpResponseData =
-        when (request.url.encodedPath) {
-            "/oauth/token" ->
-                respond(
-                    """{"access_token":"a","refresh_token":"r","expires_at":${now.epochSecond + 99_999},
-                       "athlete":{"id":7}}""",
-                    HttpStatusCode.OK,
-                    jsonHeaders,
-                )
-            "/api/v3/athlete/activities" -> respond("[]", HttpStatusCode.OK, jsonHeaders)
-            else -> respond("""{"id":1,"laps":[]}""", HttpStatusCode.OK, jsonHeaders)
-        }
+    private val garmin = GarminFake()
 
     private fun app(
         config: AppConfig,
         block: suspend ApplicationTestBuilder.() -> Unit,
     ) = testApplication {
-        val engine =
-            MockEngine { request ->
-                stravaRequests += request
-                strava(request)
-            }
-        application { module(config, clock, TEST_ZONE, engine) }
+        application { module(config, clock, TEST_ZONE, garminEngine = garmin.engine) }
         block()
     }
 
-    private suspend fun ApplicationTestBuilder.connectedBrowser(): HttpClient {
-        val browser =
-            createClient {
-                install(HttpCookies)
-                followRedirects = false
-            }
-        val login = browser.get("/auth/strava/login")
-        val state = Url(requireNotNull(login.headers[HttpHeaders.Location])).parameters["state"]
-        browser.get("/auth/strava/callback?state=$state&code=invented&scope=read,activity:read_all")
-        stravaRequests.clear()
-        return browser
-    }
+    private fun ApplicationTestBuilder.connectedBrowser(): HttpClient = browser()
 
     /** Two outdoor long runs: one computed at 3.75% (28.1 km), one still waiting for its drift call. */
     private fun seedRuns(config: AppConfig) =
@@ -105,21 +67,13 @@ class LongRunDriftRoutesTest {
     private suspend fun HttpResponse.json(): JsonObject = Json.parseToJsonElement(bodyAsText()).jsonObject
 
     @Test
-    fun `R4 - long run drift without session returns not_connected`() =
-        app(testConfig()) {
-            val response = client.get("/api/long-run-drift")
-            assertEquals(HttpStatusCode.Unauthorized, response.status)
-            assertEquals("not_connected", response.json()["error"]?.jsonPrimitive?.content)
-        }
-
-    @Test
-    fun `R4 - long run drift endpoint makes no Strava calls`() {
+    fun `R4 - long run drift endpoint makes no Garmin calls`() {
         val config = testConfig()
         app(config) {
             val browser = connectedBrowser().also { seedRuns(config) }
             val response = browser.get("/api/long-run-drift")
             assertEquals(HttpStatusCode.OK, response.status)
-            assertTrue(stravaRequests.isEmpty())
+            assertTrue(garmin.requests.isEmpty())
         }
     }
 

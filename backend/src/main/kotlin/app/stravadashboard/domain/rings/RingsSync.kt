@@ -11,7 +11,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 
 /**
- * Fills the ring cache from Garmin (feature 020, R2 and R3): every uncached day of the last 31, plus today and
+ * Fills the ring cache from Garmin (feature 020, R2 and R3): every uncached day of the last 92, plus today and
  * yesterday again, one day at a time, stopping at the first failure. Only the night's sleep and the day's strain are
  * stored; heart-rate samples never leave memory. Without [lthr] no heart rate is fetched and strain stays null.
  */
@@ -24,7 +24,7 @@ class RingsSync(
 ) {
     /** Returns when to retry after a 429, otherwise null. */
     suspend fun refresh(today: LocalDate): Instant? {
-        val from = today.minusDays(RingsPolicy.STRAIN_DAYS)
+        val from = today.minusDays(RingsPolicy.HISTORY_DAYS)
         val fetchedAt = repo.fetchedAt(from, today)
         // A day fetched before it ended holds partial strain (and maybe no sleep yet), so it counts as missing.
         val complete = fetchedAt.filter { (day, at) -> at >= day.plusDays(1).atStartOfDay(zone).toInstant() }.keys

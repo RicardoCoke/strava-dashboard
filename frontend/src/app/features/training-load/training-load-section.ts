@@ -107,7 +107,7 @@ export class TrainingLoadSection implements OnInit {
         },
         error: (error: unknown) => {
           const next = loadStateFromError(error);
-          if (next && !quiet) {
+          if (!quiet) {
             this.state.set(next);
           }
         },

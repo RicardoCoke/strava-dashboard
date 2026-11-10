@@ -31,7 +31,7 @@ import kotlin.test.assertFalse
 // All keys, tokens and values here are invented.
 class GarminWellnessSourceTest {
     private val key = "invented-garmin-key"
-    private val oldest = LocalDate.of(2026, 8, 1)
+    private val oldest = LocalDate.of(2026, 8, 2)
     private val newest = LocalDate.of(2026, 10, 31)
     private val json = headersOf(HttpHeaders.ContentType, "application/json")
     private val requests = mutableListOf<HttpRequestData>()
@@ -59,7 +59,7 @@ class GarminWellnessSourceTest {
                     handler(request)
                 },
             )
-        return GarminWellnessSource(http, key, clock)
+        return GarminWellnessSource(GarminConnect(http, key, clock))
     }
 
     private fun fetch(
@@ -87,15 +87,52 @@ class GarminWellnessSourceTest {
 
         assertEquals(HttpMethod.Get, summaries.method)
         assertEquals("$base/usersummary-service/v2/dailysummaries", summaries.url.toString().substringBefore('?'))
-        assertEquals("2026-08-01", summaries.url.parameters["startDate"])
+        assertEquals("2026-08-02", summaries.url.parameters["startDate"])
         assertEquals("2026-10-31", summaries.url.parameters["endDate"])
         assertEquals(setOf("startDate", "endDate"), summaries.url.parameters.names())
 
-        assertEquals("$base/hrv-service/hrv/daily/2026-08-01/2026-10-31", hrv.url.toString())
+        assertEquals("$base/hrv-service/hrv/daily/2026-08-02/2026-10-31", hrv.url.toString())
         listOf(summaries, hrv).forEach {
             assertEquals("Bearer invented-access-token", it.headers[HttpHeaders.Authorization])
             assertEquals("application/json", it.headers[HttpHeaders.Accept])
         }
+    }
+
+    @Test
+    fun `023 R4 - a 121-day range is fetched in 91 and 30 days`() {
+        val result = runBlocking { source().fetch(LocalDate.of(2026, 7, 3), LocalDate.of(2026, 10, 31)) }
+
+        val ranges =
+            requests.filter { "dailysummaries" in it.url.encodedPath }.map {
+                it.url.parameters["startDate"] to it.url.parameters["endDate"]
+            }
+        assertEquals(listOf("2026-07-03" to "2026-10-01", "2026-10-02" to "2026-10-31"), ranges)
+        assertEquals(
+            listOf("2026-07-03/2026-10-01", "2026-10-02/2026-10-31"),
+            requests.filter { "hrv-service" in it.url.encodedPath }.map { it.url.encodedPath.substringAfter("daily/") },
+        )
+        // The fixture answers both chunks with the same 3 late-October days: each is kept once, from its own chunk.
+        assertEquals(
+            listOf("2026-10-29", "2026-10-30", "2026-10-31"),
+            (result as WellnessFetchResult.Success).days.map { it.date.toString() },
+        )
+    }
+
+    @Test
+    fun `023 R4 - a failed chunk stops the split fetch`() {
+        var summaryCalls = 0
+        val result =
+            runBlocking {
+                source { request ->
+                    if ("dailysummaries" in request.url.encodedPath && ++summaryCalls == 2) {
+                        respond("", HttpStatusCode.ServiceUnavailable)
+                    } else {
+                        fixtures(request)
+                    }
+                }.fetch(LocalDate.of(2026, 7, 3), LocalDate.of(2026, 10, 31))
+            }
+        assertEquals(WellnessFetchResult.Unavailable, result)
+        assertEquals(2, summaryCalls)
     }
 
     @Test

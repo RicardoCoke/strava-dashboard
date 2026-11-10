@@ -2,7 +2,6 @@ package app.stravadashboard.domain.racedayform
 
 import app.stravadashboard.config.LthrSetting
 import app.stravadashboard.domain.ports.RunRepository
-import app.stravadashboard.domain.ports.TokenRepository
 import app.stravadashboard.domain.trainingload.HrZones
 import app.stravadashboard.domain.trainingplan.TrainingPlanResult
 import app.stravadashboard.domain.trainingplan.TrainingPlanService
@@ -11,8 +10,6 @@ import java.time.LocalDate
 import java.time.ZoneId
 
 sealed interface RaceDayFormResult {
-    data object NotConnected : RaceDayFormResult
-
     data object MissingPlan : RaceDayFormResult
 
     data object MissingLthr : RaceDayFormResult
@@ -33,14 +30,12 @@ sealed interface RaceDayFormResult {
 /** Checks the session and config, reads the plan (on every call, 004) and projects from the local store only. */
 class RaceDayFormService(
     private val lthr: LthrSetting,
-    private val tokens: TokenRepository,
     private val runs: RunRepository,
     private val planService: TrainingPlanService,
     private val clock: Clock,
     private val zone: ZoneId,
 ) {
     suspend fun get(): RaceDayFormResult {
-        if (tokens.find() == null) return RaceDayFormResult.NotConnected
         val plan = planService.get()
         val zones = (lthr as? LthrSetting.Valid)?.let { HrZones.of(it.lthr) }
         val calendar = (plan as? TrainingPlanResult.Ready)?.calendar

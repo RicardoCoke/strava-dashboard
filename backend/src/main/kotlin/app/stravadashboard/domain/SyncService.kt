@@ -24,6 +24,7 @@ import kotlinx.coroutines.sync.withLock
 import org.slf4j.LoggerFactory
 import java.time.Clock
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 
 data class SyncInfo(
@@ -37,8 +38,6 @@ sealed interface SyncOutcome {
     data class Done(
         val info: SyncInfo,
     ) : SyncOutcome
-
-    data object ReauthRequired : SyncOutcome
 }
 
 /** How a list pass ended: every page read, the call budget used up, or a failure that stops the sync. */
@@ -53,18 +52,22 @@ private sealed interface ListPass {
 }
 
 /**
- * Keeps the local run store in step with Strava: a one-time import from the history start (6 months + 41 days), then
- * incremental list passes, detail calls, speed-stream calls for outdoor workouts, heart-rate stream calls for runs
- * with heart rate, and pruning. Only one sync runs at a time, and every Strava call is taken from [budget].
+ * Keeps the local run store in step with the activity source (Garmin Connect since feature 021): a one-time import
+ * from the history start (6 months + 41 days), then incremental list passes, detail calls, speed-stream calls for
+ * outdoor workouts, heart-rate stream calls for runs with heart rate, and pruning. Runs before [activitiesFrom] (the
+ * Strava history) are never listed, fetched or changed by a sync, apart from pruning. Only one sync runs at a time,
+ * and every source call is taken from [budget].
  * The rules for when and what to call live in [SyncPolicy].
  */
+@Suppress("LongParameterList")
 class SyncService(
     private val source: ActivitySource,
     private val runs: RunRepository,
     private val syncState: SyncStateRepository,
     private val clock: Clock,
     private val zone: ZoneId,
-    private val budget: StravaCallBudget = StravaCallBudget(clock),
+    private val activitiesFrom: LocalDate,
+    private val budget: CallBudget = CallBudget(clock),
 ) {
     private val mutex = Mutex()
 
@@ -74,7 +77,7 @@ class SyncService(
 
     /**
      * Syncs if due. A request that had to wait for another request's sync reuses that outcome instead of starting a
-     * second sync straight after it (which, while an import is partial or Strava is down, would still be "due").
+     * second sync straight after it (which, while an import is partial or the source is down, would still be "due").
      */
     suspend fun syncIfDue(): SyncOutcome {
         val attemptsBeforeWaiting = finishedAttempts
@@ -86,7 +89,7 @@ class SyncService(
     private suspend fun syncNowIfDue(): SyncOutcome {
         val now = clock.instant()
         val state = syncState.get()
-        val pending = pendingCount(runs.findAll())
+        val pending = pendingCount(runs.findAll(), activitiesFrom)
         if (!SyncSchedule.isDue(state, pending, budget.view(), now)) {
             return SyncOutcome.Done(SyncSchedule.idleInfo(state, pending, now))
         }
@@ -96,7 +99,7 @@ class SyncService(
         }
     }
 
-    /** An unexpected error counts as Strava being unavailable; only its class name is logged (feature 009, AC5.4). */
+    /** An unexpected error counts as the source being down; only its class name is logged (feature 009, AC5.4). */
     @Suppress("TooGenericExceptionCaught")
     private suspend fun sync(now: Instant): SyncOutcome =
         try {
@@ -108,7 +111,7 @@ class SyncService(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            log.warn("Strava sync failed unexpectedly: {}", e::class.simpleName)
+            log.warn("Activity sync failed unexpectedly: {}", e::class.simpleName)
             recordFailure(SourceResult.Unavailable, now)
         }
 
@@ -118,7 +121,7 @@ class SyncService(
         outOfBudget: Boolean = false,
     ): SyncOutcome {
         runs.pruneBefore(SyncPolicy.pruneCutoff(now, zone))
-        val pending = pendingCount(runs.findAll())
+        val pending = pendingCount(runs.findAll(), activitiesFrom)
         val status = if (outOfBudget || pending > 0) SyncStatus.PARTIAL else SyncStatus.OK
         syncState.save(
             syncState.get().copy(
@@ -128,7 +131,7 @@ class SyncService(
                 lastAttemptAt = now,
             ),
         )
-        log.info("Strava sync finished: status={}, runsPending={}", status, pending)
+        log.info("Activity sync finished: status={}, runsPending={}", status, pending)
         return SyncOutcome.Done(SyncInfo(status, now, null, pending))
     }
 
@@ -137,21 +140,17 @@ class SyncService(
         now: Instant,
     ): SyncOutcome {
         val state = syncState.get()
-        val pending = pendingCount(runs.findAll())
-        log.info("Strava sync stopped: {}", failure::class.simpleName)
+        val pending = pendingCount(runs.findAll(), activitiesFrom)
+        log.info("Activity sync stopped: {}", failure::class.simpleName)
         return when (failure) {
             is SourceResult.RateLimited -> {
                 val saved = state.copy(rateLimitedUntil = failure.until, lastStatus = SyncStatus.RATE_LIMITED)
                 syncState.save(saved.copy(lastAttemptAt = now))
                 SyncOutcome.Done(SyncInfo(SyncStatus.RATE_LIMITED, state.lastSuccessfulSyncAt, failure.until, pending))
             }
-            SourceResult.ReauthRequired -> {
-                syncState.save(state.copy(lastAttemptAt = now))
-                SyncOutcome.ReauthRequired
-            }
             else -> {
-                syncState.save(state.copy(lastStatus = SyncStatus.STRAVA_UNAVAILABLE, lastAttemptAt = now))
-                SyncOutcome.Done(SyncInfo(SyncStatus.STRAVA_UNAVAILABLE, state.lastSuccessfulSyncAt, null, pending))
+                syncState.save(state.copy(lastStatus = SyncStatus.SOURCE_UNAVAILABLE, lastAttemptAt = now))
+                SyncOutcome.Done(SyncInfo(SyncStatus.SOURCE_UNAVAILABLE, state.lastSuccessfulSyncAt, null, pending))
             }
         }
     }
@@ -162,7 +161,7 @@ class SyncService(
      */
     private suspend fun listPass(now: Instant): ListPass {
         val backfillStart = SyncPolicy.backfillStart(now, zone)
-        val after = SyncPolicy.listAfter(syncState.get(), now, zone)
+        val after = SyncPolicy.listAfter(syncState.get(), now, zone, activitiesFrom)
         var page = 1
         var stop: ListPass? = null
         do {
@@ -172,7 +171,8 @@ class SyncService(
                 stop = result?.let { ListPass.Failed(failureOf(it)) } ?: ListPass.OutOfBudget
                 break
             }
-            val (stored, others) = listed.partition { it.sportType == RUN_SPORT_TYPE }
+            val current = listed.filter { !it.startLocal.toLocalDate().isBefore(activitiesFrom) }
+            val (stored, others) = current.partition { it.sportType == RUN_SPORT_TYPE }
             runs.upsertSummaries(stored)
             runs.delete(others.map { it.id })
         } while (listed.size == PAGE_SIZE)
@@ -180,7 +180,9 @@ class SyncService(
 
         val cursor = runs.newestStartUtc() ?: backfillStart
         val state = syncState.get()
-        val historyStart = if (after == backfillStart) after else state.historyStart
+        // A pass from the cut-over is a full import too: nothing before it is ever listed (feature 021).
+        val fullImportFrom = maxOf(backfillStart, activitiesFrom.atStartOfDay(zone).toInstant())
+        val historyStart = if (after == fullImportFrom) backfillStart else state.historyStart
         syncState.save(state.copy(listCursor = cursor, historyStart = historyStart))
         return ListPass.Complete
     }
@@ -193,7 +195,7 @@ class SyncService(
         var remaining = MAX_ACTIVITY_CALLS_PER_SYNC
         var failure: SourceResult<Nothing>? = null
         for (phase in SyncPhase.entries) {
-            for (call in SyncPolicy.plan(phase, runs.findAll(), now).take(remaining)) {
+            for (call in SyncPolicy.plan(phase, runs.findAll(), now, activitiesFrom).take(remaining)) {
                 if (failure != null || !budget.tryConsume()) {
                     remaining = 0
                     break
@@ -212,7 +214,7 @@ class SyncService(
         return failure
     }
 
-    /** A 404 means the activity was deleted on Strava, so it is removed locally too. */
+    /** A 404 means the activity was deleted at the source, so it is removed locally too. */
     private suspend fun fetchDetail(
         run: RunActivity,
         now: Instant,

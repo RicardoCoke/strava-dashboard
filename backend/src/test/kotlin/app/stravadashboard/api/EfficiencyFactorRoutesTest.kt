@@ -7,22 +7,16 @@ import app.stravadashboard.domain.ports.ActivityDetail
 import app.stravadashboard.module
 import app.stravadashboard.persistence.DatabaseFactory
 import app.stravadashboard.persistence.ExposedRunRepository
-import app.stravadashboard.persistence.ExposedTokenRepository
+import app.stravadashboard.testsupport.GarminFake
 import app.stravadashboard.testsupport.TEST_ZONE
+import app.stravadashboard.testsupport.browser
 import app.stravadashboard.testsupport.summary
 import app.stravadashboard.testsupport.testConfig
 import io.ktor.client.HttpClient
-import io.ktor.client.engine.mock.MockEngine
-import io.ktor.client.engine.mock.respond
-import io.ktor.client.plugins.cookies.HttpCookies
-import io.ktor.client.request.HttpRequestData
 import io.ktor.client.request.get
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
-import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
-import io.ktor.http.Url
-import io.ktor.http.headersOf
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import kotlinx.coroutines.runBlocking
@@ -43,44 +37,17 @@ class EfficiencyFactorRoutesTest {
     // Saturday 2026-10-31, as in the spec examples.
     private val now = Instant.parse("2026-10-31T10:00:00Z")
     private val clock = Clock.fixed(now, TEST_ZONE)
-    private val stravaRequests = mutableListOf<HttpRequestData>()
-    private val jsonHeaders = headersOf(HttpHeaders.ContentType, "application/json")
+    private val garmin = GarminFake()
 
     private fun app(
         config: AppConfig,
         block: suspend ApplicationTestBuilder.() -> Unit,
     ) = testApplication {
-        val engine =
-            MockEngine { request ->
-                stravaRequests += request
-                when (request.url.encodedPath) {
-                    "/oauth/token" ->
-                        respond(
-                            """{"access_token":"a","refresh_token":"r","expires_at":${now.epochSecond + 99_999},
-                               "athlete":{"id":7}}""",
-                            HttpStatusCode.OK,
-                            jsonHeaders,
-                        )
-                    "/api/v3/athlete/activities" -> respond("[]", HttpStatusCode.OK, jsonHeaders)
-                    else -> respond("""{"id":1,"laps":[]}""", HttpStatusCode.OK, jsonHeaders)
-                }
-            }
-        application { module(config, clock, TEST_ZONE, engine) }
+        application { module(config, clock, TEST_ZONE, garminEngine = garmin.engine) }
         block()
     }
 
-    private suspend fun ApplicationTestBuilder.connectedBrowser(): HttpClient {
-        val browser =
-            createClient {
-                install(HttpCookies)
-                followRedirects = false
-            }
-        val login = browser.get("/auth/strava/login")
-        val state = Url(requireNotNull(login.headers[HttpHeaders.Location])).parameters["state"]
-        browser.get("/auth/strava/callback?state=$state&code=invented&scope=read,activity:read_all")
-        stravaRequests.clear()
-        return browser
-    }
+    private fun ApplicationTestBuilder.connectedBrowser(): HttpClient = browser()
 
     /** Three outdoor easy runs ending Fri 2026-10-30: 10 km in 3000 s at HR 125 → EF 1.6; plus one pending detail. */
     private fun seedRuns(config: AppConfig) =
@@ -150,35 +117,12 @@ class EfficiencyFactorRoutesTest {
         }
 
     @Test
-    fun `R7 - 401 not_connected without session or token`() =
-        app(testConfig()) {
-            val response = client.get("/api/efficiency-factor")
-            assertEquals(HttpStatusCode.Unauthorized, response.status)
-            assertEquals(
-                """{"error":"not_connected","message":"Connect your Strava account."}""",
-                response.bodyAsText(),
-            )
-        }
-
-    @Test
-    fun `R7 - 401 not_connected with a session but no stored token`() {
-        val config = testConfig()
-        app(config) {
-            val browser = connectedBrowser()
-            runBlocking { ExposedTokenRepository(DatabaseFactory.connect(config.dbPath)).delete() }
-            val response = browser.get("/api/efficiency-factor")
-            assertEquals(HttpStatusCode.Unauthorized, response.status)
-            assertEquals("not_connected", response.json()["error"]?.jsonPrimitive?.content)
-        }
-    }
-
-    @Test
-    fun `R7 - no Strava request is made`() {
+    fun `R7 - makes no Garmin calls`() {
         val config = testConfig()
         app(config) {
             val browser = connectedBrowser().also { seedRuns(config) }
             assertEquals(HttpStatusCode.OK, browser.get("/api/efficiency-factor").status)
-            assertTrue(stravaRequests.isEmpty())
+            assertTrue(garmin.requests.isEmpty())
         }
     }
 }

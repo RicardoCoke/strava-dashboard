@@ -18,6 +18,7 @@ import app.stravadashboard.testsupport.FakeActivitySource
 import app.stravadashboard.testsupport.FakeWellnessSource
 import app.stravadashboard.testsupport.MutableClock
 import app.stravadashboard.testsupport.NOW
+import app.stravadashboard.testsupport.NO_CUT_OVER
 import app.stravadashboard.testsupport.TEST_ZONE
 import app.stravadashboard.testsupport.summary
 import app.stravadashboard.testsupport.tempDbPath
@@ -72,17 +73,18 @@ class BackgroundSyncTest {
     private val runs = ExposedRunRepository(database)
     private val syncState = ExposedSyncStateRepository(database)
     private val clock = MutableClock()
-    private val budget = StravaCallBudget(clock)
+    private val budget = CallBudget(clock)
     private val source = GatedActivitySource()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val sync =
         BackgroundSync(
-            SyncService(source, runs, syncState, clock, TEST_ZONE, budget),
+            SyncService(source, runs, syncState, clock, TEST_ZONE, NO_CUT_OVER, budget),
             runs,
             syncState,
             budget,
             clock,
             scope,
+            NO_CUT_OVER,
         )
 
     @AfterTest
@@ -166,15 +168,15 @@ class BackgroundSyncTest {
         }
 
     @Test
-    fun `R5 - revoked token ends job with reauth required`() =
+    fun `021 R8 - an unavailable source ends the job with garminUnavailable`() =
         run {
             source.release.complete(Unit)
-            source.failWith(SourceResult.ReauthRequired)
+            source.failWith(SourceResult.Unavailable)
 
             sync.startIfDue()
             sync.join()
 
-            assertTrue(sync.reauthRequired)
+            assertEquals(SyncStatus.SOURCE_UNAVAILABLE, sync.status().info.status)
         }
 
     private val wellnessRepo = ExposedWellnessRepository(database)
@@ -182,17 +184,18 @@ class BackgroundSyncTest {
 
     private fun syncWithWellness(source: ActivitySource = this.source) =
         BackgroundSync(
-            SyncService(source, runs, syncState, clock, TEST_ZONE, budget),
+            SyncService(source, runs, syncState, clock, TEST_ZONE, NO_CUT_OVER, budget),
             runs,
             syncState,
             budget,
             clock,
             scope,
+            NO_CUT_OVER,
             WellnessSync(wellnessSource, wellnessRepo, clock, TEST_ZONE),
         )
 
     @Test
-    fun `015 R3 - wellness refresh runs after Strava step with any outcome`() =
+    fun `015 R3 - wellness refresh runs after the activity step with any outcome`() =
         run {
             val done = syncWithWellness()
             source.release.complete(Unit)
@@ -202,10 +205,10 @@ class BackgroundSyncTest {
             assertEquals(WellnessFetchStatus.OK, wellnessRepo.getState().lastStatus)
 
             clock.advance(Duration.ofMinutes(15))
-            source.failWith(SourceResult.ReauthRequired)
+            source.failWith(SourceResult.Unavailable)
             done.startIfDue()
             done.join()
-            assertTrue(done.reauthRequired)
+            assertEquals(SyncStatus.SOURCE_UNAVAILABLE, syncState.get().lastStatus)
             assertEquals(2, wellnessSource.ranges.size)
 
             clock.advance(Duration.ofMinutes(15))
@@ -242,12 +245,13 @@ class BackgroundSyncTest {
                 }
             val sync =
                 BackgroundSync(
-                    SyncService(source, runs, syncState, clock, TEST_ZONE, budget),
+                    SyncService(source, runs, syncState, clock, TEST_ZONE, NO_CUT_OVER, budget),
                     runs,
                     syncState,
                     budget,
                     clock,
                     scope,
+                    NO_CUT_OVER,
                     WellnessSync(slow, wellnessRepo, clock, TEST_ZONE),
                 )
             source.release.complete(Unit)
@@ -260,7 +264,7 @@ class BackgroundSyncTest {
         }
 
     @Test
-    fun `015 R4 - wellness failure leaves Strava sync state untouched`() =
+    fun `015 R4 - wellness failure leaves the activity sync state untouched`() =
         run {
             source.release.complete(Unit)
             source.stored(1)
@@ -270,19 +274,18 @@ class BackgroundSyncTest {
             withWellness.join()
 
             assertEquals(WellnessFetchStatus.KEY_REJECTED, wellnessRepo.getState().lastStatus)
-            assertFalse(withWellness.reauthRequired)
             assertEquals(listOf(1L), runs.findAll().map { it.id.value })
             assertEquals(SyncStatus.OK, syncState.get().lastStatus)
             assertEquals(NOW, syncState.get().lastSuccessfulSyncAt)
             assertEquals(SyncStatus.OK, withWellness.status().info.status)
         }
 
-    /** The Strava sync state after the same one-run sync in a separate database, with no wellness step. */
+    /** The activity sync state after the same one-run sync in a separate database, with no wellness step. */
     private suspend fun plainSyncState(): SyncState {
         val database = DatabaseFactory.connect(tempDbPath())
         val plainRuns = ExposedRunRepository(database)
         val plainState = ExposedSyncStateRepository(database)
-        val plainBudget = StravaCallBudget(clock)
+        val plainBudget = CallBudget(clock)
         val plainSource =
             GatedActivitySource().apply {
                 release.complete(Unit)
@@ -290,12 +293,13 @@ class BackgroundSyncTest {
             }
         val plain =
             BackgroundSync(
-                SyncService(plainSource, plainRuns, plainState, clock, TEST_ZONE, plainBudget),
+                SyncService(plainSource, plainRuns, plainState, clock, TEST_ZONE, NO_CUT_OVER, plainBudget),
                 plainRuns,
                 plainState,
                 plainBudget,
                 clock,
                 scope,
+                NO_CUT_OVER,
             )
         plain.startIfDue()
         plain.join()
@@ -303,7 +307,7 @@ class BackgroundSyncTest {
     }
 
     @Test
-    fun `015 R4 - a throwing wellness step leaves Strava sync state untouched`() =
+    fun `015 R4 - a throwing wellness step leaves the activity sync state untouched`() =
         run {
             source.release.complete(Unit)
             source.stored(1)
@@ -316,19 +320,19 @@ class BackgroundSyncTest {
                 }
             val sync =
                 BackgroundSync(
-                    SyncService(source, runs, syncState, clock, TEST_ZONE, budget),
+                    SyncService(source, runs, syncState, clock, TEST_ZONE, NO_CUT_OVER, budget),
                     runs,
                     syncState,
                     budget,
                     clock,
                     scope,
+                    NO_CUT_OVER,
                     WellnessSync(throwing, wellnessRepo, clock, TEST_ZONE),
                 )
             sync.startIfDue()
             sync.join()
 
             assertEquals(WellnessFetchStatus.UNAVAILABLE, wellnessRepo.getState().lastStatus)
-            assertFalse(sync.reauthRequired)
             assertEquals(listOf(1L), runs.findAll().map { it.id.value })
             assertEquals(plainSyncState(), syncState.get())
             assertEquals(SyncStatus.OK, sync.status().info.status)

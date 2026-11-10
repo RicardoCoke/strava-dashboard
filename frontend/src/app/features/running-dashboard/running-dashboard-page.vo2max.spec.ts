@@ -160,7 +160,7 @@ describe('RunningDashboardPage with the VO2max card', () => {
     sync.status.set(syncStatus({ status: 'syncing', nextSyncInSeconds: null }));
     fixture.detectChanges();
     expect(text()).toContain('No runs in the last 5 months');
-    expect(text()).toContain('Syncing with Strava…');
+    expect(text()).toContain('Syncing with Garmin Connect…');
 
     sync.finish();
     fixture.detectChanges();
@@ -170,7 +170,7 @@ describe('RunningDashboardPage with the VO2max card', () => {
     fixture.detectChanges();
 
     expect(text()).not.toContain('No runs in the last 5 months');
-    expect(text()).not.toContain('Syncing with Strava…');
+    expect(text()).not.toContain('Syncing with Garmin Connect…');
     expect(element().querySelector('app-weekly-distance-chart')).not.toBeNull();
   });
 });

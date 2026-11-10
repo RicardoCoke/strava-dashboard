@@ -12,16 +12,10 @@ import kotlin.test.assertTrue
 class MarinaSettingsTest {
     private val base =
         mapOf(
-            "STRAVA_CLIENT_ID" to "1",
-            "STRAVA_CLIENT_SECRET" to "ricardo-secret",
-            "STRAVA_REDIRECT_URI" to "http://localhost:4200/auth/strava/callback",
-            "SESSION_SECRET" to "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
             "DB_PATH" to "data/ricardo.db",
         )
     private val group =
         mapOf(
-            "MARINA_STRAVA_CLIENT_ID" to "2222",
-            "MARINA_STRAVA_CLIENT_SECRET" to "invented-secret",
             "MARINA_DB_PATH" to "data/marina.db",
         )
 
@@ -33,12 +27,10 @@ class MarinaSettingsTest {
     }
 
     @Test
-    fun `R1 - partial group fails naming the key and no values`() {
-        val error =
-            assertFailsWith<IllegalArgumentException> {
-                AppConfig.fromEnvironment(base + mapOf("MARINA_DB_PATH" to "data/marina.db"))
-            }
-        assertEquals("MARINA_STRAVA_CLIENT_ID must be set (see .env.example)", error.message)
+    fun `021 R7 - Marina is configured by her database path alone`() {
+        val marina = AppConfig.fromEnvironment(base + mapOf("MARINA_DB_PATH" to "data/marina.db")).marina
+        assertEquals("data/marina.db", marina?.dbPath)
+        assertEquals(null, marina?.garminApiKey)
     }
 
     @Test

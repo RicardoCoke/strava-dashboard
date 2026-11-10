@@ -42,6 +42,5 @@ class LoadLevelTest {
     fun `R7 - load high is null when training load is not ready`() {
         assertNull(LoadLevel.isHigh(TrainingLoadResult.NotConfigured))
         assertNull(LoadLevel.isHigh(TrainingLoadResult.InvalidConfig))
-        assertNull(LoadLevel.isHigh(TrainingLoadResult.NotConnected))
     }
 }

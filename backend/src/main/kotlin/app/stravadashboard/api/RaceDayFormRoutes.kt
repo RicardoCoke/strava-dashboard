@@ -1,7 +1,5 @@
 package app.stravadashboard.api
 
-import app.stravadashboard.auth.hasConnectedSession
-import app.stravadashboard.domain.ports.TokenRepository
 import app.stravadashboard.domain.racedayform.RaceDayFormResult
 import app.stravadashboard.domain.racedayform.RaceDayFormService
 import io.ktor.http.HttpStatusCode
@@ -9,17 +7,9 @@ import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 
-fun Route.raceDayFormRoutes(
-    tokens: TokenRepository,
-    service: RaceDayFormService,
-) {
+fun Route.raceDayFormRoutes(service: RaceDayFormService) {
     get("/api/race-day-form") {
-        if (!call.hasConnectedSession(tokens)) {
-            call.respond(HttpStatusCode.Unauthorized, ErrorResponse.NOT_CONNECTED)
-            return@get
-        }
         when (val result = service.get()) {
-            RaceDayFormResult.NotConnected -> call.respond(HttpStatusCode.Unauthorized, ErrorResponse.NOT_CONNECTED)
             RaceDayFormResult.MissingPlan ->
                 call.respond(HttpStatusCode.NotFound, ErrorResponse.RACE_DAY_FORM_MISSING_PLAN)
             RaceDayFormResult.MissingLthr ->

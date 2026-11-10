@@ -25,13 +25,10 @@ function stringField(body: unknown, key: string): string | null {
   return typeof value === 'string' ? value : null;
 }
 
-/** The card state for a failed request, or null for a 401 (the interceptor redirects to /connect). */
-export function wellnessStateFromError(error: unknown): WellnessState | null {
+/** The card state for a failed request. */
+export function wellnessStateFromError(error: unknown): WellnessState {
   if (!(error instanceof HttpErrorResponse)) {
     return { kind: 'error' };
-  }
-  if (error.status === 401) {
-    return null;
   }
   if (error.status === 404 && stringField(error.error, 'error') === 'wellness_not_configured') {
     return { kind: 'notConfigured' };

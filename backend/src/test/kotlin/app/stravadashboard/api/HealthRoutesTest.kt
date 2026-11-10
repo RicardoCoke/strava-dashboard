@@ -15,7 +15,7 @@ class HealthRoutesTest {
     @Test
     fun `health endpoint returns ok`() =
         testApplication {
-            application { module(testConfig(), stravaEngine = MockEngine { respondError(HttpStatusCode.NotFound) }) }
+            application { module(testConfig(), garminEngine = MockEngine { respondError(HttpStatusCode.NotFound) }) }
 
             val response = client.get("/api/health")
 

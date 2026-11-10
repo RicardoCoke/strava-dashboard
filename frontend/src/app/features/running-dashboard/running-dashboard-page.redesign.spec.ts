@@ -231,7 +231,9 @@ describe('RunningDashboardPage redesign', () => {
     const banner = element().querySelector('.banner');
     expect(banner?.classList).toContain('notice');
     expect(banner?.getAttribute('role')).toBe('status');
-    expect(banner?.textContent).toContain('Still importing runs from Strava (3 remaining).');
+    expect(banner?.textContent).toContain(
+      'Still importing runs from Garmin Connect (3 remaining).',
+    );
   });
 
   it('002 R8 - pace and hr card change texts have tone class', () => {

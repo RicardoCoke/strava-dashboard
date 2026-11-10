@@ -105,7 +105,7 @@ export class MarathonPaceSection implements OnInit {
         },
         error: (error: unknown) => {
           const next = stateFromError(error);
-          if (next && !quiet) {
+          if (!quiet) {
             this.state.set(next);
           }
         },

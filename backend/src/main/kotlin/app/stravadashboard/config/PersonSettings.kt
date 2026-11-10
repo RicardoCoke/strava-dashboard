@@ -5,8 +5,6 @@ import java.time.LocalDate
 
 /** What one person's backend stack needs. [toString] prints nothing of theirs. */
 data class PersonSettings(
-    val stravaClientId: String,
-    val stravaClientSecret: String,
     val dbPath: String,
     val trainingPlanCsvPath: String?,
     val trainingPlanStartDate: LocalDate,
@@ -14,21 +12,20 @@ data class PersonSettings(
     val maxHr: MaxHrSetting,
     val marathonPace: MarathonPaceSetting,
     val garminApiKey: String?,
+    val garminActivitiesFrom: LocalDate,
     val buildWeeks: Int,
 ) {
     override fun toString(): String = "PersonSettings(<redacted>)"
 }
 
 private const val MARINA_BUILD_WEEKS = 18
-private val MARINA_REQUIRED = listOf("MARINA_STRAVA_CLIENT_ID", "MARINA_STRAVA_CLIENT_SECRET", "MARINA_DB_PATH")
 
-/** Marina's settings, or null when none of her required keys is set. A partial group fails at startup. */
+/** Marina's settings, or null when MARINA_DB_PATH isn't set (feature 021: no Strava app of her own any more). */
 internal fun marinaSettings(
     env: Map<String, String>,
     ricardoDbPath: String,
 ): PersonSettings? {
-    if (MARINA_REQUIRED.all { env[it].isNullOrBlank() }) return null
-    val dbPath = env.required("MARINA_DB_PATH")
+    val dbPath = env.optional("MARINA_DB_PATH") ?: return null
     require(Path.of(dbPath).toAbsolutePath().normalize() != Path.of(ricardoDbPath).toAbsolutePath().normalize()) {
         "MARINA_DB_PATH must not be the same file as DB_PATH"
     }
@@ -40,8 +37,6 @@ internal fun marinaSettings(
         "MARINA_TRAINING_PLAN_START_DATE must be set (see .env.example)"
     }
     return PersonSettings(
-        stravaClientId = env.required("MARINA_STRAVA_CLIENT_ID"),
-        stravaClientSecret = env.required("MARINA_STRAVA_CLIENT_SECRET"),
         dbPath = dbPath,
         trainingPlanCsvPath = csvPath,
         trainingPlanStartDate =
@@ -51,6 +46,7 @@ internal fun marinaSettings(
         maxHr = MaxHrSetting.parse(env["MARINA_MAX_HR_BPM"]),
         marathonPace = MarathonPaceSetting.parse(goalPace),
         garminApiKey = env.optional("MARINA_GARMIN_API_KEY"),
+        garminActivitiesFrom = garminActivitiesFrom(env, "MARINA_GARMIN_ACTIVITIES_FROM"),
         buildWeeks = MARINA_BUILD_WEEKS,
     )
 }

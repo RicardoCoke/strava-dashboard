@@ -97,12 +97,6 @@ describe('CalendarLikeBuild', () => {
     expect(element().querySelector('[role="progressbar"]')).toBeNull();
   });
 
-  it('004 R9 - 401 shows no plan error text', () => {
-    fail(401, { error: 'not_connected', message: 'Connect your Strava account.' });
-    expect(element().querySelector('[role="alert"]')).toBeNull();
-    expect(text()).not.toContain("Couldn't");
-  });
-
   it('004 R13 - normal state shows only heading and bar', () => {
     http.expectOne('/api/training-plan').flush(trainingPlan());
     fixture.detectChanges();

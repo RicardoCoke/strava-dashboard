@@ -12,6 +12,7 @@ import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
 import java.time.Clock
 import java.time.Duration
+import java.time.LocalDate
 import java.util.concurrent.atomic.AtomicBoolean
 
 /** The sync status for the dashboard: [nextSyncIn] is how long until a start would sync, null while one runs. */
@@ -21,7 +22,7 @@ data class SyncSnapshot(
 )
 
 /**
- * Runs [SyncService] as a background job in [scope], so the read endpoints never wait for Strava (feature 009).
+ * Runs [SyncService] as a background job in [scope], so the read endpoints never wait for the source (feature 009).
  * At most one job runs at a time, across tabs.
  */
 @Suppress("LongParameterList")
@@ -29,24 +30,21 @@ class BackgroundSync(
     private val syncService: SyncService,
     private val runs: RunRepository,
     private val syncState: SyncStateRepository,
-    private val budget: StravaCallBudget,
+    private val budget: CallBudget,
     private val clock: Clock,
     private val scope: CoroutineScope,
-    /** Refreshes resting HR and HRV after the Strava step (feature 015); null when Garmin Connect isn't configured. */
+    private val activitiesFrom: LocalDate,
+    /** Refreshes resting HR and HRV after the activity step (feature 015). */
     private val wellness: WellnessSync? = null,
 ) {
     private val running = AtomicBoolean(false)
 
     @Volatile private var job: Job? = null
 
-    /** Set when the last job ended because the Strava connection was revoked; cleared when a new job starts. */
-    @Volatile var reauthRequired: Boolean = false
-        private set
-
     suspend fun status(): SyncSnapshot {
         val now = clock.instant()
         val state = syncState.get()
-        val pending = pendingCount(runs.findAll())
+        val pending = pendingCount(runs.findAll(), activitiesFrom)
         if (running.get()) {
             return SyncSnapshot(SyncInfo(SyncStatus.SYNCING, state.lastSuccessfulSyncAt, null, pending), null)
         }
@@ -61,7 +59,6 @@ class BackgroundSync(
         // nextSyncIn is null while a job runs, so "due" also means none was running a moment ago.
         val due = idle.nextSyncIn == Duration.ZERO
         if (!due || !running.compareAndSet(false, true)) return if (due) status() else idle
-        reauthRequired = false
         job = scope.launch { runJob() }
         // Built from the state already read: the job may finish before another read, and a start must say "syncing".
         return SyncSnapshot(idle.info.copy(status = SyncStatus.SYNCING, retryAfter = null), null)
@@ -69,8 +66,8 @@ class BackgroundSync(
 
     private suspend fun runJob() {
         try {
-            stravaStep()
-            // After the Strava step, whatever its outcome; catches its own failures (feature 015, R3 and R4).
+            activityStep()
+            // After the activity step, whatever its outcome; catches its own failures (feature 015, R3 and R4).
             wellness?.refreshIfDue()
         } finally {
             running.set(false)
@@ -78,13 +75,13 @@ class BackgroundSync(
     }
 
     /**
-     * [SyncService] handles Strava failures itself; this is the last net for anything else (a locked database, say),
+     * [SyncService] handles source failures itself; this is the last net for anything else (a locked database, say),
      * so the job never ends without a status and only the exception's class name is logged (AC5.4).
      */
     @Suppress("TooGenericExceptionCaught")
-    private suspend fun stravaStep() {
+    private suspend fun activityStep() {
         try {
-            reauthRequired = syncService.syncIfDue() == SyncOutcome.ReauthRequired
+            syncService.syncIfDue()
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -97,7 +94,7 @@ class BackgroundSync(
     private suspend fun recordUnavailable() {
         try {
             val now = clock.instant()
-            syncState.save(syncState.get().copy(lastStatus = SyncStatus.STRAVA_UNAVAILABLE, lastAttemptAt = now))
+            syncState.save(syncState.get().copy(lastStatus = SyncStatus.SOURCE_UNAVAILABLE, lastAttemptAt = now))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

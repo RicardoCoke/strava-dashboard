@@ -121,3 +121,36 @@ class RingsCalculatorTest {
         assertNull(RingsView(today, RingValue(80.0, null), null, null).toDto().sleep?.deltaLabel)
     }
 }
+
+class RingsHistoryTest {
+    private val today = LocalDate.of(2026, 11, 9)
+
+    @Test
+    fun `R5 - missing values are null never zero`() {
+        val rings = mapOf(today.minusDays(1) to RingDay(null, null), today to RingDay(28_800, 0.0))
+        val history = RingsCalculator(emptyList(), rings).history(today.minusDays(2), today)
+        assertEquals(listOf(today.minusDays(2), today.minusDays(1), today), history.map { it.date })
+        // No row at all, then a row with no values: every field null.
+        assertEquals(RingsHistoryDay(today.minusDays(2), null, null, null), history[0])
+        assertEquals(RingsHistoryDay(today.minusDays(1), null, null, null), history[1])
+    }
+
+    @Test
+    fun `R5 - real zero strain kept and today included`() {
+        val history = RingsCalculator(emptyList(), mapOf(today to RingDay(28_800, 0.0))).history(today, today)
+        assertEquals(RingsHistoryDay(today, 100.0, null, 0.0), history.single())
+    }
+
+    @Test
+    fun `R5 - each day matches that day's rings`() {
+        val wellness = (1L..4L).map { wellnessDay(today.minusDays(it), 50, 60.0) } + wellnessDay(today, 48, 66.0)
+        val rings = (0L..4L).associate { today.minusDays(it) to RingDay(25_200, 10.0 + it) }
+        val calculator = RingsCalculator(wellness, rings)
+        for (day in calculator.history(today.minusDays(1), today)) {
+            val view = calculator.build(day.date)
+            assertEquals(view.sleep?.value, day.sleep)
+            assertEquals(view.recovery?.value, day.recovery)
+            assertEquals(view.strain?.value, day.strain)
+        }
+    }
+}

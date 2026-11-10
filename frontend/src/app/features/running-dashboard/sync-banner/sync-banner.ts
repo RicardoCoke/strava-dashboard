@@ -10,21 +10,23 @@ export function syncBannerText(state: SyncBannerState): string | null {
     return null;
   }
   if (state === 'failed') {
-    return "Couldn't check the Strava sync. Showing saved data.";
+    return "Couldn't check the Garmin Connect sync. Showing saved data.";
   }
   switch (state.status) {
     case 'syncing':
-      return 'Syncing with Strava…';
+      return 'Syncing with Garmin Connect…';
     case 'rateLimited': {
       const time = state.retryAfter ? formatDate(state.retryAfter, 'HH:mm', LOCALE) : 'a while';
-      return `Strava rate limit reached. Showing saved data; syncing resumes after ${time}.`;
+      return `Garmin Connect rate limit reached. Showing saved data; syncing resumes after ${time}.`;
     }
-    case 'stravaUnavailable':
+    case 'garminUnavailable':
       return state.lastSyncedAt
-        ? `Couldn't sync with Strava. Showing data saved at ${formatDate(state.lastSyncedAt, 'd MMM y, HH:mm', LOCALE)}.`
-        : "Couldn't sync with Strava. No data saved yet.";
+        ? `Couldn't sync with Garmin Connect. Showing data saved at ${formatDate(state.lastSyncedAt, 'd MMM y, HH:mm', LOCALE)}.`
+        : "Couldn't sync with Garmin Connect. No data saved yet.";
     case 'partial':
-      return `Still importing runs from Strava (${state.runsPendingDetail} remaining). This continues automatically.`;
+      return `Still importing runs from Garmin Connect (${state.runsPendingDetail} remaining). This continues automatically.`;
+    case 'notConfigured':
+      return "Garmin Connect isn't set up for this person. Showing saved runs.";
     case 'ok':
       return null;
   }

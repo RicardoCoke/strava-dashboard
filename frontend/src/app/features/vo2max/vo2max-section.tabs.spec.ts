@@ -239,11 +239,6 @@ describe('Vo2maxSection tabs', () => {
     expect(panelText()).toContain("Couldn't load normalized VO2max.");
   });
 
-  it('R12 - 401 shows no error', () => {
-    failNormalized(401, { error: 'not_connected', message: 'Connect your Strava account.' });
-    expect(panel()?.querySelector('[role="alert"]')).toBeNull();
-  });
-
   it('R12 - empty', () => {
     openNormalized(emptyNormalizedVo2max());
     expect(panelText()).toContain('No qualifying runs in the last 6 months');

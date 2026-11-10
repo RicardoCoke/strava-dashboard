@@ -15,7 +15,6 @@ import { SyncStore } from '../../core/sync/sync.store';
 import { LongRunDriftChart } from './long-run-drift-chart/long-run-drift-chart';
 import {
   LongRunDriftState,
-  driftStateFromError,
   emptyKind,
   excludedText,
   headerTexts,
@@ -98,10 +97,9 @@ export class LongRunDriftSection implements OnInit {
             this.state.set({ kind: 'error' });
           }
         },
-        error: (error: unknown) => {
-          const next = driftStateFromError(error);
-          if (next && !quiet) {
-            this.state.set(next);
+        error: () => {
+          if (!quiet) {
+            this.state.set({ kind: 'error' });
           }
         },
       });

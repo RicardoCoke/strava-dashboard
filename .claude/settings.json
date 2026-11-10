@@ -10,6 +10,7 @@
       "Bash(./gradlew test:*)",
       "Bash(npm run lint:*)",
       "Bash(npm test:*)",
+      "Bash(git commit --amend:*)",
       "Bash(npm run build:*)"
     ],
     "deny": [

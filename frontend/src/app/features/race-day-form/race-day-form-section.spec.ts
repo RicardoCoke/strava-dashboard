@@ -81,11 +81,6 @@ describe('RaceDayFormSection (011)', () => {
     expect(element().querySelector('app-race-day-form-chart')).not.toBeNull();
   });
 
-  it('R12 - 401 shows no error', () => {
-    fail(401, { error: 'not_connected', message: 'Connect your Strava account.' });
-    expect(element().querySelector('[role="alert"]')).toBeNull();
-  });
-
   it('R13 - tile shows race-day label and caption', () => {
     respond(raceDayForm());
     expect(element().querySelector('.race-tile')?.textContent?.trim()).toBe(

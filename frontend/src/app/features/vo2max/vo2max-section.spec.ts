@@ -86,11 +86,6 @@ describe('Vo2maxSection', () => {
     expect(text()).toContain("Couldn't load VO2max.");
   });
 
-  it('R10 - 401 shows no error text', () => {
-    fail(401, { error: 'not_connected', message: 'Connect your Strava account.' });
-    expect(element().querySelector('[role="alert"]')).toBeNull();
-  });
-
   it('R13 - empty', () => {
     respond(emptyVo2max());
     expect(text()).toContain('No qualifying runs in the last 6 months');

@@ -1,7 +1,0 @@
-{
-  "time": { "data": [0, 1, 2, 3], "series_type": "distance", "original_size": 4, "resolution": "high" },
-  "velocity_smooth": { "data": [3.0, 3.1, 2.9, 3.0], "series_type": "distance", "original_size": 4, "resolution": "high" },
-  "heartrate": { "data": [140, 141, 143, 145], "series_type": "distance", "original_size": 4, "resolution": "high" },
-  "moving": { "data": [true, true, false, true], "series_type": "distance", "original_size": 4, "resolution": "high" },
-  "distance": { "data": [0.0, 3.0, 6.1, 9.0], "series_type": "distance", "original_size": 4, "resolution": "high" }
-}

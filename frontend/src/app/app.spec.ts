@@ -34,6 +34,15 @@ describe('App', () => {
     TestBed.inject(HttpTestingController).expectOne('/api/dashboard/running');
   });
 
+  it('023 R3 - /recovery shows the Recovery page', async () => {
+    const harness = await RouterTestingHarness.create();
+    await harness.navigateByUrl('/recovery');
+    expect((harness.routeNativeElement as HTMLElement).querySelector('h1')?.textContent).toBe(
+      'Recovery',
+    );
+    TestBed.inject(HttpTestingController).match(() => true);
+  });
+
   it('R1 - unknown route redirects to dashboard', async () => {
     const harness = await RouterTestingHarness.create();
     await harness.navigateByUrl('/foo');
@@ -43,15 +52,14 @@ describe('App', () => {
     );
   });
 
-  it('002 R2 - footer shows Powered by Strava on dashboard and connect', async () => {
+  it('021 R2 - /connect redirects to the dashboard, which keeps the footer', async () => {
     const fixture = TestBed.createComponent(App);
     const router = TestBed.inject(Router);
-    for (const url of ['/', '/connect']) {
-      await router.navigateByUrl(url);
-      await fixture.whenStable();
-      const footer = (fixture.nativeElement as HTMLElement).querySelector('footer');
-      expect(footer?.textContent).toContain('Powered by Strava');
-    }
+    await router.navigateByUrl('/connect');
+    await fixture.whenStable();
+    expect(router.url).toBe('/');
+    const footer = (fixture.nativeElement as HTMLElement).querySelector('footer');
+    expect(footer?.textContent).toContain('Powered by Strava');
     TestBed.inject(HttpTestingController).match('/api/dashboard/running');
   });
 });

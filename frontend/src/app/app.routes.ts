@@ -8,8 +8,8 @@ export const routes: Routes = [
       import('./features/running-dashboard/dashboard-shell').then((m) => m.DashboardShell),
   },
   {
-    path: 'connect',
-    loadComponent: () => import('./features/connect/connect-page').then((m) => m.ConnectPage),
+    path: 'recovery',
+    loadComponent: () => import('./features/recovery/recovery-shell').then((m) => m.RecoveryShell),
   },
   { path: '**', redirectTo: '' },
 ];

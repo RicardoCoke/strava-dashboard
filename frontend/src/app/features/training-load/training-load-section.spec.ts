@@ -5,6 +5,7 @@ import { stubCharts } from '../../testing/dashboard-fixtures';
 import { trainingLoad, weekRamp } from '../../testing/training-load-fixtures';
 import { TrainingLoadResponse } from '../../core/api/training-load.models';
 import { TrainingLoadSection } from './training-load-section';
+import { Router } from '@angular/router';
 
 const ADVICE_WORDS =
   /\b(rest|recover|recovery|should|must|reduce|overtrained|overtraining|taper)\b/i;
@@ -68,6 +69,15 @@ describe('TrainingLoadSection', () => {
     expect(element().querySelector('button')).toBeNull();
   });
 
+  it('021 R2 - a 401 shows the error state and does not navigate', () => {
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate');
+    fail(401, { error: 'not_connected', message: 'x' });
+    expect(element().querySelector('[role="alert"]')?.textContent).toContain(
+      "Couldn't load training load.",
+    );
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
   it('R13 - error with retry', () => {
     fail(500, { error: 'internal_error', message: 'Something went wrong.' });
     expect(element().querySelector('[role="alert"]')?.textContent).toContain(
@@ -84,12 +94,6 @@ describe('TrainingLoadSection', () => {
     http.expectOne('/api/training-load').flush({ days: 'nope' });
     fixture.detectChanges();
     expect(text()).toContain("Couldn't load training load.");
-  });
-
-  it('R10 - 401 shows no error text', () => {
-    fail(401, { error: 'not_connected', message: 'Connect your Strava account.' });
-    expect(element().querySelector('[role="alert"]')).toBeNull();
-    expect(text()).toContain('Loading training load…');
   });
 
   it('R13 - empty no heart rate runs', () => {

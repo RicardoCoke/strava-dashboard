@@ -49,10 +49,7 @@ export class TrainingPlanStore {
               : { kind: 'error', reason: 'other', message: null },
           ),
         error: (error: unknown) => {
-          const next = planErrorState(error);
-          if (next) {
-            this.current.set(next);
-          }
+          this.current.set(planErrorState(error));
         },
       });
   }

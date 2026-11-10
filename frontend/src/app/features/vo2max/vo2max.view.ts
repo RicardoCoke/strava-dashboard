@@ -23,13 +23,10 @@ export function runs(count: number): string {
   return `${count} ${count === 1 ? 'run' : 'runs'}`;
 }
 
-/** The card state for a failed request, or null for a 401 (the interceptor redirects to /connect). */
-export function vo2maxStateFromError(error: unknown): Vo2maxState | null {
+/** The card state for a failed request. */
+export function vo2maxStateFromError(error: unknown): Vo2maxState {
   if (!(error instanceof HttpErrorResponse)) {
     return { kind: 'error' };
-  }
-  if (error.status === 401) {
-    return null;
   }
   const message = stringField(error.error, 'message');
   if (
@@ -84,12 +81,9 @@ export type NormalizedVo2maxState =
 export const NORMALIZED_NOTE =
   'Hill- and drift-adjusted: grade-adjusted pace, only the first 60 minutes of easy and long runs, and each run counts once.';
 
-/** As [vo2maxStateFromError], for the normalized tab: null for a 401 (the interceptor redirects). */
-export function normalizedStateFromError(error: unknown): NormalizedVo2maxState | null {
+/** As [vo2maxStateFromError], for the normalized tab. */
+export function normalizedStateFromError(error: unknown): NormalizedVo2maxState {
   const state = vo2maxStateFromError(error);
-  if (state === null) {
-    return null;
-  }
   return state.kind === 'invalidConfig' ? state : { kind: 'error' };
 }
 

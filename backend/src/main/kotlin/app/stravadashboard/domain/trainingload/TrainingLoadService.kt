@@ -2,14 +2,11 @@ package app.stravadashboard.domain.trainingload
 
 import app.stravadashboard.config.LthrSetting
 import app.stravadashboard.domain.ports.RunRepository
-import app.stravadashboard.domain.ports.TokenRepository
 import java.time.Clock
 import java.time.LocalDate
 import java.time.ZoneId
 
 sealed interface TrainingLoadResult {
-    data object NotConnected : TrainingLoadResult
-
     data object NotConfigured : TrainingLoadResult
 
     data object InvalidConfig : TrainingLoadResult
@@ -24,7 +21,6 @@ sealed interface TrainingLoadResult {
 /** Checks the config, then computes the training load from the local store. */
 class TrainingLoadService(
     private val lthr: LthrSetting,
-    private val tokens: TokenRepository,
     private val runs: RunRepository,
     private val clock: Clock,
     private val zone: ZoneId,
@@ -37,7 +33,6 @@ class TrainingLoadService(
         }
 
     private suspend fun compute(zones: HrZones): TrainingLoadResult {
-        if (tokens.find() == null) return TrainingLoadResult.NotConnected
         val stored = runs.findAll()
         val today = LocalDate.now(clock.withZone(zone))
         val loads = TrainingLoadCalculator.dailyLoads(stored, zones, today)

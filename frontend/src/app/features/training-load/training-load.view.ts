@@ -21,16 +21,13 @@ function runs(count: number): string {
   return `${count} ${count === 1 ? 'run' : 'runs'}`;
 }
 
-/** The card state for a failed request, or null for a 401 (the interceptor redirects to /connect). */
-export function loadStateFromError(error: unknown): LoadState | null {
+/** The card state for a failed request. */
+export function loadStateFromError(error: unknown): LoadState {
   if (!(error instanceof HttpErrorResponse)) {
     return { kind: 'error' };
   }
   const code = stringField(error.error, 'error');
   const message = stringField(error.error, 'message');
-  if (error.status === 401) {
-    return null;
-  }
   if (error.status === 404 && code === 'training_load_not_configured') {
     return { kind: 'notConfigured' };
   }

@@ -1,7 +1,8 @@
 // Mirrors the JSON of GET and POST /api/sync
 // (backend api/SyncStatusResponse.kt, docs/features/009-background-sync/specs.md).
 
-export type SyncStatus = 'syncing' | 'ok' | 'partial' | 'rateLimited' | 'stravaUnavailable';
+export type SyncStatus =
+  'syncing' | 'ok' | 'partial' | 'rateLimited' | 'garminUnavailable' | 'notConfigured';
 
 export interface SyncStatusResponse {
   status: SyncStatus;
@@ -10,7 +11,7 @@ export interface SyncStatusResponse {
   /** ISO-8601 UTC instant. */
   retryAfter: string | null;
   runsPendingDetail: number;
-  /** Seconds until a sync may start; null while syncing. */
+  /** Seconds until a sync may start; null while syncing and when Garmin Connect isn't set up. */
   nextSyncInSeconds: number | null;
 }
 
@@ -19,7 +20,8 @@ const STATUSES: readonly string[] = [
   'ok',
   'partial',
   'rateLimited',
-  'stravaUnavailable',
+  'garminUnavailable',
+  'notConfigured',
 ];
 
 function isObject(value: unknown): value is Record<string, unknown> {

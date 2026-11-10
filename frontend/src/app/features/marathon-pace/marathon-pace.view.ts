@@ -24,16 +24,13 @@ function stringField(body: unknown, key: string): string | null {
   return typeof value === 'string' ? value : null;
 }
 
-/** The card state for a failed request, or null for a 401 (the interceptor redirects to /connect). */
-export function stateFromError(error: unknown): MarathonPaceState | null {
+/** The card state for a failed request. */
+export function stateFromError(error: unknown): MarathonPaceState {
   if (!(error instanceof HttpErrorResponse)) {
     return { kind: 'error' };
   }
   const code = stringField(error.error, 'error');
   const message = stringField(error.error, 'message');
-  if (error.status === 401) {
-    return null;
-  }
   if (error.status === 404 && code === 'marathon_pace_not_configured') {
     return { kind: 'notConfigured' };
   }

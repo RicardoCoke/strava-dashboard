@@ -1,6 +1,6 @@
 package app.stravadashboard.domain.longrundrift
 
-import app.stravadashboard.domain.StravaCallBudget
+import app.stravadashboard.domain.CallBudget
 import app.stravadashboard.domain.SyncInfo
 import app.stravadashboard.domain.SyncOutcome
 import app.stravadashboard.domain.SyncPhase
@@ -26,6 +26,7 @@ import app.stravadashboard.persistence.ExposedSyncStateRepository
 import app.stravadashboard.testsupport.FakeActivitySource
 import app.stravadashboard.testsupport.MutableClock
 import app.stravadashboard.testsupport.NOW
+import app.stravadashboard.testsupport.NO_CUT_OVER
 import app.stravadashboard.testsupport.TEST_ZONE
 import app.stravadashboard.testsupport.run
 import app.stravadashboard.testsupport.summary
@@ -51,8 +52,8 @@ class LongRunDriftSyncTest {
     private val source = FakeActivitySource()
     private val clock = MutableClock()
 
-    private fun service(callsPerWindow: Int = StravaCallBudget.CALLS_PER_WINDOW) =
-        SyncService(source, runs, syncState, clock, TEST_ZONE, StravaCallBudget(clock, callsPerWindow))
+    private fun service(callsPerWindow: Int = CallBudget.CALLS_PER_WINDOW) =
+        SyncService(source, runs, syncState, clock, TEST_ZONE, NO_CUT_OVER, CallBudget(clock, callsPerWindow))
 
     private val defaultService = service()
 
@@ -98,7 +99,7 @@ class LongRunDriftSyncTest {
             run(2, date = NOW.minus(Duration.ofDays(3)).atZone(TEST_ZONE).toLocalDate(), distanceMeters = 25_000.0)
         val easy = run(3, distanceMeters = 10_000.0)
 
-        val planned = SyncPolicy.plan(SyncPhase.MISSING_DRIFT_STREAMS, listOf(old, recent, easy), NOW)
+        val planned = SyncPolicy.plan(SyncPhase.MISSING_DRIFT_STREAMS, listOf(old, recent, easy), NOW, NO_CUT_OVER)
 
         assertEquals(listOf(2L, 1L), planned.map { it.run.id.value })
         assertTrue(planned.all { it.drift })
@@ -186,23 +187,26 @@ class LongRunDriftSyncTest {
         assertEquals(SyncStatus.RATE_LIMITED, info.status)
         assertEquals(until, runBlocking { syncState.get() }.rateLimitedUntil)
         assertNull(runBlocking { runs.findAll() }.single().hrDrift)
-        assertEquals(1, SyncPolicy.pendingCount(runBlocking { runs.findAll() }))
+        assertEquals(1, SyncPolicy.pendingCount(runBlocking { runs.findAll() }, NO_CUT_OVER))
     }
 
     @Test
-    fun `R2 - reauth or unavailable on drift call writes no row`() {
+    fun `R2 - unavailable or rate limited on drift call writes no row`() {
         source.activities = listOf(longRun(1))
         storeWithDetailAndHistogram(longRun(1))
         source.failFromCall = 2
 
         source.failure = SourceResult.Unavailable
-        assertEquals(SyncStatus.STRAVA_UNAVAILABLE, sync().status)
+        assertEquals(SyncStatus.SOURCE_UNAVAILABLE, sync().status)
         assertNull(runBlocking { runs.findAll() }.single().hrDrift)
 
         source.calls.clear()
-        source.failure = SourceResult.ReauthRequired
+        source.failure = SourceResult.RateLimited(NOW.plus(Duration.ofHours(1)))
         clock.advance(Duration.ofMinutes(20))
-        assertEquals(SyncOutcome.ReauthRequired, runBlocking { defaultService.syncIfDue() })
+        assertEquals(
+            SyncStatus.RATE_LIMITED,
+            (runBlocking { defaultService.syncIfDue() } as SyncOutcome.Done).info.status,
+        )
         assertNull(runBlocking { runs.findAll() }.single().hrDrift)
     }
 
@@ -227,7 +231,7 @@ class LongRunDriftSyncTest {
         val longRuns = (1..5L).map { longRun(it, daysAgo(30).plus(Duration.ofDays(it))) }
         source.activities = longRuns
         storeWithDetailAndHistogram(*longRuns.toTypedArray())
-        assertEquals(5, SyncPolicy.pendingCount(runBlocking { runs.findAll() }))
+        assertEquals(5, SyncPolicy.pendingCount(runBlocking { runs.findAll() }, NO_CUT_OVER))
 
         sync(service(callsPerWindow = 3))
         assertEquals(2, driftCalls().size)
@@ -235,7 +239,7 @@ class LongRunDriftSyncTest {
         // Next window: due straight away, without waiting for the 15-minute interval.
         source.calls.clear()
         clock.advance(Duration.ofMinutes(1))
-        val windowEnd = StravaCallBudget(clock).windowEnd()
+        val windowEnd = CallBudget(clock).windowEnd()
         clock.now = windowEnd
         val info = sync(service(callsPerWindow = 3))
         assertEquals(2, driftCalls().size)
@@ -253,12 +257,12 @@ class LongRunDriftSyncTest {
             source.calls.clear()
             sync(budgeted)
             assertTrue(source.calls.size <= 12)
-            clock.now = StravaCallBudget(clock).windowEnd()
+            clock.now = CallBudget(clock).windowEnd()
         }
 
         val stored = runBlocking { runs.findAll() }
         assertTrue(stored.all { it.hrDrift != null })
-        assertEquals(0, SyncPolicy.pendingCount(stored))
+        assertEquals(0, SyncPolicy.pendingCount(stored, NO_CUT_OVER))
     }
 
     @Test

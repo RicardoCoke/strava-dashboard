@@ -43,9 +43,6 @@ sealed interface SourceResult<out T> {
     ) : SourceResult<Nothing>
 
     data object Unavailable : SourceResult<Nothing>
-
-    /** The connection was revoked; stored tokens have been deleted. */
-    data object ReauthRequired : SourceResult<Nothing>
 }
 
 interface ActivitySource {
@@ -59,9 +56,9 @@ interface ActivitySource {
 
     suspend fun speedStream(id: ActivityId): SourceResult<SpeedStream>
 
-    /** `time` and `heartrate` only; no usable heart-rate data counts as [SourceResult.NotFound]. */
+    /** Time and heart rate only; no usable heart-rate data counts as [SourceResult.NotFound]. */
     suspend fun heartRateStream(id: ActivityId): SourceResult<HeartRateStream>
 
-    /** `time`, `velocity_smooth`, `heartrate` and `moving` (feature 013); no speed or HR is [SourceResult.NotFound]. */
+    /** Time, speed, heart rate and, when known, moving (feature 013); no speed or HR is [SourceResult.NotFound]. */
     suspend fun driftStream(id: ActivityId): SourceResult<DriftStream>
 }

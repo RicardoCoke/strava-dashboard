@@ -96,7 +96,7 @@ export class WellnessSection implements OnInit {
         },
         error: (error: unknown) => {
           const next = wellnessStateFromError(error);
-          if (next && !quiet) {
+          if (!quiet) {
             this.state.set(next);
           }
         },

@@ -1,4 +1,3 @@
-import { HttpErrorResponse } from '@angular/common/http';
 import {
   DriftExcluded,
   DriftThresholds,
@@ -88,9 +87,4 @@ export function legendText(thresholds: DriftThresholds): string {
   const good = thresholds.goodBelowPct;
   const poor = thresholds.poorAbovePct;
   return `Good < ${good}% · Watch ${good}–${poor}% · Poor > ${poor}%`;
-}
-
-/** The card state for a failed request, or null for a 401 (the interceptor redirects to /connect). */
-export function driftStateFromError(error: unknown): LongRunDriftState | null {
-  return error instanceof HttpErrorResponse && error.status === 401 ? null : { kind: 'error' };
 }

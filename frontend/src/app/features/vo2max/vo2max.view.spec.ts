@@ -4,7 +4,6 @@ import { normalizedFootnoteText, normalizedStateFromError } from './vo2max.view'
 
 describe('vo2max view (016)', () => {
   it('R12 - normalized error states', () => {
-    expect(normalizedStateFromError(new HttpErrorResponse({ status: 401 }))).toBeNull();
     expect(normalizedStateFromError(new HttpErrorResponse({ status: 500 }))).toEqual({
       kind: 'error',
     });

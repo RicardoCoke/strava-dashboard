@@ -8,7 +8,7 @@ import java.time.Instant
 /** The pure rules for when the next sync may start and what status to report while none runs (feature 009). */
 internal object SyncSchedule {
     /**
-     * The instant the next sync may start (feature 009): 15 minutes after Strava was unreachable, straight away without
+     * The instant the next sync may start (feature 009): 15 minutes after the source was unreachable, at once without
      * a full list pass or with runs pending, otherwise 15 minutes after the last successful sync; never before the
      * rate-limit retry time or, with the call budget used up, before the next budget window.
      */
@@ -20,7 +20,7 @@ internal object SyncSchedule {
     ): Instant {
         val base =
             when {
-                state.lastStatus == SyncStatus.STRAVA_UNAVAILABLE -> state.lastAttemptAt?.plus(SYNC_INTERVAL) ?: now
+                state.lastStatus == SyncStatus.SOURCE_UNAVAILABLE -> state.lastAttemptAt?.plus(SYNC_INTERVAL) ?: now
                 state.listCursor == null || pending > 0 -> now
                 else -> state.lastSuccessfulSyncAt?.plus(SYNC_INTERVAL) ?: now
             }
@@ -45,7 +45,7 @@ internal object SyncSchedule {
         val status =
             when {
                 until != null -> SyncStatus.RATE_LIMITED
-                state.lastStatus == SyncStatus.STRAVA_UNAVAILABLE -> SyncStatus.STRAVA_UNAVAILABLE
+                state.lastStatus == SyncStatus.SOURCE_UNAVAILABLE -> SyncStatus.SOURCE_UNAVAILABLE
                 pending > 0 -> SyncStatus.PARTIAL
                 else -> SyncStatus.OK
             }

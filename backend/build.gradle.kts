@@ -28,9 +28,7 @@ dependencies {
     implementation(libs.ktor.server.status.pages)
     implementation(libs.ktor.server.call.logging)
     implementation(libs.ktor.serialization.kotlinx.json)
-    implementation(libs.ktor.server.sessions)
     implementation(libs.ktor.client.core)
-    implementation(libs.ktor.client.cio)
     implementation(libs.ktor.client.java)
     implementation(libs.ktor.client.content.negotiation)
     implementation(libs.exposed.core)
@@ -38,6 +36,7 @@ dependencies {
     implementation(libs.sqlite.jdbc)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.logback.classic)
+    implementation(libs.garmin.fit)
 
     testImplementation(kotlin("test"))
     testImplementation(libs.ktor.server.test.host)

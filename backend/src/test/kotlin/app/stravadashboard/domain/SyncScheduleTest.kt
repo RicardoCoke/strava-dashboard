@@ -48,11 +48,11 @@ class SyncScheduleTest {
         val state =
             synced.copy(
                 lastSuccessfulSyncAt = minutesAgo(60),
-                lastStatus = SyncStatus.STRAVA_UNAVAILABLE,
+                lastStatus = SyncStatus.SOURCE_UNAVAILABLE,
                 lastAttemptAt = minutesAgo(5),
             )
         assertEquals(NOW.plus(Duration.ofMinutes(10)), nextDue(state, pending = 30))
-        assertEquals(SyncStatus.STRAVA_UNAVAILABLE, SyncSchedule.idleInfo(state, 30, NOW).status)
+        assertEquals(SyncStatus.SOURCE_UNAVAILABLE, SyncSchedule.idleInfo(state, 30, NOW).status)
     }
 
     @Test

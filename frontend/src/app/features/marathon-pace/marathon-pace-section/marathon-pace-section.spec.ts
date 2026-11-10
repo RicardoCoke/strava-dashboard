@@ -105,11 +105,6 @@ describe('MarathonPaceSection', () => {
     expect(text()).toContain("Couldn't load marathon pace.");
   });
 
-  it('R7 - 401 shows no error text', () => {
-    fail(401, { error: 'not_connected', message: 'Connect your Strava account.' });
-    expect(element().querySelector('[role="alert"]')).toBeNull();
-  });
-
   it('R7 - empty state', () => {
     respond(marathonPace({ summary: mpSummary({ totalMpKm: 0, thisWeekMpKm: 0 }) }));
     expect(all('.subtitle')).toEqual([

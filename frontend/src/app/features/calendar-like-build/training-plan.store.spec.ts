@@ -43,15 +43,6 @@ describe('TrainingPlanStore', () => {
     http.verify();
   });
 
-  it('004 R16 - 401 keeps state', () => {
-    store.ensureLoaded();
-    http
-      .expectOne('/api/training-plan')
-      .flush({ error: 'not_connected', message: 'x' }, { status: 401, statusText: 'Unauthorized' });
-    expect(store.state().kind).toBe('loading');
-    expect(store.errorText()).toBe('');
-  });
-
   it('004 R16 - unexpected body is other error', () => {
     store.ensureLoaded();
     http.expectOne('/api/training-plan').flush({ weeks: 'nope' });

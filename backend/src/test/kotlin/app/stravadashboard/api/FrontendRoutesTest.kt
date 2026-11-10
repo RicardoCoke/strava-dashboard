@@ -22,7 +22,7 @@ class FrontendRoutesTest {
         application {
             module(
                 testConfig().copy(frontendDir = dir.path),
-                stravaEngine = MockEngine { respondError(HttpStatusCode.NotFound) },
+                garminEngine = MockEngine { respondError(HttpStatusCode.NotFound) },
             )
         }
     }
@@ -50,7 +50,7 @@ class FrontendRoutesTest {
             appWithFrontend()
 
             assertContains(client.get("/api/health").bodyAsText(), "ok")
-            assertEquals(HttpStatusCode.Unauthorized, client.get("/api/sync").status)
+            assertContains(client.get("/api/sync").bodyAsText(), "\"status\"")
             assertEquals(HttpStatusCode.NotFound, client.get("/api/nope").status)
         }
 }

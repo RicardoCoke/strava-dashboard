@@ -83,11 +83,6 @@ describe('WellnessSection', () => {
     expect(text()).toContain("Couldn't load resting HR & HRV.");
   });
 
-  it('R9 - 401 shows no error text', () => {
-    fail(401, { error: 'not_connected', message: 'Connect your Strava account.' });
-    expect(element().querySelector('[role="alert"]')).toBeNull();
-  });
-
   it('R9 - empty text per source status', () => {
     respond(emptyWellness());
     expect(text()).toContain('Waiting for the first sync from Garmin Connect.');

@@ -141,3 +141,18 @@ select:focus-visible {
   font-weight: 600;
   cursor: pointer;
 }
+
+/* The page header shared by Performance and Recovery (feature 023). */
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.header-start,
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}

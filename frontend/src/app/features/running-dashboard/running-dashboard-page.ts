@@ -1,4 +1,3 @@
-import { HttpErrorResponse } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -13,6 +12,7 @@ import { skip } from 'rxjs';
 import { RunningDashboardResponse } from '../../core/api/running-dashboard.models';
 import { RunningDashboardService } from '../../core/api/running-dashboard.service';
 import { SyncStore } from '../../core/sync/sync.store';
+import { NavMenu } from '../../shared/nav-menu/nav-menu';
 import { PersonSwitch } from '../../shared/person-switch/person-switch';
 import { RingSpinner } from '../../shared/spinner/ring-spinner';
 import { BuildCalendarSection } from '../calendar-like-build/build-calendar-section/build-calendar-section';
@@ -52,6 +52,7 @@ function hasNoRuns(data: RunningDashboardResponse): boolean {
     RaceDayFormSection,
     WellnessSection,
     RingsSection,
+    NavMenu,
     PersonSwitch,
     WeeklySummaryBell,
     Vo2maxSection,
@@ -114,9 +115,8 @@ export class RunningDashboardPage implements OnInit {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (data) => this.state.set({ kind: 'loaded', data }),
-        error: (error: unknown) => {
-          // A 401 is handled by the interceptor, which navigates to /connect.
-          if (!quiet && !(error instanceof HttpErrorResponse && error.status === 401)) {
+        error: () => {
+          if (!quiet) {
             this.state.set({ kind: 'error' });
           }
         },

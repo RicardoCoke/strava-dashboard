@@ -19,7 +19,6 @@ class ExposedSyncStateRepository(
                     lastSuccessfulSyncAt = row[SyncStateTable.lastSuccessfulSyncAt]?.let(Instant::ofEpochSecond),
                     rateLimitedUntil = row[SyncStateTable.rateLimitedUntil]?.let(Instant::ofEpochSecond),
                     lastStatus = row[SyncStateTable.lastStatus]?.let(::statusOf),
-                    ownerAthleteId = row[SyncStateTable.ownerAthleteId],
                     historyStart = row[SyncStateTable.historyStart]?.let(Instant::ofEpochSecond),
                     lastAttemptAt = row[SyncStateTable.lastAttemptAt]?.let(Instant::ofEpochSecond),
                 )
@@ -34,7 +33,6 @@ class ExposedSyncStateRepository(
                 it[lastSuccessfulSyncAt] = state.lastSuccessfulSyncAt?.epochSecond
                 it[rateLimitedUntil] = state.rateLimitedUntil?.epochSecond
                 it[lastStatus] = state.lastStatus?.name
-                it[ownerAthleteId] = state.ownerAthleteId
                 it[historyStart] = state.historyStart?.epochSecond
                 it[lastAttemptAt] = state.lastAttemptAt?.epochSecond
             }

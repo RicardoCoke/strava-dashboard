@@ -3,21 +3,15 @@ package app.stravadashboard.api
 import app.stravadashboard.domain.ports.PlanFile
 import app.stravadashboard.module
 import app.stravadashboard.testsupport.FakePlanSource
-import app.stravadashboard.testsupport.NOW
+import app.stravadashboard.testsupport.GarminFake
 import app.stravadashboard.testsupport.TEST_ZONE
+import app.stravadashboard.testsupport.browser
 import app.stravadashboard.testsupport.testConfig
 import io.ktor.client.HttpClient
-import io.ktor.client.engine.mock.MockEngine
-import io.ktor.client.engine.mock.respond
-import io.ktor.client.plugins.cookies.HttpCookies
-import io.ktor.client.request.HttpRequestData
 import io.ktor.client.request.get
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
-import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
-import io.ktor.http.Url
-import io.ktor.http.headersOf
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import kotlinx.serialization.json.Json
@@ -33,37 +27,16 @@ import kotlin.test.assertTrue
 class TrainingPlanRoutesTest {
     private val config = testConfig()
     private val source = FakePlanSource()
-    private val stravaRequests = mutableListOf<HttpRequestData>()
+    private val garmin = GarminFake()
     private val clock = Clock.fixed(Instant.parse("2026-10-31T10:00:00Z"), TEST_ZONE)
 
     private fun app(block: suspend ApplicationTestBuilder.() -> Unit) =
         testApplication {
-            val engine =
-                MockEngine { request ->
-                    stravaRequests += request
-                    respond(
-                        """{"access_token":"a","refresh_token":"r","expires_at":${NOW.epochSecond + 99_999_999},
-                           "athlete":{"id":7}}""",
-                        HttpStatusCode.OK,
-                        headersOf(HttpHeaders.ContentType, "application/json"),
-                    )
-                }
-            application { module(config, clock, TEST_ZONE, engine, source) }
+            application { module(config, clock, TEST_ZONE, source, garminEngine = garmin.engine) }
             block()
         }
 
-    private suspend fun ApplicationTestBuilder.connectedBrowser(): HttpClient {
-        val browser =
-            createClient {
-                install(HttpCookies)
-                followRedirects = false
-            }
-        val login = browser.get("/auth/strava/login")
-        val state = Url(requireNotNull(login.headers[HttpHeaders.Location])).parameters["state"]
-        browser.get("/auth/strava/callback?state=$state&code=invented&scope=read,activity:read_all")
-        stravaRequests.clear()
-        return browser
-    }
+    private fun ApplicationTestBuilder.connectedBrowser(): HttpClient = browser()
 
     private suspend fun HttpResponse.json(): JsonObject = Json.parseToJsonElement(bodyAsText()).jsonObject
 
@@ -104,21 +77,6 @@ class TrainingPlanRoutesTest {
         }
 
     @Test
-    fun `004 R8 - 401 without session`() =
-        app {
-            val response = client.get("/api/training-plan")
-            assertEquals(HttpStatusCode.Unauthorized, response.status)
-            assertEquals(
-                "not_connected",
-                response
-                    .json()
-                    .getValue("error")
-                    .toString()
-                    .trim('"'),
-            )
-        }
-
-    @Test
     fun `004 R8 - 404 not configured`() =
         app {
             source.file = PlanFile.NotConfigured
@@ -155,11 +113,11 @@ class TrainingPlanRoutesTest {
         }
 
     @Test
-    fun `004 R8 - no Strava call`() =
+    fun `004 R8 - makes no Garmin calls`() =
         app {
             val browser = connectedBrowser()
             browser.get("/api/training-plan")
             browser.get("/api/training-plan")
-            assertEquals(emptyList(), stravaRequests)
+            assertEquals(emptyList(), garmin.requests)
         }
 }

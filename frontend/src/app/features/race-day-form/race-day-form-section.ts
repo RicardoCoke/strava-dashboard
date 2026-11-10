@@ -95,7 +95,7 @@ export class RaceDayFormSection implements OnInit {
         },
         error: (error: unknown) => {
           const next = raceDayFormStateFromError(error);
-          if (next && !quiet) {
+          if (!quiet) {
             this.state.set(next);
           }
         },

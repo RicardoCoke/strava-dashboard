@@ -4,21 +4,15 @@ import app.stravadashboard.config.AppConfig
 import app.stravadashboard.module
 import app.stravadashboard.persistence.DatabaseFactory
 import app.stravadashboard.persistence.ExposedRunRepository
-import app.stravadashboard.persistence.ExposedTokenRepository
+import app.stravadashboard.testsupport.GarminFake
 import app.stravadashboard.testsupport.TEST_ZONE
+import app.stravadashboard.testsupport.browser
 import app.stravadashboard.testsupport.summary
 import app.stravadashboard.testsupport.testConfig
 import io.ktor.client.HttpClient
-import io.ktor.client.engine.mock.MockEngine
-import io.ktor.client.engine.mock.respond
-import io.ktor.client.plugins.cookies.HttpCookies
-import io.ktor.client.request.HttpRequestData
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
-import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
-import io.ktor.http.Url
-import io.ktor.http.headersOf
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import kotlinx.coroutines.runBlocking
@@ -37,44 +31,17 @@ class WeeklySummaryRoutesTest {
     // Saturday 2026-10-31.
     private val now = Instant.parse("2026-10-31T10:00:00Z")
     private val clock = Clock.fixed(now, TEST_ZONE)
-    private val externalRequests = mutableListOf<HttpRequestData>()
-    private val jsonHeaders = headersOf(HttpHeaders.ContentType, "application/json")
+    private val garmin = GarminFake()
 
     private fun app(
         config: AppConfig,
         block: suspend ApplicationTestBuilder.() -> Unit,
     ) = testApplication {
-        val engine =
-            MockEngine { request ->
-                externalRequests += request
-                when (request.url.encodedPath) {
-                    "/oauth/token" ->
-                        respond(
-                            """{"access_token":"a","refresh_token":"r","expires_at":${now.epochSecond + 99_999},
-                               "athlete":{"id":7}}""",
-                            HttpStatusCode.OK,
-                            jsonHeaders,
-                        )
-                    "/api/v3/athlete/activities" -> respond("[]", HttpStatusCode.OK, jsonHeaders)
-                    else -> respond("""{"id":1,"laps":[]}""", HttpStatusCode.OK, jsonHeaders)
-                }
-            }
-        application { module(config, clock, TEST_ZONE, engine) }
+        application { module(config, clock, TEST_ZONE, garminEngine = garmin.engine) }
         block()
     }
 
-    private suspend fun ApplicationTestBuilder.connectedBrowser(): HttpClient {
-        val browser =
-            createClient {
-                install(HttpCookies)
-                followRedirects = false
-            }
-        val login = browser.get("/auth/strava/login")
-        val state = Url(requireNotNull(login.headers[HttpHeaders.Location])).parameters["state"]
-        browser.get("/auth/strava/callback?state=$state&code=invented&scope=read,activity:read_all")
-        externalRequests.clear()
-        return browser
-    }
+    private fun ApplicationTestBuilder.connectedBrowser(): HttpClient = browser()
 
     /** Five 10 km runs, Mon 2026-10-26 to Fri 2026-10-30, named so a leak would show. */
     private fun seedWeek(config: AppConfig) =
@@ -131,7 +98,7 @@ class WeeklySummaryRoutesTest {
         app(config) {
             val body = connectedBrowser().also { seedWeek(config) }.get("/api/weekly-summaries").bodyAsText()
             listOf("Secret Loop", "700", "access_token").forEach { assertTrue(it !in body, it) }
-            assertTrue(externalRequests.isEmpty())
+            assertTrue(garmin.requests.isEmpty())
         }
     }
 
@@ -140,20 +107,4 @@ class WeeklySummaryRoutesTest {
         app(testConfig()) {
             assertEquals("""{"summaries":[]}""", connectedBrowser().get("/api/weekly-summaries").bodyAsText())
         }
-
-    @Test
-    fun `R10 - 401 without session or token`() {
-        val config = testConfig()
-        app(config) {
-            val anonymous = client.get("/api/weekly-summaries")
-            assertEquals(HttpStatusCode.Unauthorized, anonymous.status)
-            assertEquals(
-                """{"error":"not_connected","message":"Connect your Strava account."}""",
-                anonymous.bodyAsText(),
-            )
-            val browser = connectedBrowser()
-            runBlocking { ExposedTokenRepository(DatabaseFactory.connect(config.dbPath)).delete() }
-            assertEquals(HttpStatusCode.Unauthorized, browser.get("/api/weekly-summaries").status)
-        }
-    }
 }

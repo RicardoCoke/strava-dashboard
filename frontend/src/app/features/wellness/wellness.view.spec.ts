@@ -29,13 +29,15 @@ describe('wellness view', () => {
     expect(staleText(source('rateLimited'))).toBe(staleText(source('unavailable')));
   });
 
-  it('R9 - 404 not configured, 401 nothing, anything else error', () => {
+  it('R9 - 404 not configured, anything else error', () => {
     const notConfigured = new HttpErrorResponse({
       status: 404,
       error: { error: 'wellness_not_configured', message: 'Garmin Connect is not connected.' },
     });
     expect(wellnessStateFromError(notConfigured)).toEqual({ kind: 'notConfigured' });
-    expect(wellnessStateFromError(new HttpErrorResponse({ status: 401 }))).toBeNull();
+    expect(wellnessStateFromError(new HttpErrorResponse({ status: 401 }))).toEqual({
+      kind: 'error',
+    });
     expect(wellnessStateFromError(new HttpErrorResponse({ status: 404 }))).toEqual({
       kind: 'error',
     });

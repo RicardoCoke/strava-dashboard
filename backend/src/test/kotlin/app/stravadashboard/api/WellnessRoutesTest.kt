@@ -12,27 +12,23 @@ import app.stravadashboard.domain.wellness.WellnessState
 import app.stravadashboard.module
 import app.stravadashboard.persistence.DatabaseFactory
 import app.stravadashboard.persistence.ExposedRunRepository
-import app.stravadashboard.persistence.ExposedTokenRepository
 import app.stravadashboard.persistence.ExposedWellnessRepository
 import app.stravadashboard.testsupport.TEST_ZONE
 import app.stravadashboard.testsupport.WELLNESS_TODAY
+import app.stravadashboard.testsupport.browser
 import app.stravadashboard.testsupport.summary
 import app.stravadashboard.testsupport.syncAndWait
 import app.stravadashboard.testsupport.testConfig
 import app.stravadashboard.testsupport.wellnessDay
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
-import io.ktor.client.engine.mock.MockRequestHandleScope
 import io.ktor.client.engine.mock.respond
-import io.ktor.client.plugins.cookies.HttpCookies
 import io.ktor.client.request.HttpRequestData
-import io.ktor.client.request.HttpResponseData
 import io.ktor.client.request.get
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
-import io.ktor.http.Url
 import io.ktor.http.headersOf
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
@@ -53,29 +49,17 @@ class WellnessRoutesTest {
     private val now = Instant.parse("2026-10-31T10:00:00Z")
     private val clock = Clock.fixed(now, TEST_ZONE)
     private val jsonHeaders = headersOf(HttpHeaders.ContentType, "application/json")
-    private val stravaRequests = mutableListOf<HttpRequestData>()
     private val garminRequests = mutableListOf<HttpRequestData>()
     private var garminStatus = HttpStatusCode.OK
 
     private fun config(key: String? = "invented-key"): AppConfig =
         testConfig().copy(lthr = LthrSetting.Valid(Bpm(175)), garminApiKey = key)
 
-    private fun MockRequestHandleScope.strava(request: HttpRequestData): HttpResponseData =
-        when (request.url.encodedPath) {
-            "/oauth/token" ->
-                respond(
-                    """{"access_token":"a","refresh_token":"r","expires_at":${now.epochSecond + 99_999},
-                       "athlete":{"id":7}}""",
-                    HttpStatusCode.OK,
-                    jsonHeaders,
-                )
-            else -> respond("[]", HttpStatusCode.OK, jsonHeaders)
-        }
-
-    // Token, then resting HR, then HRV; a 401 on the token call stops after one request.
+    // Token, then an empty activity list, resting HR and HRV; a 401 on the token call stops after one request.
     private fun garminBody(path: String): String =
         when {
             path.endsWith("/token") -> "invented-token"
+            path.contains("activitylist") -> "[]"
             path.contains(
                 "dailysummaries",
             ) -> """{"data":[{"calendarDate":"2026-10-31","heartRate":{"restingValue":50}}]}"""
@@ -86,32 +70,16 @@ class WellnessRoutesTest {
         config: AppConfig,
         block: suspend ApplicationTestBuilder.() -> Unit,
     ) = testApplication {
-        val strava =
-            MockEngine { request ->
-                stravaRequests += request
-                strava(request)
-            }
         val garmin =
             MockEngine { request ->
                 garminRequests += request
                 respond(garminBody(request.url.encodedPath), garminStatus, jsonHeaders)
             }
-        application { module(config, clock, TEST_ZONE, strava, garminEngine = garmin) }
+        application { module(config, clock, TEST_ZONE, garminEngine = garmin) }
         block()
     }
 
-    private suspend fun ApplicationTestBuilder.connectedBrowser(): HttpClient {
-        val browser =
-            createClient {
-                install(HttpCookies)
-                followRedirects = false
-            }
-        val login = browser.get("/auth/strava/login")
-        val state = Url(requireNotNull(login.headers[HttpHeaders.Location])).parameters["state"]
-        browser.get("/auth/strava/callback?state=$state&code=invented&scope=read,activity:read_all")
-        stravaRequests.clear()
-        return browser
-    }
+    private fun ApplicationTestBuilder.connectedBrowser(): HttpClient = browser()
 
     /** 80 days of invented readings, the newest one well off baseline, and a last fetch with [status]. */
     private fun seedWellness(
@@ -153,26 +121,6 @@ class WellnessRoutesTest {
                 response.bodyAsText(),
             )
         }
-
-    @Test
-    fun `R8 - wellness requires connected session`() =
-        app(config()) {
-            val response = client.get("/api/wellness")
-            assertEquals(HttpStatusCode.Unauthorized, response.status)
-            assertEquals("not_connected", response.json().text("error"))
-        }
-
-    @Test
-    fun `R8 - wellness requires a session matching the stored tokens`() {
-        val config = config()
-        app(config) {
-            val browser = connectedBrowser()
-            runBlocking { ExposedTokenRepository(DatabaseFactory.connect(config.dbPath)).delete() }
-            val response = browser.get("/api/wellness")
-            assertEquals(HttpStatusCode.Unauthorized, response.status)
-            assertEquals("not_connected", response.json().text("error"))
-        }
-    }
 
     @Test
     fun `R8 - pending source with no data`() =
@@ -275,57 +223,53 @@ class WellnessRoutesTest {
             val browser = connectedBrowser().also { seedWellness(config) }
             assertEquals(HttpStatusCode.OK, browser.get("/api/wellness").status)
             assertTrue(garminRequests.isEmpty())
-            assertTrue(stravaRequests.isEmpty())
         }
     }
 
     @Test
-    fun `R3 - background sync job refreshes wellness after the Strava step`() {
+    fun `R3 - background sync job refreshes wellness after the activity step`() {
         val config = config()
         app(config) {
             val browser = connectedBrowser()
             browser.syncAndWait()
 
-            // Token, summaries, HRV, then sleep and heart rate for each of 32 ring days (020).
-            assertEquals(3 + 32 * 2, garminRequests.size)
+            // Token, activities (021), resting HR + HRV in 2 chunks (023), then sleep and HR for each of 93 ring days.
+            assertEquals(6 + 93 * 2, garminRequests.size)
             val body = browser.get("/api/wellness").json()
             assertEquals("1", body.text("daysWithData"))
             assertEquals("ok", body.getValue("source").jsonObject.text("status"))
         }
     }
 
-    /** One background sync from a fresh app: the `/api/sync` body, the Strava paths called and the Garmin calls. */
-    private fun syncOnce(config: AppConfig): Triple<String, List<String>, Int> {
-        var result = Triple("", emptyList<String>(), 0)
+    /** One background sync from a fresh app: the `/api/sync` body and the Garmin calls. */
+    private fun syncOnce(config: AppConfig): Pair<String, Int> {
+        var result = "" to 0
         garminRequests.clear()
         app(config) {
             val status = connectedBrowser().syncAndWait()
             assertEquals(HttpStatusCode.OK, status.status)
-            result = Triple(status.bodyAsText(), stravaRequests.map { it.url.encodedPath }, garminRequests.size)
+            result = status.bodyAsText() to garminRequests.size
         }
         return result
     }
 
     @Test
-    fun `R1 - job makes no Garmin calls without a key and the Strava sync is unchanged`() {
-        val withoutKey = syncOnce(config(key = null))
-        val withKey = syncOnce(config())
+    fun `R1 - job makes no Garmin calls without a key`() {
+        val (body, calls) = syncOnce(config(key = null))
 
-        assertEquals(0, withoutKey.third)
-        assertEquals(3 + 32 * 2, withKey.third)
-        assertEquals(withoutKey.first, withKey.first)
-        assertEquals(withoutKey.second, withKey.second)
+        assertEquals(0, calls)
+        assertTrue("\"notConfigured\"" in body)
     }
 
     @Test
-    fun `R4 - rejected key leaves the Strava sync and its status unchanged`() {
-        val withoutKey = syncOnce(config(key = null))
+    fun `R4 - rejected key stops both steps and the sync reports Garmin unavailable`() {
         garminStatus = HttpStatusCode.Unauthorized
-        val rejected = syncOnce(config())
+        val config = config()
+        val (body, calls) = syncOnce(config)
 
-        assertEquals(1, rejected.third)
-        assertEquals(withoutKey.first, rejected.first)
-        assertEquals(withoutKey.second, rejected.second)
+        // One rejected token request per step; neither retries, as no token was cached.
+        assertEquals(2, calls)
+        assertTrue("\"garminUnavailable\"" in body)
     }
 
     @Test

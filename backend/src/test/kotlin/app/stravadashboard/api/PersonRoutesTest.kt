@@ -1,32 +1,29 @@
 package app.stravadashboard.api
 
-import app.stravadashboard.auth.OAuthState
+import app.stravadashboard.config.LthrSetting
 import app.stravadashboard.config.MarathonPaceSetting
 import app.stravadashboard.config.MaxHrSetting
 import app.stravadashboard.config.PersonSettings
 import app.stravadashboard.domain.model.Bpm
 import app.stravadashboard.domain.model.SecondsPerKm
-import app.stravadashboard.domain.ports.StoredTokens
 import app.stravadashboard.domain.rings.RingDay
 import app.stravadashboard.module
 import app.stravadashboard.persistence.DatabaseFactory
 import app.stravadashboard.persistence.ExposedRingDayRepository
 import app.stravadashboard.persistence.ExposedRunRepository
-import app.stravadashboard.persistence.ExposedSyncStateRepository
-import app.stravadashboard.persistence.ExposedTokenRepository
-import app.stravadashboard.testsupport.MutableClock
+import app.stravadashboard.testsupport.GARMIN_TOKEN_PATH
 import app.stravadashboard.testsupport.NOW
 import app.stravadashboard.testsupport.TEST_ZONE
+import app.stravadashboard.testsupport.browser
+import app.stravadashboard.testsupport.fixedClock
 import app.stravadashboard.testsupport.summary
 import app.stravadashboard.testsupport.tempDbPath
 import app.stravadashboard.testsupport.testConfig
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
-import io.ktor.client.plugins.cookies.HttpCookies
 import io.ktor.client.plugins.cookies.cookies
 import io.ktor.client.request.HttpRequestData
-import io.ktor.client.request.forms.FormDataContent
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -34,9 +31,7 @@ import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
-import io.ktor.http.Url
 import io.ktor.http.headersOf
-import io.ktor.server.sessions.defaultSessionSerializer
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import kotlinx.coroutines.delay
@@ -52,43 +47,29 @@ import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-private const val RICARDO_ATHLETE = 7L
-private const val MARINA_ATHLETE = 8L
-private const val MARINA_CLIENT = "2222"
-private const val RICARDO_CLIENT = "12345"
+private const val RICARDO_KEY = "invented-garmin-key"
+private const val MARINA_KEY = "marina-garmin-key"
 
 /** Everything here is invented. */
 class PersonRoutesTest {
     private val marinaSettings =
         PersonSettings(
-            stravaClientId = MARINA_CLIENT,
-            stravaClientSecret = "marina-secret",
             dbPath = tempDbPath(),
             trainingPlanCsvPath = null,
             trainingPlanStartDate = LocalDate.of(2026, 8, 3),
-            lthr = app.stravadashboard.config.LthrSetting.NotConfigured,
+            lthr = LthrSetting.NotConfigured,
             maxHr = MaxHrSetting.Configured(Bpm(187)),
             marathonPace = MarathonPaceSetting.Valid(SecondsPerKm(255)),
-            garminApiKey = null,
+            garminApiKey = MARINA_KEY,
+            garminActivitiesFrom = LocalDate.of(2000, 1, 1),
             buildWeeks = 18,
         )
     private val config = testConfig().copy(marina = marinaSettings)
-    private val ricardoDb = DatabaseFactory.connect(config.dbPath)
-    private val marinaDb = DatabaseFactory.connect(marinaSettings.dbPath)
-    private val ricardoTokens = ExposedTokenRepository(ricardoDb)
-    private val marinaTokens = ExposedTokenRepository(marinaDb)
-    private val ricardoRuns = ExposedRunRepository(ricardoDb)
-    private val marinaRuns = ExposedRunRepository(marinaDb)
-    private val stravaRequests = CopyOnWriteArrayList<HttpRequestData>()
-
-    /** The athlete Strava says connected. By default each app's own athlete; a test can pretend otherwise. */
-    private var athleteOverride: Long? = null
-
-    // Fixed unless a test moves it past the startup sync (feature 022).
-    private val clock = MutableClock()
+    private val ricardoRuns = ExposedRunRepository(DatabaseFactory.connect(config.dbPath))
+    private val marinaRuns = ExposedRunRepository(DatabaseFactory.connect(marinaSettings.dbPath))
+    private val garminRequests = CopyOnWriteArrayList<HttpRequestData>()
     private val json = headersOf(HttpHeaders.ContentType, "application/json")
 
     private val perPersonRoutes =
@@ -105,66 +86,35 @@ class PersonRoutesTest {
             "/api/marathon-pace",
             "/api/wellness",
             "/api/rings",
+            "/api/rings/history?days=30",
             "/api/weekly-summaries",
             "/api/run-weather",
         )
 
+    /** Each key gets its own access token, so a request shows whose key it was made with. */
     private fun app(
         appConfig: app.stravadashboard.config.AppConfig = config,
         block: suspend ApplicationTestBuilder.() -> Unit,
     ) = testApplication {
         val engine =
             MockEngine { request ->
-                stravaRequests += request
-                if (request.url.encodedPath == "/oauth/token") {
-                    val clientId = (request.body as FormDataContent).formData["client_id"]
-                    val athlete =
-                        athleteOverride ?: if (clientId == MARINA_CLIENT) MARINA_ATHLETE else RICARDO_ATHLETE
-                    respond(
-                        """{"access_token":"access-$clientId","refresh_token":"refresh-$clientId",
-                           "expires_at":${NOW.epochSecond + 21600},"athlete":{"id":$athlete}}""",
-                        HttpStatusCode.OK,
-                        json,
-                    )
-                } else {
-                    respond("[]", HttpStatusCode.OK, json)
+                garminRequests += request
+                when (request.url.encodedPath) {
+                    GARMIN_TOKEN_PATH -> {
+                        val key = request.headers[HttpHeaders.Authorization]?.removePrefix("ApiKey ")
+                        respond("access-$key", HttpStatusCode.OK)
+                    }
+                    else -> respond("[]", HttpStatusCode.OK, json)
                 }
             }
-        // Garmin answers empty, so a configured key never reaches the network.
-        val garmin = MockEngine { respond("{}", HttpStatusCode.OK, json) }
-        application { module(appConfig, clock, TEST_ZONE, engine, garminEngine = garmin) }
+        application { module(appConfig, fixedClock(), TEST_ZONE, garminEngine = engine) }
         block()
     }
-
-    private fun ApplicationTestBuilder.browser(): HttpClient =
-        createClient {
-            install(HttpCookies)
-            followRedirects = false
-        }
 
     private suspend fun HttpClient.getAs(
         person: String?,
         path: String,
     ): HttpResponse = get(path) { person?.let { header("X-Person", it) } }
-
-    private suspend fun HttpClient.connect(person: String? = null): HttpResponse {
-        val login = get("/auth/strava/login" + person?.let { "?person=$it" }.orEmpty())
-        val state = Url(requireNotNull(login.headers[HttpHeaders.Location])).parameters["state"]
-        return get("/auth/strava/callback?state=$state&code=invented&scope=activity:read_all")
-    }
-
-    private fun seedTokens(
-        ricardo: Boolean = true,
-        marina: Boolean = true,
-    ) = runBlocking {
-        val expires = NOW.plus(Duration.ofDays(1))
-        if (ricardo) {
-            ricardoTokens.save(StoredTokens(RICARDO_ATHLETE, "ricardo-access", "r", expires, "activity:read_all"))
-        }
-        if (marina) {
-            marinaTokens.save(StoredTokens(MARINA_ATHLETE, "marina-access", "m", expires, "activity:read_all"))
-        }
-    }
 
     private fun weekKm(body: String): Double =
         Json
@@ -185,41 +135,23 @@ class PersonRoutesTest {
 
     @Test
     fun `R3 - no header is ricardo`() {
-        seedTokens()
         seedDifferentRuns()
         app {
             val browser = browser()
-            browser.connect()
             assertEquals(10.0, weekKm(browser.getAs(null, "/api/dashboard/running").bodyAsText()))
             assertEquals(10.0, weekKm(browser.getAs("ricardo", "/api/dashboard/running").bodyAsText()))
+            assertEquals(4.0, weekKm(browser.getAs("marina", "/api/dashboard/running").bodyAsText()))
         }
     }
 
     @Test
-    fun `R3 - every route follows marina`() {
-        // Marina has no tokens, so each of her routes says 401: a route mounted only once would say 404 or 200.
-        seedTokens(marina = false)
+    fun `R3 - unknown person is 404`() =
         app {
             val browser = browser()
-            browser.connect()
-            for (path in perPersonRoutes) {
-                assertEquals(HttpStatusCode.Unauthorized, browser.getAs("marina", path).status, path)
-                assertTrue(browser.getAs(null, path).status != HttpStatusCode.Unauthorized, path)
-            }
-        }
-    }
-
-    @Test
-    fun `R3 - unknown person is 404`() {
-        seedTokens()
-        app {
-            val browser = browser()
-            browser.connect()
             for (path in perPersonRoutes) {
                 assertEquals(HttpStatusCode.NotFound, browser.getAs("nobody", path).status, path)
             }
         }
-    }
 
     @Test
     fun `R3 - health is shared`() =
@@ -229,123 +161,21 @@ class PersonRoutesTest {
         }
 
     @Test
-    fun `R1 - unconfigured marina returns 401`() {
-        seedTokens(marina = false)
+    fun `021 R1 - unconfigured Marina gets 404 person_not_configured on every route`() =
         app(testConfig(dbPath = config.dbPath)) {
             val browser = browser()
-            browser.connect()
             for (path in perPersonRoutes) {
                 val response = browser.getAs("marina", path)
-                assertEquals(HttpStatusCode.Unauthorized, response.status, path)
-                assertTrue("not_connected" in response.bodyAsText(), path)
+                assertEquals(HttpStatusCode.NotFound, response.status, path)
+                assertEquals(
+                    """{"error":"person_not_configured","message":"This person is not set up."}""",
+                    response.bodyAsText(),
+                    path,
+                )
+                assertFalse("person_not_configured" in browser.getAs(null, path).bodyAsText(), path)
             }
             assertEquals(HttpStatusCode.OK, browser.getAs("marina", "/api/health").status)
         }
-    }
-
-    @Test
-    fun `R4 - ricardo session reads marina`() {
-        seedTokens()
-        seedDifferentRuns()
-        app {
-            val browser = browser()
-            browser.connect()
-            assertEquals(4.0, weekKm(browser.getAs("marina", "/api/dashboard/running").bodyAsText()))
-        }
-    }
-
-    @Test
-    fun `R4 - marina session reads ricardo`() {
-        seedTokens()
-        seedDifferentRuns()
-        app {
-            val browser = browser()
-            browser.connect("marina")
-            assertEquals(10.0, weekKm(browser.getAs("ricardo", "/api/dashboard/running").bodyAsText()))
-        }
-    }
-
-    @Test
-    fun `R4 - no cookie is 401 for both`() {
-        seedTokens()
-        app {
-            assertEquals(HttpStatusCode.Unauthorized, client.getAs("ricardo", "/api/dashboard/running").status)
-            assertEquals(HttpStatusCode.Unauthorized, client.getAs("marina", "/api/dashboard/running").status)
-        }
-    }
-
-    @Test
-    fun `R5 - login uses marina client`() =
-        app {
-            val response = browser().get("/auth/strava/login?person=marina")
-            val location = Url(requireNotNull(response.headers[HttpHeaders.Location]))
-            assertEquals(MARINA_CLIENT, location.parameters["client_id"])
-            assertEquals(config.stravaRedirectUri, location.parameters["redirect_uri"])
-            assertEquals("activity:read_all", location.parameters["scope"])
-        }
-
-    @Test
-    fun `R5 - default login is ricardo`() =
-        app {
-            val response = browser().get("/auth/strava/login")
-            val location = Url(requireNotNull(response.headers[HttpHeaders.Location]))
-            assertEquals(RICARDO_CLIENT, location.parameters["client_id"])
-        }
-
-    @Test
-    fun `R5 - unknown person redirects`() =
-        app {
-            val response = browser().get("/auth/strava/login?person=nobody")
-            assertEquals("/connect?error=unknown_person", response.headers[HttpHeaders.Location])
-        }
-
-    @Test
-    fun `R5 - unconfigured marina redirects`() =
-        app(testConfig()) {
-            val response = browser().get("/auth/strava/login?person=marina")
-            assertEquals("/connect?error=person_not_configured", response.headers[HttpHeaders.Location])
-        }
-
-    @Test
-    fun `R5 - callback stores in marina database`() =
-        app {
-            val response = browser().connect("marina")
-
-            assertEquals("/", response.headers[HttpHeaders.Location])
-            assertEquals(MARINA_ATHLETE, runBlocking { marinaTokens.find() }?.athleteId)
-            assertEquals("access-$MARINA_CLIENT", runBlocking { marinaTokens.find() }?.accessToken)
-            assertNull(runBlocking { ricardoTokens.find() })
-            assertEquals(MARINA_ATHLETE, runBlocking { ExposedSyncStateRepository(marinaDb).get() }.ownerAthleteId)
-        }
-
-    @Test
-    fun `R5 - other person's athlete rejected`() {
-        seedTokens(marina = false)
-        app {
-            athleteOverride = RICARDO_ATHLETE
-            val response = browser().connect("marina")
-
-            assertEquals("/connect?error=wrong_athlete", response.headers[HttpHeaders.Location])
-            assertNull(runBlocking { marinaTokens.find() })
-        }
-    }
-
-    @Test
-    fun `R5 - marina's athlete rejected as ricardo`() {
-        seedTokens(ricardo = false)
-        app {
-            athleteOverride = MARINA_ATHLETE
-            val response = browser().connect()
-
-            assertEquals("/connect?error=wrong_athlete", response.headers[HttpHeaders.Location])
-            assertNull(runBlocking { ricardoTokens.find() })
-        }
-    }
-
-    @Test
-    fun `R5 - old state cookie is ricardo`() {
-        assertEquals("ricardo", defaultSessionSerializer<OAuthState>().deserialize("""{"value":"abc"}""").person)
-    }
 
     private suspend fun HttpClient.postSyncAs(person: String): HttpResponse {
         getAs(person, "/api/sync")
@@ -356,90 +186,66 @@ class PersonRoutesTest {
         }
     }
 
-    private suspend fun waitForStravaCall(bearer: String): Boolean {
+    private suspend fun waitForGarminCall(key: String): Boolean {
         repeat(300) {
-            if (stravaCalledWith(bearer)) return true
+            if (garminCalledWith(key)) return true
             delay(10)
         }
         return false
     }
 
-    private fun stravaCalledWith(bearer: String): Boolean =
-        stravaRequests.any { it.headers[HttpHeaders.Authorization] == "Bearer $bearer" }
-
-    /** Lets the startup sync (feature 022) finish with the seeded tokens, then makes the next sync due again. */
-    private suspend fun passStartupSync(vararg databases: org.jetbrains.exposed.sql.Database) {
-        for (database in databases) {
-            val state = ExposedSyncStateRepository(database)
-            repeat(300) { if (state.get().lastSuccessfulSyncAt == null) delay(10) }
-            assertTrue(state.get().lastSuccessfulSyncAt != null)
-        }
-        clock.advance(Duration.ofMinutes(20))
-    }
+    private fun garminCalledWith(key: String): Boolean =
+        garminRequests.any { it.headers[HttpHeaders.Authorization] == "Bearer access-$key" }
 
     @Test
-    fun `R6 - post starts the other person`() {
-        seedTokens()
+    fun `R6 - post starts the other person`() =
         app {
-            startApplication()
-            passStartupSync(ricardoDb, marinaDb)
+            browser().postSyncAs("ricardo")
+            assertTrue(waitForGarminCall(RICARDO_KEY))
+            assertTrue(waitForGarminCall(MARINA_KEY))
+        }
+
+    @Test
+    fun `021 R7 - each person syncs from their own Garmin key and one without a key is not started`() {
+        val noKey = config.copy(marina = marinaSettings.copy(garminApiKey = null))
+        app(noKey) {
             val browser = browser()
-            browser.connect("marina")
             browser.postSyncAs("ricardo")
-            assertTrue(waitForStravaCall("ricardo-access"))
-            assertTrue(waitForStravaCall("access-$MARINA_CLIENT"))
+            assertTrue(waitForGarminCall(RICARDO_KEY))
+            assertTrue("\"notConfigured\"" in browser.getAs("marina", "/api/sync").bodyAsText())
+            assertFalse(garminRequests.any { it.headers[HttpHeaders.Authorization] == "ApiKey $MARINA_KEY" })
         }
     }
 
     @Test
-    fun `R6 - unconnected person not started`() {
-        seedTokens(marina = false)
+    fun `R7 - marina build has 18 weeks`() =
         app {
-            startApplication()
-            passStartupSync(ricardoDb)
-            val browser = browser()
-            browser.connect()
-            browser.postSyncAs("ricardo")
-            assertTrue(waitForStravaCall("access-$RICARDO_CLIENT"))
-            assertEquals(HttpStatusCode.Unauthorized, browser.getAs("marina", "/api/sync").status)
-            assertTrue("not_connected" in browser.getAs("marina", "/api/sync").bodyAsText())
-        }
-    }
-
-    @Test
-    fun `R7 - marina build has 18 weeks`() {
-        seedTokens()
-        app {
-            val browser = browser()
-            browser.connect()
-            val root = Json.parseToJsonElement(browser.getAs("marina", "/api/marathon-pace").bodyAsText()).jsonObject
+            val root =
+                Json.parseToJsonElement(browser().getAs("marina", "/api/marathon-pace").bodyAsText()).jsonObject
             assertEquals("2026-08-03", root["buildStart"]?.jsonPrimitive?.content)
             assertEquals("2026-12-06", root["buildEnd"]?.jsonPrimitive?.content)
             assertEquals(18, root["weeks"]?.jsonArray?.size)
         }
-    }
 
     @Test
-    fun `R7 - vo2max uses marina max hr`() {
-        seedTokens()
+    fun `R7 - vo2max uses marina max hr`() =
         app {
             val browser = browser()
-            browser.connect()
             for (path in listOf("/api/vo2max", "/api/vo2max/normalized")) {
                 val root = Json.parseToJsonElement(browser.getAs("marina", path).bodyAsText()).jsonObject
                 val maxHr = root["maxHr"]!!.jsonObject["bpm"]?.jsonPrimitive?.int
                 assertEquals(187, maxHr, path)
             }
         }
-    }
 
     @Test
     fun `R10 and R11 - her unset settings answer not configured`() {
-        seedTokens()
-        val noGoal = config.copy(marina = marinaSettings.copy(marathonPace = MarathonPaceSetting.NotConfigured))
-        app(noGoal) {
+        val unset =
+            config.copy(
+                marina = marinaSettings.copy(marathonPace = MarathonPaceSetting.NotConfigured, garminApiKey = null),
+            )
+        app(unset) {
             val browser = browser()
-            browser.connect()
             val pace = browser.getAs("marina", "/api/marathon-pace")
             assertEquals(HttpStatusCode.NotFound, pace.status)
             assertTrue("marathon_pace_not_configured" in pace.bodyAsText())
@@ -452,11 +258,9 @@ class PersonRoutesTest {
 
     @Test
     fun `R18 - header makes no difference for ricardo`() {
-        seedTokens()
         seedDifferentRuns()
         app {
             val browser = browser()
-            browser.connect()
             val plain = browser.getAs(null, "/api/dashboard/running").bodyAsText()
             val named = browser.getAs("ricardo", "/api/dashboard/running").bodyAsText()
             assertEquals(plain, named)
@@ -466,17 +270,15 @@ class PersonRoutesTest {
 
     @Test
     fun `020 R7 - rings follow X-Person`() {
-        seedTokens()
         val today = NOW.atZone(TEST_ZONE).toLocalDate()
         runBlocking {
-            ExposedRingDayRepository(ricardoDb).upsert(today, RingDay(null, 12.0), NOW)
-            ExposedRingDayRepository(marinaDb).upsert(today, RingDay(null, 6.5), NOW)
+            ExposedRingDayRepository(DatabaseFactory.connect(config.dbPath)).upsert(today, RingDay(null, 12.0), NOW)
+            ExposedRingDayRepository(
+                DatabaseFactory.connect(marinaSettings.dbPath),
+            ).upsert(today, RingDay(null, 6.5), NOW)
         }
-        val keys =
-            config.copy(garminApiKey = "ricardo-key", marina = marinaSettings.copy(garminApiKey = "marina-key"))
-        app(keys) {
+        app {
             val browser = browser()
-            browser.connect()
             val strain = { person: String ->
                 runBlocking {
                     Json
