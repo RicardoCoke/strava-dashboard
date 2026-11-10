@@ -2,17 +2,19 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { dashboard, stubCharts } from '../../testing/dashboard-fixtures';
-import { stubEfficiencyFactorSection } from '../../testing/efficiency-factor-stub';
-import { stubLongRunDriftSection } from '../../testing/long-run-drift-stub';
-import { stubMarathonPaceSection } from '../../testing/marathon-pace-stub';
-import { stubRaceDayFormSection } from '../../testing/race-day-form-stub';
-import { stubRingsSection } from '../../testing/rings-stub';
+import {
+  stubEfficiencyFactorSection,
+  stubLongRunDriftSection,
+  stubMarathonPaceSection,
+  stubRaceDayFormSection,
+  stubRingsSection,
+  stubVo2maxSection,
+  stubWeeklySummaryBell,
+} from '../../testing/section-stubs';
 import { stubSyncStore } from '../../testing/sync-store-stub';
 import { trainingLoad } from '../../testing/training-load-fixtures';
 import { trainingPlan } from '../../testing/training-plan-fixtures';
-import { stubVo2maxSection } from '../../testing/vo2max-stub';
 import { wellness } from '../../testing/wellness-fixtures';
-import { stubWeeklySummaryBell } from '../../testing/weekly-summary-stub';
 import { stubRunWeather } from '../../testing/run-weather-stub';
 import { RunningDashboardPage } from './running-dashboard-page';
 

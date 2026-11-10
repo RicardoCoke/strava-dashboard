@@ -1,12 +1,12 @@
 package app.stravadashboard.api
 
-import app.stravadashboard.domain.DashboardResult
 import app.stravadashboard.domain.DateWindow
 import app.stravadashboard.domain.HrTrendResult
 import app.stravadashboard.domain.HrTypeTrend
 import app.stravadashboard.domain.PaceComparisonResult
 import app.stravadashboard.domain.PaceTypeComparison
 import app.stravadashboard.domain.PaceWindowStat
+import app.stravadashboard.domain.RunningDashboard
 import app.stravadashboard.domain.WeekTotal
 import app.stravadashboard.domain.model.RunType
 import java.time.format.DateTimeFormatter
@@ -14,7 +14,7 @@ import java.util.Locale
 
 private val WEEK_LABEL: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM", Locale.ENGLISH)
 
-fun DashboardResult.Ready.toDto(): RunningDashboardResponse =
+fun RunningDashboard.toDto(): RunningDashboardResponse =
     RunningDashboardResponse(
         weeklyDistance = WeeklyDistanceDto(weeks.map { it.toDto() }),
         heartRateTrend = heartRate.toDto(),

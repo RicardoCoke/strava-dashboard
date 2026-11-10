@@ -2,7 +2,6 @@ package app.stravadashboard.domain.longrundrift
 
 import app.stravadashboard.domain.CallBudget
 import app.stravadashboard.domain.SyncInfo
-import app.stravadashboard.domain.SyncOutcome
 import app.stravadashboard.domain.SyncPhase
 import app.stravadashboard.domain.SyncPolicy
 import app.stravadashboard.domain.SyncService
@@ -40,7 +39,6 @@ import java.time.Duration
 import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -59,8 +57,7 @@ class LongRunDriftSyncTest {
 
     private fun daysAgo(days: Long): Instant = NOW.minus(Duration.ofDays(days))
 
-    private fun sync(service: SyncService = defaultService): SyncInfo =
-        assertIs<SyncOutcome.Done>(runBlocking { service.syncIfDue() }).info
+    private fun sync(service: SyncService = defaultService): SyncInfo = runBlocking { service.syncIfDue() }
 
     private fun longRun(
         id: Long,
@@ -205,7 +202,7 @@ class LongRunDriftSyncTest {
         clock.advance(Duration.ofMinutes(20))
         assertEquals(
             SyncStatus.RATE_LIMITED,
-            (runBlocking { defaultService.syncIfDue() } as SyncOutcome.Done).info.status,
+            runBlocking { defaultService.syncIfDue() }.status,
         )
         assertNull(runBlocking { runs.findAll() }.single().hrDrift)
     }

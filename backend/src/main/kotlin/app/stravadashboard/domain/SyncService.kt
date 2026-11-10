@@ -35,12 +35,6 @@ data class SyncInfo(
     val runsPendingDetail: Int,
 )
 
-sealed interface SyncOutcome {
-    data class Done(
-        val info: SyncInfo,
-    ) : SyncOutcome
-}
-
 /** How a list pass ended: every page read, the call budget used up, or a failure that stops the sync. */
 private sealed interface ListPass {
     data object Complete : ListPass
@@ -74,25 +68,25 @@ class SyncService(
 
     // Guarded by [mutex]: how many sync attempts have finished, and the outcome of the last one.
     @Volatile private var finishedAttempts = 0L
-    private var lastOutcome: SyncOutcome? = null
+    private var lastOutcome: SyncInfo? = null
 
     /**
      * Syncs if due. A request that had to wait for another request's sync reuses that outcome instead of starting a
      * second sync straight after it (which, while an import is partial or the source is down, would still be "due").
      */
-    suspend fun syncIfDue(): SyncOutcome {
+    suspend fun syncIfDue(): SyncInfo {
         val attemptsBeforeWaiting = finishedAttempts
         return mutex.withLock {
             lastOutcome.takeIf { finishedAttempts != attemptsBeforeWaiting } ?: syncNowIfDue()
         }
     }
 
-    private suspend fun syncNowIfDue(): SyncOutcome {
+    private suspend fun syncNowIfDue(): SyncInfo {
         val now = clock.instant()
         val state = syncState.get()
         val pending = pendingCount(runs.findAll(), activitiesFrom)
         if (!SyncSchedule.isDue(state, pending, budget.view(), now)) {
-            return SyncOutcome.Done(SyncSchedule.idleInfo(state, pending, now))
+            return SyncSchedule.idleInfo(state, pending, now)
         }
         return sync(now).also {
             lastOutcome = it
@@ -102,7 +96,7 @@ class SyncService(
 
     /** An unexpected error counts as the source being down; only its class name is logged (feature 009, AC5.4). */
     @Suppress("TooGenericExceptionCaught")
-    private suspend fun sync(now: Instant): SyncOutcome =
+    private suspend fun sync(now: Instant): SyncInfo =
         try {
             when (val listed = listPass(now)) {
                 is ListPass.Failed -> recordFailure(listed.failure, now)
@@ -120,7 +114,7 @@ class SyncService(
     private suspend fun recordSuccess(
         now: Instant,
         outOfBudget: Boolean = false,
-    ): SyncOutcome {
+    ): SyncInfo {
         runs.pruneBefore(SyncPolicy.pruneCutoff(now, zone))
         val pending = pendingCount(runs.findAll(), activitiesFrom)
         val status = if (outOfBudget || pending > 0) SyncStatus.PARTIAL else SyncStatus.OK
@@ -133,13 +127,13 @@ class SyncService(
             ),
         )
         log.info("Activity sync finished: status={}, runsPending={}", status, pending)
-        return SyncOutcome.Done(SyncInfo(status, now, null, pending))
+        return SyncInfo(status, now, null, pending)
     }
 
     private suspend fun recordFailure(
         failure: SourceResult<Nothing>,
         now: Instant,
-    ): SyncOutcome {
+    ): SyncInfo {
         val state = syncState.get()
         val pending = pendingCount(runs.findAll(), activitiesFrom)
         log.info("Activity sync stopped: {}", failure::class.simpleName)
@@ -147,11 +141,11 @@ class SyncService(
             is SourceResult.RateLimited -> {
                 val saved = state.copy(rateLimitedUntil = failure.until, lastStatus = SyncStatus.RATE_LIMITED)
                 syncState.save(saved.copy(lastAttemptAt = now))
-                SyncOutcome.Done(SyncInfo(SyncStatus.RATE_LIMITED, state.lastSuccessfulSyncAt, failure.until, pending))
+                SyncInfo(SyncStatus.RATE_LIMITED, state.lastSuccessfulSyncAt, failure.until, pending)
             }
             else -> {
                 syncState.save(state.copy(lastStatus = SyncStatus.SOURCE_UNAVAILABLE, lastAttemptAt = now))
-                SyncOutcome.Done(SyncInfo(SyncStatus.SOURCE_UNAVAILABLE, state.lastSuccessfulSyncAt, null, pending))
+                SyncInfo(SyncStatus.SOURCE_UNAVAILABLE, state.lastSuccessfulSyncAt, null, pending)
             }
         }
     }

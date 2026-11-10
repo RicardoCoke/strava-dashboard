@@ -1,6 +1,5 @@
 package app.stravadashboard.api
 
-import app.stravadashboard.domain.DashboardResult
 import app.stravadashboard.domain.DateWindow
 import app.stravadashboard.domain.DistanceDifference
 import app.stravadashboard.domain.EasyHrComparison
@@ -13,6 +12,7 @@ import app.stravadashboard.domain.PaceComparisonResult
 import app.stravadashboard.domain.PacePoint
 import app.stravadashboard.domain.PaceTypeComparison
 import app.stravadashboard.domain.PaceWindowStat
+import app.stravadashboard.domain.RunningDashboard
 import app.stravadashboard.domain.WeekComparisonResult
 import app.stravadashboard.domain.WeekHrStat
 import app.stravadashboard.domain.WeekPaceStat
@@ -30,7 +30,7 @@ class RunningDashboardContractTest {
     private fun date(text: String) = LocalDate.parse(text)
 
     private val ready =
-        DashboardResult.Ready(
+        RunningDashboard(
             weeks = listOf(WeekTotal(date("2026-08-31"), date("2026-09-06"), 32.4, 4, false)),
             heartRate =
                 HrTrendResult(

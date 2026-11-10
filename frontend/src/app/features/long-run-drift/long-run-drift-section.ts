@@ -1,17 +1,14 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  DestroyRef,
   OnInit,
   computed,
   inject,
   signal,
 } from '@angular/core';
-import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
-import { Subscription, skip } from 'rxjs';
 import { isLongRunDriftResponse } from '../../core/api/long-run-drift.models';
 import { LongRunDriftService } from '../../core/api/long-run-drift.service';
-import { SyncStore } from '../../core/sync/sync.store';
+import { sectionLoader } from '../../core/sync/section-loader';
 import { LongRunDriftChart } from './long-run-drift-chart/long-run-drift-chart';
 import {
   LongRunDriftState,
@@ -32,8 +29,6 @@ import {
 })
 export class LongRunDriftSection implements OnInit {
   private readonly service = inject(LongRunDriftService);
-  private readonly destroyRef = inject(DestroyRef);
-  private request?: Subscription;
 
   protected readonly state = signal<LongRunDriftState>({ kind: 'loading' });
   protected readonly data = computed(() => {
@@ -61,15 +56,10 @@ export class LongRunDriftSection implements OnInit {
     return data ? legendText(data.thresholds) : '';
   });
 
-  constructor() {
-    // On the dashboard page, reload in place after each finished sync (feature 009, R9).
-    const sync = inject(SyncStore, { optional: true });
-    if (sync) {
-      toObservable(sync.dataVersion)
-        .pipe(skip(1), takeUntilDestroyed())
-        .subscribe(() => this.load({ quiet: true }));
-    }
-  }
+  private readonly load = sectionLoader<LongRunDriftState>(this.state, {
+    fetch: () => this.service.getLongRunDrift(),
+    loaded: (data) => (isLongRunDriftResponse(data) ? { kind: 'loaded', data } : null),
+  });
 
   ngOnInit(): void {
     this.load();
@@ -77,31 +67,5 @@ export class LongRunDriftSection implements OnInit {
 
   protected retry(): void {
     this.load();
-  }
-
-  /** A quiet reload keeps the current content while it runs and if it fails. */
-  private load({ quiet } = { quiet: false }): void {
-    if (!quiet) {
-      this.state.set({ kind: 'loading' });
-    }
-    // A newer load replaces one still in flight, so an older response can't overwrite a newer one.
-    this.request?.unsubscribe();
-    this.request = this.service
-      .getLongRunDrift()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (data: unknown) => {
-          if (isLongRunDriftResponse(data)) {
-            this.state.set({ kind: 'loaded', data });
-          } else if (!quiet) {
-            this.state.set({ kind: 'error' });
-          }
-        },
-        error: () => {
-          if (!quiet) {
-            this.state.set({ kind: 'error' });
-          }
-        },
-      });
   }
 }

@@ -1,18 +1,15 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  DestroyRef,
   OnInit,
   computed,
   inject,
   signal,
 } from '@angular/core';
-import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
-import { skip } from 'rxjs';
 import { isMarathonPaceResponse } from '../../../core/api/marathon-pace.models';
 import { MarathonPaceService } from '../../../core/api/marathon-pace.service';
 import { PersonStore } from '../../../core/person/person.store';
-import { SyncStore } from '../../../core/sync/sync.store';
+import { sectionLoader } from '../../../core/sync/section-loader';
 import { ChartComponent } from '../../../shared/chart/chart';
 import { MARATHON_PACE_CHART_LABEL, buildMarathonPaceOptions } from '../marathon-pace.options';
 import {
@@ -34,7 +31,6 @@ import {
 })
 export class MarathonPaceSection implements OnInit {
   private readonly service = inject(MarathonPaceService);
-  private readonly destroyRef = inject(DestroyRef);
 
   private readonly person = inject(PersonStore).person;
 
@@ -69,15 +65,11 @@ export class MarathonPaceSection implements OnInit {
     return state.kind === 'invalidConfig' ? state.message : '';
   });
 
-  constructor() {
-    // On the dashboard page, reload in place after each finished sync (feature 009, R9).
-    const sync = inject(SyncStore, { optional: true });
-    if (sync) {
-      toObservable(sync.dataVersion)
-        .pipe(skip(1), takeUntilDestroyed())
-        .subscribe(() => this.load({ quiet: true }));
-    }
-  }
+  private readonly load = sectionLoader<MarathonPaceState>(this.state, {
+    fetch: () => this.service.getMarathonPace(),
+    loaded: (data) => (isMarathonPaceResponse(data) ? { kind: 'loaded', data } : null),
+    failed: stateFromError,
+  });
 
   ngOnInit(): void {
     this.load();
@@ -85,30 +77,5 @@ export class MarathonPaceSection implements OnInit {
 
   protected retry(): void {
     this.load();
-  }
-
-  /** A quiet reload keeps the current content while it runs and if it fails. */
-  private load({ quiet } = { quiet: false }): void {
-    if (!quiet) {
-      this.state.set({ kind: 'loading' });
-    }
-    this.service
-      .getMarathonPace()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (data: unknown) => {
-          if (isMarathonPaceResponse(data)) {
-            this.state.set({ kind: 'loaded', data });
-          } else if (!quiet) {
-            this.state.set({ kind: 'error' });
-          }
-        },
-        error: (error: unknown) => {
-          const next = stateFromError(error);
-          if (!quiet) {
-            this.state.set(next);
-          }
-        },
-      });
   }
 }

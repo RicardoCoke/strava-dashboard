@@ -1,18 +1,15 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  DestroyRef,
   OnInit,
   computed,
   inject,
   signal,
 } from '@angular/core';
-import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
-import { skip } from 'rxjs';
 import { isNormalizedVo2maxResponse } from '../../core/api/normalized-vo2max.models';
 import { isVo2maxResponse } from '../../core/api/vo2max.models';
 import { Vo2maxService } from '../../core/api/vo2max.service';
-import { SyncStore } from '../../core/sync/sync.store';
+import { sectionLoader } from '../../core/sync/section-loader';
 import { formatOneDecimal } from '../../shared/format/numbers';
 import { NormalizedVo2maxPanel } from './normalized-vo2max-panel/normalized-vo2max-panel';
 import { RacePredictionTiles } from './race-prediction-tiles/race-prediction-tiles';
@@ -53,7 +50,6 @@ const TAB_KEYS: Record<string, ((tab: Vo2maxTab) => Vo2maxTab) | undefined> = {
 })
 export class Vo2maxSection implements OnInit {
   private readonly service = inject(Vo2maxService);
-  private readonly destroyRef = inject(DestroyRef);
 
   protected readonly activeTab = signal<Vo2maxTab>('vo2');
   protected readonly state = signal<Vo2maxState>({ kind: 'loading' });
@@ -87,20 +83,16 @@ export class Vo2maxSection implements OnInit {
     return state.kind === 'invalidConfig' ? state.message : '';
   });
 
-  constructor() {
-    // On the dashboard page, reload in place after each finished sync (feature 009, R9).
-    const sync = inject(SyncStore, { optional: true });
-    if (sync) {
-      toObservable(sync.dataVersion)
-        .pipe(skip(1), takeUntilDestroyed())
-        .subscribe(() => {
-          this.load({ quiet: true });
-          if (this.normalizedState().kind !== 'idle') {
-            this.loadNormalized({ quiet: true });
-          }
-        });
-    }
-  }
+  private readonly load = sectionLoader<Vo2maxState>(this.state, {
+    fetch: () => this.service.getVo2max(),
+    loaded: (data) => (isVo2maxResponse(data) ? { kind: 'loaded', data } : null),
+    failed: vo2maxStateFromError,
+  });
+  private readonly loadNormalized = sectionLoader<NormalizedVo2maxState>(this.normalizedState, {
+    fetch: () => this.service.getNormalizedVo2max(),
+    loaded: (data) => (isNormalizedVo2maxResponse(data) ? { kind: 'loaded', data } : null),
+    failed: normalizedStateFromError,
+  });
 
   ngOnInit(): void {
     this.load();
@@ -131,54 +123,5 @@ export class Vo2maxSection implements OnInit {
 
   protected retryNormalized(): void {
     this.loadNormalized();
-  }
-
-  private loadNormalized({ quiet } = { quiet: false }): void {
-    if (!quiet) {
-      this.normalizedState.set({ kind: 'loading' });
-    }
-    this.service
-      .getNormalizedVo2max()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (data: unknown) => {
-          if (isNormalizedVo2maxResponse(data)) {
-            this.normalizedState.set({ kind: 'loaded', data });
-          } else if (!quiet) {
-            this.normalizedState.set({ kind: 'error' });
-          }
-        },
-        error: (error: unknown) => {
-          const next = normalizedStateFromError(error);
-          if (!quiet) {
-            this.normalizedState.set(next);
-          }
-        },
-      });
-  }
-
-  /** A quiet reload keeps the current content while it runs and if it fails. */
-  private load({ quiet } = { quiet: false }): void {
-    if (!quiet) {
-      this.state.set({ kind: 'loading' });
-    }
-    this.service
-      .getVo2max()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (data: unknown) => {
-          if (isVo2maxResponse(data)) {
-            this.state.set({ kind: 'loaded', data });
-          } else if (!quiet) {
-            this.state.set({ kind: 'error' });
-          }
-        },
-        error: (error: unknown) => {
-          const next = vo2maxStateFromError(error);
-          if (!quiet) {
-            this.state.set(next);
-          }
-        },
-      });
   }
 }

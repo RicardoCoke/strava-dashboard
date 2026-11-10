@@ -13,14 +13,19 @@ import app.stravadashboard.weather.OpenMeteoClient
 import app.stravadashboard.weather.openMeteoHttpClient
 import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.engine.java.Java
+import io.ktor.http.CacheControl
+import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.content.CachingOptions
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationStopped
 import io.ktor.server.application.install
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
+import io.ktor.server.plugins.cachingheaders.CachingHeaders
 import io.ktor.server.plugins.calllogging.CallLogging
+import io.ktor.server.plugins.compression.Compression
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.request.path
@@ -37,6 +42,8 @@ import java.time.Clock
 import java.time.ZoneId
 
 private val log = LoggerFactory.getLogger("app.stravadashboard.Application")
+
+private const val HASHED_ASSET_MAX_AGE_S = 365 * 24 * 60 * 60
 
 fun main() {
     val config = AppConfig.fromEnvironment()
@@ -105,6 +112,18 @@ private fun Application.openMeteoSource(engine: HttpClientEngine?): OpenMeteoCli
 private fun Application.installServerPlugins() {
     install(ContentNegotiation) { json() }
     install(CallLogging)
+    install(Compression)
+    // Built JS and CSS have a content hash in their name, so they never change; index.html is always re-checked.
+    install(CachingHeaders) {
+        options { _, content ->
+            when (content.contentType?.withoutParameters()) {
+                ContentType.Text.JavaScript, ContentType.Application.JavaScript, ContentType.Text.CSS ->
+                    CachingOptions(CacheControl.MaxAge(maxAgeSeconds = HASHED_ASSET_MAX_AGE_S))
+                ContentType.Text.Html -> CachingOptions(CacheControl.NoCache(null))
+                else -> null
+            }
+        }
+    }
     installStatusPages()
     // Served over plain HTTP on the home network (feature 021), so the XSRF cookie can't be Secure.
     install(XsrfProtection) { secureCookies = false }

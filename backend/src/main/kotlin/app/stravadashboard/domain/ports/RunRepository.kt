@@ -46,6 +46,4 @@ interface RunRepository {
 
     /** Deletes runs whose local start date is before [date]. */
     suspend fun pruneBefore(date: LocalDate)
-
-    suspend fun deleteAll()
 }

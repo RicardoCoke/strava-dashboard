@@ -2,17 +2,19 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { dashboard, stubCharts } from '../../testing/dashboard-fixtures';
-import { stubLongRunDriftSection } from '../../testing/long-run-drift-stub';
+import {
+  stubLongRunDriftSection,
+  stubTrainingLoadSection,
+  stubEfficiencyFactorSection,
+  stubVo2maxSection,
+  stubMarathonPaceSection,
+  stubRingsSection,
+  stubWellnessSection,
+  stubWeeklySummaryBell,
+} from '../../testing/section-stubs';
 import { stubPlanSection } from '../../testing/plan-section-stub';
 import { raceDayForm } from '../../testing/race-day-form-fixtures';
 import { stubSyncStore } from '../../testing/sync-store-stub';
-import { stubTrainingLoadSection } from '../../testing/training-load-stub';
-import { stubEfficiencyFactorSection } from '../../testing/efficiency-factor-stub';
-import { stubVo2maxSection } from '../../testing/vo2max-stub';
-import { stubMarathonPaceSection } from '../../testing/marathon-pace-stub';
-import { stubRingsSection } from '../../testing/rings-stub';
-import { stubWellnessSection } from '../../testing/wellness-stub';
-import { stubWeeklySummaryBell } from '../../testing/weekly-summary-stub';
 import { RunningDashboardPage } from './running-dashboard-page';
 
 /** The page with the real race-day form card (feature 011, R12). */

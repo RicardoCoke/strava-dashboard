@@ -1,7 +1,6 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  DestroyRef,
   ElementRef,
   OnInit,
   computed,
@@ -9,15 +8,13 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
-import { Subscription, skip } from 'rxjs';
 import {
   WeeklySummariesResponse,
   isWeeklySummariesResponse,
 } from '../../core/api/weekly-summary.models';
 import { WeeklySummaryService } from '../../core/api/weekly-summary.service';
 import { PersonStore } from '../../core/person/person.store';
-import { SyncStore } from '../../core/sync/sync.store';
+import { sectionLoader } from '../../core/sync/section-loader';
 import { lastWeekMonday, readSeenRevision, writeSeenRevision } from './seen-revision';
 import { PanelState, WeeklySummaryPanel } from './weekly-summary-panel/weekly-summary-panel';
 
@@ -35,9 +32,7 @@ type State =
 })
 export class WeeklySummaryBell implements OnInit {
   private readonly service = inject(WeeklySummaryService);
-  private readonly destroyRef = inject(DestroyRef);
   private readonly bell = viewChild.required<ElementRef<HTMLButtonElement>>('bell');
-  private request?: Subscription;
 
   protected readonly state = signal<State>({ kind: 'loading' });
   protected readonly open = signal(false);
@@ -69,15 +64,16 @@ export class WeeklySummaryBell implements OnInit {
     );
   });
 
-  constructor() {
-    // On the dashboard page, reload in place after each finished sync (feature 009, R9).
-    const sync = inject(SyncStore, { optional: true });
-    if (sync) {
-      toObservable(sync.dataVersion)
-        .pipe(skip(1), takeUntilDestroyed())
-        .subscribe(() => this.load({ quiet: true }));
-    }
-  }
+  private readonly load = sectionLoader<State>(this.state, {
+    fetch: () => this.service.getSummaries(),
+    loaded: (data) => (isWeeklySummariesResponse(data) ? { kind: 'loaded', data } : null),
+    // Already looking at it: a changed summary must not light the badge (AC11.5).
+    afterLoad: () => {
+      if (this.open()) {
+        this.markSeen();
+      }
+    },
+  });
 
   ngOnInit(): void {
     this.load();
@@ -119,35 +115,5 @@ export class WeeklySummaryBell implements OnInit {
       writeSeenRevision(revision, this.person);
       this.seen.set(revision);
     }
-  }
-
-  /** A quiet reload keeps the current content while it runs and if it fails. */
-  private load(options = { quiet: false }): void {
-    const quiet = options.quiet && this.state().kind === 'loaded';
-    if (!quiet) {
-      this.state.set({ kind: 'loading' });
-    }
-    this.request?.unsubscribe();
-    this.request = this.service
-      .getSummaries()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (data: unknown) => {
-          if (isWeeklySummariesResponse(data)) {
-            this.state.set({ kind: 'loaded', data });
-            // Already looking at it: a changed summary must not light the badge (AC11.5).
-            if (this.open()) {
-              this.markSeen();
-            }
-          } else if (!quiet) {
-            this.state.set({ kind: 'error' });
-          }
-        },
-        error: () => {
-          if (!quiet) {
-            this.state.set({ kind: 'error' });
-          }
-        },
-      });
   }
 }

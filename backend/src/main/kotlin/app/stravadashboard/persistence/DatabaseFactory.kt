@@ -23,9 +23,7 @@ object DatabaseFactory {
             Database.connect(
                 url = "jdbc:sqlite:$dbPath",
                 driver = "org.sqlite.JDBC",
-                setupConnection = { connection ->
-                    connection.createStatement().use { it.execute("PRAGMA foreign_keys = ON") }
-                },
+                setupConnection = ::setUp,
                 databaseConfig = DatabaseConfig { defaultIsolationLevel = Connection.TRANSACTION_SERIALIZABLE },
             )
         transaction(database) {
@@ -49,6 +47,14 @@ object DatabaseFactory {
             addColumnIfMissing(WellnessStateTable.tableName, WellnessStateTable.historyDays.name, "INTEGER")
         }
         return database
+    }
+
+    private fun setUp(connection: Connection) {
+        connection.createStatement().use {
+            it.execute("PRAGMA foreign_keys = ON")
+            // WAL: page reads don't wait on a sync's writes. Kept in the file, so a no-op after the first.
+            it.execute("PRAGMA journal_mode = WAL")
+        }
     }
 
     /** `CREATE TABLE IF NOT EXISTS` doesn't add columns to an existing table, so files from before need this. */

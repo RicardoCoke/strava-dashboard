@@ -60,8 +60,6 @@ class HrDriftRepositoryTest {
             assertEquals(2, driftRows())
             runs.delete(listOf(ActivityId(2)))
             assertEquals(1, driftRows())
-            runs.deleteAll()
-            assertEquals(0, driftRows())
         }
 
     @Test
