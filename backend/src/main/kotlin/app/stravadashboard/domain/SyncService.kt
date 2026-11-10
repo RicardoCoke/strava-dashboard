@@ -5,6 +5,7 @@ import app.stravadashboard.domain.SyncPolicy.PAGE_SIZE
 import app.stravadashboard.domain.SyncPolicy.failureOf
 import app.stravadashboard.domain.SyncPolicy.pendingCount
 import app.stravadashboard.domain.longrundrift.fetchDriftStream
+import app.stravadashboard.domain.model.ActivityId
 import app.stravadashboard.domain.model.HrHistogramResult
 import app.stravadashboard.domain.model.HrHistogramStatus
 import app.stravadashboard.domain.model.RUN_SPORT_TYPE
@@ -164,6 +165,7 @@ class SyncService(
         val after = SyncPolicy.listAfter(syncState.get(), now, zone, activitiesFrom)
         var page = 1
         var stop: ListPass? = null
+        val listedIds = mutableSetOf<ActivityId>()
         do {
             val result = if (budget.tryConsume()) source.listActivities(after, page++, PAGE_SIZE) else null
             val listed = (result as? SourceResult.Success)?.value
@@ -175,8 +177,17 @@ class SyncService(
             val (stored, others) = current.partition { it.sportType == RUN_SPORT_TYPE }
             runs.upsertSummaries(stored)
             runs.delete(others.map { it.id })
+            listed.mapTo(listedIds) { it.id }
         } while (listed.size == PAGE_SIZE)
         stop?.let { return it }
+        // A full listing is the truth for its window: a stored run in it that wasn't listed is gone at the source, or
+        // is a Strava copy left over from before the switch to Garmin on the cut-over day.
+        runs.delete(
+            runs
+                .findAll()
+                .filter { !it.localDate.isBefore(activitiesFrom) && it.startUtc > after && it.id !in listedIds }
+                .map { it.id },
+        )
 
         val cursor = runs.newestStartUtc() ?: backfillStart
         val state = syncState.get()
