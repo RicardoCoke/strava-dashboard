@@ -34,6 +34,11 @@ describe('dark theme palette', () => {
       readyBand: 'rgba(0, 241, 159, 0.12)',
       restingHr: '#a78bfa',
       hrv: '#00f19f',
+      sleep: '#7ba1bb',
+      strain: '#0093e7',
+      recoveryGreen: '#16ec06',
+      recoveryYellow: '#ffde00',
+      recoveryRed: '#ff0026',
     });
   });
 

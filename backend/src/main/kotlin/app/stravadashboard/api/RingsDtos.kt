@@ -13,6 +13,21 @@ data class RingsResponse(
     val strain: StrainRingDto?,
 )
 
+// GET /api/rings/history (docs/features/023-recovery-tab/specs.md).
+@Serializable
+data class RingsHistoryResponse(
+    val days: List<RingsHistoryDayDto>,
+)
+
+@Serializable
+data class RingsHistoryDayDto(
+    val date: String,
+    val sleepPercent: Int?,
+    val recoveryPercent: Int?,
+    val recoveryZone: String?,
+    val strain: Double?,
+)
+
 @Serializable
 data class SleepRingDto(
     val percent: Int,

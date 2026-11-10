@@ -66,7 +66,7 @@ class SyncRoutesTest {
                 garmin(request)
             }
         val config = testConfig().copy(garminApiKey = garminKey)
-        application { module(config, fixedClock(now), TEST_ZONE, garminEngine = engine, syncAtStartup = false) }
+        application { module(config, fixedClock(now), TEST_ZONE, garminEngine = engine) }
         block()
     }
 

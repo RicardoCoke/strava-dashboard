@@ -24,9 +24,9 @@ class WellnessPolicyTest {
     }
 
     @Test
-    fun `R3 - first fetch backfills 91 days`() {
+    fun `R3 - first fetch backfills 121 days`() {
         val range = WellnessPolicy.fetchRange(WellnessState(), WELLNESS_TODAY, TEST_ZONE)
-        assertEquals(LocalDate.of(2026, 8, 2), range.start)
+        assertEquals(LocalDate.of(2026, 7, 3), range.start)
         assertEquals(WELLNESS_TODAY, range.endInclusive)
     }
 
@@ -34,11 +34,31 @@ class WellnessPolicyTest {
     fun `R3 - later fetch starts 6 days before last success`() {
         fun oldest(lastSuccess: String) =
             WellnessPolicy
-                .fetchRange(WellnessState(lastSuccessAt = Instant.parse(lastSuccess)), WELLNESS_TODAY, TEST_ZONE)
-                .start
+                .fetchRange(
+                    WellnessState(lastSuccessAt = Instant.parse(lastSuccess), historyDays = 120),
+                    WELLNESS_TODAY,
+                    TEST_ZONE,
+                ).start
 
         assertEquals(LocalDate.of(2026, 10, 24), oldest("2026-10-30T06:00:00Z"))
         assertEquals(LocalDate.of(2026, 8, 26), oldest("2026-09-01T06:00:00Z"))
-        assertEquals(LocalDate.of(2026, 8, 2), oldest("2026-03-01T06:00:00Z"))
+        assertEquals(LocalDate.of(2026, 7, 3), oldest("2026-03-01T06:00:00Z"))
+    }
+
+    @Test
+    fun `R4 - full 120-day fetch until history is backfilled`() {
+        val lastSuccess = Instant.parse("2026-10-30T06:00:00Z")
+
+        fun oldest(historyDays: Int?) =
+            WellnessPolicy
+                .fetchRange(
+                    WellnessState(lastSuccessAt = lastSuccess, historyDays = historyDays),
+                    WELLNESS_TODAY,
+                    TEST_ZONE,
+                ).start
+
+        assertEquals(LocalDate.of(2026, 7, 3), oldest(null))
+        assertEquals(LocalDate.of(2026, 7, 3), oldest(90))
+        assertEquals(LocalDate.of(2026, 10, 24), oldest(120))
     }
 }

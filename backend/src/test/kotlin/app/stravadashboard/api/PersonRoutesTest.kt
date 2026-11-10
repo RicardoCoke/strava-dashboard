@@ -11,12 +11,11 @@ import app.stravadashboard.module
 import app.stravadashboard.persistence.DatabaseFactory
 import app.stravadashboard.persistence.ExposedRingDayRepository
 import app.stravadashboard.persistence.ExposedRunRepository
-import app.stravadashboard.persistence.ExposedSyncStateRepository
 import app.stravadashboard.testsupport.GARMIN_TOKEN_PATH
-import app.stravadashboard.testsupport.MutableClock
 import app.stravadashboard.testsupport.NOW
 import app.stravadashboard.testsupport.TEST_ZONE
 import app.stravadashboard.testsupport.browser
+import app.stravadashboard.testsupport.fixedClock
 import app.stravadashboard.testsupport.summary
 import app.stravadashboard.testsupport.tempDbPath
 import app.stravadashboard.testsupport.testConfig
@@ -68,14 +67,9 @@ class PersonRoutesTest {
             buildWeeks = 18,
         )
     private val config = testConfig().copy(marina = marinaSettings)
-    private val ricardoDb = DatabaseFactory.connect(config.dbPath)
-    private val marinaDb = DatabaseFactory.connect(marinaSettings.dbPath)
-    private val ricardoRuns = ExposedRunRepository(ricardoDb)
-    private val marinaRuns = ExposedRunRepository(marinaDb)
+    private val ricardoRuns = ExposedRunRepository(DatabaseFactory.connect(config.dbPath))
+    private val marinaRuns = ExposedRunRepository(DatabaseFactory.connect(marinaSettings.dbPath))
     private val garminRequests = CopyOnWriteArrayList<HttpRequestData>()
-
-    // Fixed unless a test moves it past the startup sync (feature 022).
-    private val clock = MutableClock()
     private val json = headersOf(HttpHeaders.ContentType, "application/json")
 
     private val perPersonRoutes =
@@ -92,6 +86,7 @@ class PersonRoutesTest {
             "/api/marathon-pace",
             "/api/wellness",
             "/api/rings",
+            "/api/rings/history?days=30",
             "/api/weekly-summaries",
             "/api/run-weather",
         )
@@ -112,7 +107,7 @@ class PersonRoutesTest {
                     else -> respond("[]", HttpStatusCode.OK, json)
                 }
             }
-        application { module(appConfig, clock, TEST_ZONE, garminEngine = engine) }
+        application { module(appConfig, fixedClock(), TEST_ZONE, garminEngine = engine) }
         block()
     }
 
@@ -202,22 +197,9 @@ class PersonRoutesTest {
     private fun garminCalledWith(key: String): Boolean =
         garminRequests.any { it.headers[HttpHeaders.Authorization] == "Bearer access-$key" }
 
-    /** Lets the startup sync (feature 022) finish, then makes the next sync due again and forgets its calls. */
-    private suspend fun passStartupSync(vararg databases: org.jetbrains.exposed.sql.Database) {
-        for (database in databases) {
-            val state = ExposedSyncStateRepository(database)
-            repeat(300) { if (state.get().lastSuccessfulSyncAt == null) delay(10) }
-            assertTrue(state.get().lastSuccessfulSyncAt != null)
-        }
-        clock.advance(Duration.ofMinutes(20))
-        garminRequests.clear()
-    }
-
     @Test
     fun `R6 - post starts the other person`() =
         app {
-            startApplication()
-            passStartupSync(ricardoDb, marinaDb)
             browser().postSyncAs("ricardo")
             assertTrue(waitForGarminCall(RICARDO_KEY))
             assertTrue(waitForGarminCall(MARINA_KEY))
@@ -227,8 +209,6 @@ class PersonRoutesTest {
     fun `021 R7 - each person syncs from their own Garmin key and one without a key is not started`() {
         val noKey = config.copy(marina = marinaSettings.copy(garminApiKey = null))
         app(noKey) {
-            startApplication()
-            passStartupSync(ricardoDb)
             val browser = browser()
             browser.postSyncAs("ricardo")
             assertTrue(waitForGarminCall(RICARDO_KEY))

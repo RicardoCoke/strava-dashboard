@@ -41,11 +41,12 @@ private val log = LoggerFactory.getLogger("app.stravadashboard.Application")
 fun main() {
     val config = AppConfig.fromEnvironment()
     embeddedServer(Netty, host = config.host, port = config.port) {
-        module(config)
+        module(config, syncAtStartup = true)
     }.start(wait = true)
 }
 
-// The engines, plan source and syncAtStartup are test seams; every other dependency is built here.
+// The engines, plan source and startup sync are test seams; every other dependency is built here.
+// syncAtStartup is off by default so a test app (which has a Garmin key) never races a sync it did not start.
 @Suppress("LongParameterList")
 fun Application.module(
     config: AppConfig,
@@ -54,7 +55,7 @@ fun Application.module(
     trainingPlanSource: TrainingPlanSource = TrainingPlanFileSource(config.trainingPlanCsvPath),
     garminEngine: HttpClientEngine? = null,
     weatherEngine: HttpClientEngine? = null,
-    syncAtStartup: Boolean = true,
+    syncAtStartup: Boolean = false,
 ) {
     installServerPlugins()
 

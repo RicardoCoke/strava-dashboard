@@ -9,8 +9,10 @@ import app.stravadashboard.config.WeatherLocation
 import app.stravadashboard.domain.model.ActivityId
 import app.stravadashboard.domain.model.Bpm
 import app.stravadashboard.domain.ports.SyncState
+import app.stravadashboard.domain.rings.RingDay
 import app.stravadashboard.module
 import app.stravadashboard.persistence.DatabaseFactory
+import app.stravadashboard.persistence.ExposedRingDayRepository
 import app.stravadashboard.persistence.ExposedRunRepository
 import app.stravadashboard.persistence.ExposedSyncStateRepository
 import app.stravadashboard.testsupport.GARMIN_TOKEN_PATH
@@ -94,6 +96,7 @@ class PersonIsolationTest {
             "/api/marathon-pace",
             "/api/wellness",
             "/api/rings",
+            "/api/rings/history?days=30",
             "/api/weekly-summaries",
             "/api/run-weather",
         )
@@ -119,9 +122,7 @@ class PersonIsolationTest {
                 weatherRequests += request
                 respond("""{"hourly":{"time":[],"precipitation":[],"cloud_cover":[]}}""", HttpStatusCode.OK, json)
             }
-        application {
-            module(appConfig, clock, TEST_ZONE, garminEngine = garmin, weatherEngine = weather, syncAtStartup = false)
-        }
+        application { module(appConfig, clock, TEST_ZONE, garminEngine = garmin, weatherEngine = weather) }
         block()
     }
 
@@ -460,6 +461,22 @@ class PersonIsolationTest {
                 assertEquals(plain.status, named.status, path)
                 assertEquals(plain.bodyAsText(), named.bodyAsText(), path)
             }
+        }
+    }
+
+    @Test
+    fun `023 R5 - history follows X-Person`() {
+        val today = LocalDate.ofInstant(NOW, TEST_ZONE)
+        runBlocking {
+            ExposedRingDayRepository(ricardoDb).upsert(today, RingDay(28_800, 11.1), NOW)
+            ExposedRingDayRepository(marinaDb).upsert(today, RingDay(28_800, 7.7), NOW)
+        }
+        app {
+            val browser = browser()
+            val ricardo = browser.getAs("ricardo", "/api/rings/history?days=7").bodyAsText()
+            val marinaBody = browser.getAs("marina", "/api/rings/history?days=7").bodyAsText()
+            assertTrue("\"strain\":11.1" in ricardo && "\"strain\":7.7" !in ricardo, ricardo)
+            assertTrue("\"strain\":7.7" in marinaBody && "\"strain\":11.1" !in marinaBody, marinaBody)
         }
     }
 }

@@ -48,3 +48,36 @@ export function isRingsResponse(value: unknown): value is RingsResponse {
     isRing(body['strain'])
   );
 }
+
+// GET /api/rings/history (docs/features/023-recovery-tab/specs.md).
+
+export type HistoryRange = 7 | 30 | 90;
+
+export interface RingsHistoryDay {
+  date: string;
+  sleepPercent: number | null;
+  recoveryPercent: number | null;
+  recoveryZone: RecoveryZone | null;
+  strain: number | null;
+}
+
+export interface RingsHistoryResponse {
+  days: RingsHistoryDay[];
+}
+
+/** A light shape check, so an unexpected 200 body shows the error state instead of broken graphs. */
+export function isRingsHistoryResponse(value: unknown): value is RingsHistoryResponse {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const days = (value as Record<string, unknown>)['days'];
+  return (
+    Array.isArray(days) &&
+    days.every(
+      (day: unknown) =>
+        typeof day === 'object' &&
+        day !== null &&
+        typeof (day as Record<string, unknown>)['date'] === 'string',
+    )
+  );
+}

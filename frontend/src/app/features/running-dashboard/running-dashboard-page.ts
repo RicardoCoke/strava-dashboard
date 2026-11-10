@@ -12,6 +12,7 @@ import { skip } from 'rxjs';
 import { RunningDashboardResponse } from '../../core/api/running-dashboard.models';
 import { RunningDashboardService } from '../../core/api/running-dashboard.service';
 import { SyncStore } from '../../core/sync/sync.store';
+import { NavMenu } from '../../shared/nav-menu/nav-menu';
 import { PersonSwitch } from '../../shared/person-switch/person-switch';
 import { RingSpinner } from '../../shared/spinner/ring-spinner';
 import { BuildCalendarSection } from '../calendar-like-build/build-calendar-section/build-calendar-section';
@@ -51,6 +52,7 @@ function hasNoRuns(data: RunningDashboardResponse): boolean {
     RaceDayFormSection,
     WellnessSection,
     RingsSection,
+    NavMenu,
     PersonSwitch,
     WeeklySummaryBell,
     Vo2maxSection,

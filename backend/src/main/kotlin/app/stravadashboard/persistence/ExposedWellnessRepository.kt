@@ -68,6 +68,7 @@ class ExposedWellnessRepository(
                     lastAttemptAt = row[WellnessStateTable.lastAttemptAt]?.let(Instant::ofEpochSecond),
                     lastStatus = row[WellnessStateTable.lastStatus]?.let(::statusOf),
                     retryAfter = row[WellnessStateTable.retryAfter]?.let(Instant::ofEpochSecond),
+                    historyDays = row[WellnessStateTable.historyDays],
                 )
             } ?: WellnessState()
         }
@@ -80,6 +81,7 @@ class ExposedWellnessRepository(
                 it[lastAttemptAt] = state.lastAttemptAt?.epochSecond
                 it[lastStatus] = state.lastStatus?.name
                 it[retryAfter] = state.retryAfter?.epochSecond
+                it[historyDays] = state.historyDays
             }
         }
     }

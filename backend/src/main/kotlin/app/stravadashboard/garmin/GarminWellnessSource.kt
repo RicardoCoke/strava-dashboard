@@ -27,7 +27,26 @@ class GarminWellnessSource(
     private val garmin: GarminConnect,
 ) : WellnessSource,
     RingDaySource {
+    /** Ranges longer than [MAX_RANGE_DAYS] go in several calls, oldest first, stopping at the first failure. */
     override suspend fun fetch(
+        oldest: LocalDate,
+        newest: LocalDate,
+    ): WellnessFetchResult {
+        val days = mutableListOf<WellnessDay>()
+        var from = oldest
+        while (from <= newest) {
+            val to = minOf(newest, from.plusDays(MAX_RANGE_DAYS - 1))
+            when (val chunk = fetchRange(from, to)) {
+                // Only the chunk's own dates, so an out-of-range day from Garmin can't be stored twice.
+                is WellnessFetchResult.Success -> days += chunk.days.filter { it.date in from..to }
+                else -> return chunk
+            }
+            from = to.plusDays(1)
+        }
+        return WellnessFetchResult.Success(days)
+    }
+
+    private suspend fun fetchRange(
         oldest: LocalDate,
         newest: LocalDate,
     ): WellnessFetchResult {
@@ -91,6 +110,8 @@ class GarminWellnessSource(
     }
 
     private companion object {
+        // The longest range known to work (015's first fetch); 023's 121-day backfill is split into 91 + 30.
+        const val MAX_RANGE_DAYS = 91L
         const val SUMMARIES_PATH = "/usersummary-service/v2/dailysummaries"
         const val HRV_PATH = "/hrv-service/hrv/daily"
         const val SLEEP_PATH = "/wellness-service/wellness/dailySleep"

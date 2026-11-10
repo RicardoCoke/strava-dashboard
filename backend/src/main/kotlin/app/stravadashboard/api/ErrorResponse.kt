@@ -10,6 +10,7 @@ data class ErrorResponse(
     companion object {
         val PERSON_NOT_CONFIGURED = ErrorResponse("person_not_configured", "This person is not set up.")
         val INTERNAL = ErrorResponse("internal_error", "Something went wrong.")
+        val INVALID_DAYS = ErrorResponse("invalid_days", "days must be 7, 30 or 90.")
         val XSRF_INVALID = ErrorResponse("xsrf_invalid", "Request could not be verified. Reload the page.")
         val TRAINING_PLAN_NOT_CONFIGURED =
             ErrorResponse("training_plan_not_configured", "No training plan is configured.")

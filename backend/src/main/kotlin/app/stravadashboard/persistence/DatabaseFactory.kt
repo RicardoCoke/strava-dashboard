@@ -46,6 +46,7 @@ object DatabaseFactory {
             addColumnIfMissing(RunsTable.tableName, RunsTable.movingTimeS.name, "INTEGER")
             addColumnIfMissing(RunLapsTable.tableName, RunLapsTable.averageHeartrate.name, "REAL")
             addColumnIfMissing(RunsTable.tableName, RunsTable.splitsSaved.name, "BOOLEAN")
+            addColumnIfMissing(WellnessStateTable.tableName, WellnessStateTable.historyDays.name, "INTEGER")
         }
         return database
     }

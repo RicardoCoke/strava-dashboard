@@ -51,7 +51,7 @@ class RingsRoutesTest {
                 garminRequests += request
                 respond("{}", HttpStatusCode.OK, jsonHeaders)
             }
-        application { module(config, clock, TEST_ZONE, garminEngine = garmin, syncAtStartup = false) }
+        application { module(config, clock, TEST_ZONE, garminEngine = garmin) }
         block()
     }
 
@@ -98,4 +98,83 @@ class RingsRoutesTest {
             assertEquals(HttpStatusCode.OK, response.status)
             assertEquals("""{"date":"2026-11-09","sleep":null,"recovery":null,"strain":null}""", response.bodyAsText())
         }
+
+    @Test
+    fun `R5 - history returns one entry per day ascending and today matches rings`() {
+        val config = config()
+        seed(config)
+        app(config) {
+            val browser = connectedBrowser()
+            garminRequests.clear()
+            val response = browser.get("/api/rings/history?days=7")
+            assertEquals(HttpStatusCode.OK, response.status)
+            val body = response.bodyAsText()
+            val dates = Regex(""""date":"([0-9-]+)"""").findAll(body).map { it.groupValues[1] }.toList()
+            assertEquals((6L downTo 0L).map { today.minusDays(it).toString() }, dates)
+            assertTrue(
+                body.endsWith(
+                    """{"date":"2026-11-09","sleepPercent":82,"recoveryPercent":75,"recoveryZone":"green",""" +
+                        """"strain":12.9}]}""",
+                ),
+                body,
+            )
+            // A day with no row at all is all nulls, not zeros.
+            assertTrue(
+                """{"date":"2026-11-03","sleepPercent":null,"recoveryPercent":null,"recoveryZone":null,"strain":null}"""
+                    in body,
+            )
+            assertEquals(30, Regex("\"date\"").findAll(browser.get("/api/rings/history?days=30").bodyAsText()).count())
+            assertEquals(90, Regex("\"date\"").findAll(browser.get("/api/rings/history?days=90").bodyAsText()).count())
+            // AC5.9: cache only, no external calls.
+            assertTrue(garminRequests.isEmpty())
+        }
+    }
+
+    @Test
+    fun `R5 - invalid days gives 400`() =
+        app(config()) {
+            val browser = connectedBrowser()
+            for (query in listOf("", "?days=14", "?days=0", "?days=abc")) {
+                val response = browser.get("/api/rings/history$query")
+                assertEquals(HttpStatusCode.BadRequest, response.status, query)
+                assertEquals(
+                    """{"error":"invalid_days","message":"days must be 7, 30 or 90."}""",
+                    response.bodyAsText(),
+                )
+            }
+        }
+
+    @Test
+    fun `R5 - no garmin key gives all nulls`() =
+        app(config(key = null)) {
+            val body = connectedBrowser().get("/api/rings/history?days=7").bodyAsText()
+            assertEquals(
+                7,
+                Regex(
+                    """"sleepPercent":null,"recoveryPercent":null,"recoveryZone":null,"strain":null""",
+                ).findAll(body).count(),
+            )
+        }
+
+    @Test
+    fun `R4 - rings response unchanged by older rows`() {
+        val config = config()
+        seed(config)
+        runBlocking {
+            val database = DatabaseFactory.connect(config.dbPath)
+            val old = (100L..119L).map { wellnessDay(today.minusDays(it), 40, 90.0) }
+            ExposedWellnessRepository(database).replaceRange(today.minusDays(119), today.minusDays(100), old, now)
+            val rings = ExposedRingDayRepository(database)
+            (63L..92L).forEach { rings.upsert(today.minusDays(it), RingDay(10_000, 20.0), now) }
+        }
+        app(config) {
+            assertEquals(
+                """{"date":"2026-11-09",""" +
+                    """"sleep":{"percent":82,"fill":0.82,"deltaLabel":null},""" +
+                    """"recovery":{"percent":75,"zone":"green","fill":0.75,"deltaLabel":null},""" +
+                    """"strain":{"value":12.9,"fill":0.614,"deltaLabel":"+1.9 vs 30-day avg"}}""",
+                connectedBrowser().get("/api/rings").bodyAsText(),
+            )
+        }
+    }
 }

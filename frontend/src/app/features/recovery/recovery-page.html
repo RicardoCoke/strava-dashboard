@@ -1,0 +1,47 @@
+<header class="page-header">
+  <div class="header-start">
+    <app-nav-menu />
+    <h1>Recovery</h1>
+  </div>
+  <div class="header-actions">
+    <app-person-switch />
+    <app-weekly-summary-bell />
+  </div>
+</header>
+
+<div class="range" role="group" aria-label="Range">
+  @for (option of ranges; track option) {
+    <button type="button" [attr.aria-pressed]="range() === option" (click)="select(option)">
+      {{ option }} days
+    </button>
+  }
+</div>
+
+@switch (state().kind) {
+  @case ('loading') {
+    <div class="loading" role="status" aria-live="polite">
+      <app-ring-spinner />
+      <p class="loading-text">Loading recovery history…</p>
+    </div>
+  }
+  @case ('error') {
+    <div class="card status-card" role="alert">
+      <p>Couldn't load recovery history.</p>
+      <button type="button" class="retry" (click)="load()">Retry</button>
+    </div>
+  }
+  @case ('loaded') {
+    <div class="cards">
+      @for (chart of charts(); track chart.metric) {
+        <section class="card" [attr.data-metric]="chart.metric">
+          <h2>{{ chart.title }}</h2>
+          @if (chart.empty) {
+            <p class="empty">No {{ chart.metric }} data in this period</p>
+          } @else {
+            <app-chart [options]="chart.options" [label]="chart.label" />
+          }
+        </section>
+      }
+    </div>
+  }
+}

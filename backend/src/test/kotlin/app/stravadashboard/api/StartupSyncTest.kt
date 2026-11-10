@@ -10,13 +10,13 @@ import app.stravadashboard.persistence.ExposedSyncStateRepository
 import app.stravadashboard.testsupport.GARMIN_LIST_PATH
 import app.stravadashboard.testsupport.GARMIN_TOKEN_PATH
 import app.stravadashboard.testsupport.TEST_ZONE
+import app.stravadashboard.testsupport.browser
 import app.stravadashboard.testsupport.fixedClock
 import app.stravadashboard.testsupport.startSync
 import app.stravadashboard.testsupport.tempDbPath
 import app.stravadashboard.testsupport.testConfig
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
-import io.ktor.client.plugins.cookies.HttpCookies
 import io.ktor.client.request.HttpRequestData
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpHeaders
@@ -26,6 +26,7 @@ import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
+import org.jetbrains.exposed.sql.Database
 import java.time.LocalDate
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.test.Test
@@ -33,9 +34,15 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-/** Feature 022: one sync per configured person when the application starts, with no request to it. All invented. */
+private const val RICARDO_KEY = "ricardo-garmin"
+private const val MARINA_KEY = "marina-garmin"
+
+/**
+ * Feature 022: one sync per person with a Garmin key when the application starts, with no request to it. Ported from
+ * Strava tokens to Garmin keys for feature 021, where a key is what makes a person "connected". All invented.
+ */
 class StartupSyncTest {
-    private val marina =
+    private fun marina(key: String?) =
         PersonSettings(
             dbPath = tempDbPath(),
             trainingPlanCsvPath = null,
@@ -43,35 +50,34 @@ class StartupSyncTest {
             lthr = LthrSetting.NotConfigured,
             maxHr = MaxHrSetting.Default,
             marathonPace = MarathonPaceSetting.NotConfigured,
-            garminApiKey = MARINA_KEY,
+            garminApiKey = key,
             garminActivitiesFrom = LocalDate.of(2000, 1, 1),
             buildWeeks = 18,
         )
-    private val config = testConfig().copy(marina = marina)
-    private val ricardoDb = DatabaseFactory.connect(config.dbPath)
-    private val marinaDb = DatabaseFactory.connect(marina.dbPath)
+
     private val requests = CopyOnWriteArrayList<HttpRequestData>()
     private val json = headersOf(HttpHeaders.ContentType, "application/json")
 
-    /** Each key gets its own access token, so a list call shows whose key it was made with. */
+    /** Each key gets its own access token, so every list call shows whose key it was made with. */
     private fun app(
-        appConfig: app.stravadashboard.config.AppConfig = config,
-        block: suspend ApplicationTestBuilder.() -> Unit,
+        ricardoKey: String?,
+        marinaKey: String?,
+        block: suspend ApplicationTestBuilder.(ricardoDb: Database, marinaDb: Database) -> Unit,
     ) = testApplication {
+        val marina = marina(marinaKey)
+        val config = testConfig().copy(garminApiKey = ricardoKey, marina = marina)
         val garmin =
             MockEngine { request ->
                 requests += request
-                when (request.url.encodedPath) {
-                    GARMIN_TOKEN_PATH -> {
-                        val key = request.headers[HttpHeaders.Authorization]?.removePrefix("ApiKey ")
-                        respond("access-$key", HttpStatusCode.OK)
-                    }
-                    else -> respond("[]", HttpStatusCode.OK, json)
+                if (request.url.encodedPath == GARMIN_TOKEN_PATH) {
+                    respond("access-" + request.headers[HttpHeaders.Authorization]?.removePrefix("ApiKey "))
+                } else {
+                    respond("[]", HttpStatusCode.OK, json)
                 }
             }
-        application { module(appConfig, fixedClock(), TEST_ZONE, garminEngine = garmin) }
+        application { module(config, fixedClock(), TEST_ZONE, garminEngine = garmin, syncAtStartup = true) }
         startApplication()
-        block()
+        block(DatabaseFactory.connect(config.dbPath), DatabaseFactory.connect(marina.dbPath))
     }
 
     private fun listedWith(key: String): Boolean =
@@ -79,9 +85,7 @@ class StartupSyncTest {
             it.url.encodedPath == GARMIN_LIST_PATH && it.headers[HttpHeaders.Authorization] == "Bearer access-$key"
         }
 
-    private fun listCalls(): Int = requests.count { it.url.encodedPath == GARMIN_LIST_PATH }
-
-    private fun synced(database: org.jetbrains.exposed.sql.Database): Boolean =
+    private fun synced(database: Database): Boolean =
         runBlocking { ExposedSyncStateRepository(database).get() }.lastSuccessfulSyncAt != null
 
     private suspend fun waitUntil(condition: () -> Boolean): Boolean {
@@ -93,8 +97,8 @@ class StartupSyncTest {
     }
 
     @Test
-    fun `R1 - each configured person lists Garmin activities at startup without any request to the app`() =
-        app {
+    fun `R1 - with Garmin keys an activities call happens at startup without any request to the app`() =
+        app(RICARDO_KEY, MARINA_KEY) { ricardoDb, marinaDb ->
             assertTrue(waitUntil { listedWith(RICARDO_KEY) && listedWith(MARINA_KEY) })
             assertTrue(waitUntil { synced(ricardoDb) })
             assertTrue(waitUntil { synced(marinaDb) })
@@ -102,35 +106,29 @@ class StartupSyncTest {
 
     @Test
     fun `R2 - without Garmin keys no Garmin call happens at startup`() =
-        app(testConfig().copy(garminApiKey = null)) {
+        app(null, null) { _, _ ->
             delay(300)
             assertTrue(requests.isEmpty())
         }
 
     @Test
-    fun `R2 - only the configured person syncs at startup`() =
-        app(config.copy(marina = marina.copy(garminApiKey = null))) {
+    fun `R2 - only the person with a key syncs at startup`() =
+        app(RICARDO_KEY, null) { _, _ ->
             assertTrue(waitUntil { listedWith(RICARDO_KEY) })
             delay(200)
-            assertFalse(requests.any { it.headers[HttpHeaders.Authorization] == "ApiKey $MARINA_KEY" })
+            assertFalse(requests.any { it.headers[HttpHeaders.Authorization]?.contains(MARINA_KEY) == true })
         }
 
     @Test
     fun `R3 - a POST to api sync right after the startup sync starts no new job`() =
-        app {
-            assertTrue(waitUntil { synced(ricardoDb) && synced(marinaDb) })
-            val before = listCalls()
-            val browser = createClient { install(HttpCookies) }
+        app(RICARDO_KEY, null) { ricardoDb, _ ->
+            assertTrue(waitUntil { synced(ricardoDb) })
+            val listCalls = requests.count { it.url.encodedPath == GARMIN_LIST_PATH }
 
-            val body = browser.startSync().bodyAsText()
+            val body = browser().startSync().bodyAsText()
 
             assertFalse("\"syncing\"" in body)
             delay(200)
-            assertEquals(before, listCalls())
+            assertEquals(listCalls, requests.count { it.url.encodedPath == GARMIN_LIST_PATH })
         }
-
-    private companion object {
-        const val RICARDO_KEY = "invented-garmin-key"
-        const val MARINA_KEY = "invented-marina-startup-key"
-    }
 }

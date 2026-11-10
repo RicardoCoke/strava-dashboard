@@ -12,8 +12,8 @@ object WellnessPolicy {
     const val BASELINE_DAYS = 7
     const val MIN_BASELINE_VALUES = 3
 
-    /** Rows older than today minus this are pruned; the first fetch covers this many days plus today. */
-    const val RETENTION_DAYS = 90L
+    /** Rows older than today minus this are pruned; 120 so a 90-day Recovery history has its 30-day baselines (023). */
+    const val RETENTION_DAYS = 120L
     const val REFETCH_DAYS = 6L
     const val RHR_FLAG_BPM = 5.0
     const val HRV_FLAG_FRACTION = 0.15
@@ -32,15 +32,20 @@ object WellnessPolicy {
         return !rateLimited && waited
     }
 
-    /** The first fetch covers today − 90 to today; later ones start 6 days before the last success, capped. */
+    /**
+     * The first fetch, and a one-off backfill while [WellnessState.historyDays] is below retention, cover today − 120
+     * to today; later ones start 6 days before the last success, capped.
+     */
     fun fetchRange(
         state: WellnessState,
         today: LocalDate,
         zone: ZoneId,
     ): ClosedRange<LocalDate> {
         val earliest = today.minusDays(RETENTION_DAYS)
+        val backfilled = (state.historyDays ?: 0) >= RETENTION_DAYS
         val fromLastSuccess =
             state.lastSuccessAt
+                ?.takeIf { backfilled }
                 ?.atZone(zone)
                 ?.toLocalDate()
                 ?.minusDays(REFETCH_DAYS)

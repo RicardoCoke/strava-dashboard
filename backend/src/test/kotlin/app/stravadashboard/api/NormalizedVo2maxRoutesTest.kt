@@ -51,7 +51,7 @@ class NormalizedVo2maxRoutesTest {
         config: AppConfig,
         block: suspend ApplicationTestBuilder.() -> Unit,
     ) = testApplication {
-        application { module(config, clock, TEST_ZONE, garminEngine = garmin.engine, syncAtStartup = false) }
+        application { module(config, clock, TEST_ZONE, garminEngine = garmin.engine) }
         block()
     }
 

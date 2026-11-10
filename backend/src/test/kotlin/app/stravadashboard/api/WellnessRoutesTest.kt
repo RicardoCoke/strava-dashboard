@@ -75,7 +75,7 @@ class WellnessRoutesTest {
                 garminRequests += request
                 respond(garminBody(request.url.encodedPath), garminStatus, jsonHeaders)
             }
-        application { module(config, clock, TEST_ZONE, garminEngine = garmin, syncAtStartup = false) }
+        application { module(config, clock, TEST_ZONE, garminEngine = garmin) }
         block()
     }
 
@@ -233,8 +233,8 @@ class WellnessRoutesTest {
             val browser = connectedBrowser()
             browser.syncAndWait()
 
-            // Token, activity list (021), resting HR, HRV, then sleep and heart rate for each of 32 ring days (020).
-            assertEquals(4 + 32 * 2, garminRequests.size)
+            // Token, activities (021), resting HR + HRV in 2 chunks (023), then sleep and HR for each of 93 ring days.
+            assertEquals(6 + 93 * 2, garminRequests.size)
             val body = browser.get("/api/wellness").json()
             assertEquals("1", body.text("daysWithData"))
             assertEquals("ok", body.getValue("source").jsonObject.text("status"))

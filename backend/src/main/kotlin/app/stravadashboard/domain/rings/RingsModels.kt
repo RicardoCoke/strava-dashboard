@@ -40,6 +40,14 @@ data class RingValue(
     val baseline: Double?,
 )
 
+/** One day of the Recovery page's history (feature 023); unrounded, null when it can't be computed. */
+data class RingsHistoryDay(
+    val date: LocalDate,
+    val sleep: Double?,
+    val recovery: Double?,
+    val strain: Double?,
+)
+
 data class RingsView(
     val date: LocalDate,
     val sleep: RingValue?,

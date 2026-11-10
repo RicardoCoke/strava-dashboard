@@ -24,6 +24,16 @@ class RingsCalculator(
             strain = ring(today) { rings[it]?.strain },
         )
 
+    /** One entry per date from [from] to [to], with the same values as the rings for that day (023 R5). */
+    fun history(
+        from: LocalDate,
+        to: LocalDate,
+    ): List<RingsHistoryDay> =
+        generateSequence(from) { it.plusDays(1) }
+            .takeWhile { it <= to }
+            .map { RingsHistoryDay(it, sleepPerformance(it), recovery(it), rings[it]?.strain) }
+            .toList()
+
     /** % of the night's need slept, capped at 100 (R4). */
     fun sleepPerformance(day: LocalDate): Double? {
         val slept = rings[day]?.sleepSeconds ?: return null

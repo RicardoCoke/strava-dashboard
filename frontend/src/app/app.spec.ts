@@ -34,6 +34,15 @@ describe('App', () => {
     TestBed.inject(HttpTestingController).expectOne('/api/dashboard/running');
   });
 
+  it('023 R3 - /recovery shows the Recovery page', async () => {
+    const harness = await RouterTestingHarness.create();
+    await harness.navigateByUrl('/recovery');
+    expect((harness.routeNativeElement as HTMLElement).querySelector('h1')?.textContent).toBe(
+      'Recovery',
+    );
+    TestBed.inject(HttpTestingController).match(() => true);
+  });
+
   it('R1 - unknown route redirects to dashboard', async () => {
     const harness = await RouterTestingHarness.create();
     await harness.navigateByUrl('/foo');

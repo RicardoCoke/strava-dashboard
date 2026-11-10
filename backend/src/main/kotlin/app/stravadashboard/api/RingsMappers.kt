@@ -4,6 +4,7 @@ import app.stravadashboard.domain.model.roundHalfUpToInt
 import app.stravadashboard.domain.model.roundOneDecimal
 import app.stravadashboard.domain.rings.RingValue
 import app.stravadashboard.domain.rings.RingsCalculator
+import app.stravadashboard.domain.rings.RingsHistoryDay
 import app.stravadashboard.domain.rings.RingsPolicy
 import app.stravadashboard.domain.rings.RingsView
 import java.math.BigDecimal
@@ -34,6 +35,19 @@ fun RingsView.toDto(): RingsResponse =
                     deltaLabel = ring.baseline?.let { signedOneDecimal(roundOneDecimal(ring.value - it)) + VS_AVG },
                 )
             },
+    )
+
+fun List<RingsHistoryDay>.toHistoryDto(): RingsHistoryResponse =
+    RingsHistoryResponse(
+        map { day ->
+            RingsHistoryDayDto(
+                date = day.date.toString(),
+                sleepPercent = day.sleep?.let(::roundHalfUpToInt),
+                recoveryPercent = day.recovery?.let(::roundHalfUpToInt),
+                recoveryZone = day.recovery?.let { RingsCalculator.zoneOf(it).name.lowercase() },
+                strain = day.strain?.let(::roundOneDecimal),
+            )
+        },
     )
 
 private fun percentFill(ring: RingValue): Double = fill(roundHalfUpToInt(ring.value) / RingsPolicy.MAX_PERCENT)

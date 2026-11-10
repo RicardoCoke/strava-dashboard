@@ -47,7 +47,12 @@ class WellnessSync(
                 val days = result.days.mapNotNull(::usable).filter { it.date in range }
                 repo.replaceRange(range.start, range.endInclusive, days, now)
                 repo.pruneBefore(WellnessPolicy.pruneCutoff(today))
-                val ok = attempted.copy(lastStatus = WellnessFetchStatus.OK, lastSuccessAt = now)
+                val ok =
+                    attempted.copy(
+                        lastStatus = WellnessFetchStatus.OK,
+                        lastSuccessAt = now,
+                        historyDays = WellnessPolicy.RETENTION_DAYS.toInt(),
+                    )
                 repo.saveState(ok)
                 log.info("Wellness refresh finished: status={}, days={}", WellnessFetchStatus.OK, days.size)
                 refreshRings(today, ok)
