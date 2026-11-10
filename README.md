@@ -30,7 +30,7 @@ The app runs at http://rcoke.local:8080 as the `strava-dashboard` systemd servic
 
 The Pi's `.env` differs from the local one: `HOST=0.0.0.0`, `STRAVA_REDIRECT_URI=http://rcoke.local:8080/auth/strava/callback` and Linux paths. Each Strava app's **Authorization Callback Domain** must be `rcoke.local`. `FRONTEND_DIR` is set in the service file.
 
-To release a new version, from the repo root in Git Bash:
+To release a new version, run `scripts/deploy.sh` from Git Bash (on a clean, up-to-date `main`). It does the steps below and checks the app answers afterwards:
 ```bash
 (cd backend && ./gradlew buildFatJar) && (cd frontend && npm run build)
 scp backend/build/libs/strava-dashboard-backend-all.jar rcoke@rcoke.local:strava-dashboard/app.jar
