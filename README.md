@@ -30,14 +30,9 @@ The app runs at http://rcoke.local:8080 as the `strava-dashboard` systemd servic
 
 The Pi's `.env` differs from the local one: `HOST=0.0.0.0`, `STRAVA_REDIRECT_URI=http://rcoke.local:8080/auth/strava/callback` and Linux paths. Each Strava app's **Authorization Callback Domain** must be `rcoke.local`. `FRONTEND_DIR` is set in the service file.
 
-To release a new version, run `scripts/deploy.sh` from Git Bash (on a clean, up-to-date `main`). It does the steps below and checks the app answers afterwards:
-```bash
-(cd backend && ./gradlew buildFatJar) && (cd frontend && npm run build)
-scp backend/build/libs/strava-dashboard-backend-all.jar rcoke@rcoke.local:strava-dashboard/app.jar
-ssh rcoke@rcoke.local "rm -rf ~/strava-dashboard/frontend"
-scp -r frontend/dist/frontend/browser rcoke@rcoke.local:strava-dashboard/frontend
-ssh -t rcoke@rcoke.local "sudo systemctl restart strava-dashboard"
-```
+To release a new version, run `scripts/deploy.sh` from Git Bash (on a clean, up-to-date `main`). It builds, uploads, restarts the service and checks the app answers afterwards.
+
+Never `scp` straight onto the live `app.jar`: the running JVM still loads classes from it, so its shutdown crashes (`NoClassDefFoundError`) and systemd waits 90 s before killing it, leaving the app down. The script uploads `app.jar.new` and renames it over `app.jar`, which takes about a second.
 
 First-time install: `sudo apt-get install openjdk-21-jre-headless`, copy `deploy/strava-dashboard.service` to `/etc/systemd/system/`, then `sudo systemctl enable --now strava-dashboard`. The SQLite data lives in `~/strava-dashboard/data` on the SD card, and is not backed up.
 
