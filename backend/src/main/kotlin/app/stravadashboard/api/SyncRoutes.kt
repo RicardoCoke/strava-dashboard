@@ -46,7 +46,7 @@ class OtherPersonSync(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            log.warn("Could not start the other person's sync: {}", e::class.simpleName)
+            log.warn("Could not start a background sync: {}", e::class.simpleName)
         }
     }
 

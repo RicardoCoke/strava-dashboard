@@ -39,6 +39,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
 import java.time.Clock
 import java.time.ZoneId
@@ -83,6 +84,8 @@ fun Application.module(
             val planSource = TrainingPlanFileSource(it.trainingPlanCsvPath)
             personStack(it, requireNotNull(marinaStores), ricardoStores, planSource, deps)
         }
+    // Fresh data as soon as the Pi boots, without waiting for a page to open (feature 022).
+    launch { listOfNotNull(ricardo, marina).forEach { it.otherSync.startIfConnected() } }
 
     routing {
         config.frontendDir?.let { frontendRoutes(it) }
