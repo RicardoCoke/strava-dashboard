@@ -42,7 +42,7 @@ class LongRunDriftRoutesTest {
         config: AppConfig,
         block: suspend ApplicationTestBuilder.() -> Unit,
     ) = testApplication {
-        application { module(config, clock, TEST_ZONE, garminEngine = garmin.engine) }
+        application { module(config, clock, TEST_ZONE, garminEngine = garmin.engine, syncAtStartup = false) }
         block()
     }
 
