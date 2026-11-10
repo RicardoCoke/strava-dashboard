@@ -374,7 +374,7 @@ class SyncServiceTest {
     @Test
     fun `008 R2 - refetch counts as pending and 429 stops the sync`() {
         storeOldDetails(summary(1, daysAgo(10)))
-        source.activities = emptyList()
+        source.activities = listOf(summary(1, daysAgo(10)))
         source.failFromCall = 2
         source.failure = SourceResult.RateLimited(NOW.plus(Duration.ofMinutes(15)))
 
@@ -429,7 +429,7 @@ class SyncServiceTest {
     @Test
     fun `016 R1 - splits refetch counts as pending and 429 stops sync writing nothing`() {
         storePre016Details(summary(1, daysAgo(10)))
-        source.activities = emptyList()
+        source.activities = listOf(summary(1, daysAgo(10)))
         source.failFromCall = 2
         source.failure = SourceResult.RateLimited(NOW.plus(Duration.ofMinutes(15)))
 
@@ -447,7 +447,7 @@ class SyncServiceTest {
         // so run 1 is stored first: it then needs both refetches, run 2 only splits.
         storeOldDetails(summary(1, daysAgo(10)))
         storePre016Details(summary(2, daysAgo(3)))
-        source.activities = emptyList()
+        source.activities = listOf(summary(1, daysAgo(10)), summary(2, daysAgo(3)))
 
         sync()
 
@@ -457,7 +457,7 @@ class SyncServiceTest {
     @Test
     fun `016 R1 - 404 on splits refetch deletes the run`() {
         storePre016Details(summary(1, daysAgo(10)))
-        source.activities = emptyList()
+        source.activities = listOf(summary(1, daysAgo(10)))
         source.failFromCall = 2
         source.failure = SourceResult.NotFound
 
@@ -469,7 +469,7 @@ class SyncServiceTest {
     @Test
     fun `016 R1 - unavailable source on splits refetch writes nothing`() {
         storePre016Details(summary(1, daysAgo(10)))
-        source.activities = emptyList()
+        source.activities = listOf(summary(1, daysAgo(10)))
         source.failFromCall = 2
         source.failure = SourceResult.Unavailable
 
@@ -480,7 +480,7 @@ class SyncServiceTest {
     @Test
     fun `016 R1 - unavailable on splits refetch leaves the run pending`() {
         storePre016Details(summary(1, daysAgo(10)))
-        source.activities = emptyList()
+        source.activities = listOf(summary(1, daysAgo(10)))
         source.failFromCall = 2
 
         val info = sync()
@@ -494,7 +494,7 @@ class SyncServiceTest {
     fun `016 R1 - each run is planned once across detail groups`() {
         storeOldDetails(summary(1, daysAgo(10)))
         transaction(database) { exec("UPDATE runs SET splits_saved = NULL") }
-        source.activities = emptyList()
+        source.activities = listOf(summary(1, daysAgo(10)))
 
         sync()
 
@@ -694,6 +694,18 @@ class SyncServiceTest {
         assertIs<SyncOutcome.Done>(runBlocking { cutOverService.syncIfDue() })
 
         assertEquals(listOf(1L, 3L), runBlocking { runs.findAll() }.map { it.id.value }.sorted())
+    }
+
+    @Test
+    fun `021 - a Strava copy stored on or after the cut-over is replaced by the Garmin run`() {
+        // Synced from Strava on the cut-over day before the switch; Garmin lists the same run under its own ID.
+        runBlocking { runs.upsertSummaries(listOf(summary(1, daysAgo(1)))) }
+        source.activities = listOf(summary(2, daysAgo(1)))
+
+        assertIs<SyncOutcome.Done>(runBlocking { cutOverService.syncIfDue() })
+
+        assertEquals(listOf(2L), runBlocking { runs.findAll() }.map { it.id.value })
+        assertFalse(source.calls.any { it.endsWith(":1") && !it.startsWith("list") })
     }
 
     @Test
