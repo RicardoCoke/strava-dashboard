@@ -21,10 +21,12 @@ describe('weekRows (019)', () => {
     expect(row.days[0].isKeyWorkout).toBe(false);
   });
 
-  it('R9 - ricardo keeps pinned workouts and text', () => {
-    const week = planWeek(1, { days: [planDay({ date: '2026-11-20', totalMinutes: 50 })] });
+  it('R9 - ricardo keeps pinned workouts with the plan text', () => {
+    const week = planWeek(1, {
+      days: [planDay({ date: '2026-11-19', session: "5x20' subT", totalMinutes: 50 })],
+    });
     const [row] = weekRows([week]);
-    expect(row.days[0].session).toBe('5x5km');
+    expect(row.days[0].session).toBe("5x20' subT");
     expect(row.days[0].isKeyWorkout).toBe(true);
     expect(row.days[0].minutesText).toBe('50 min');
     expect(row.splitText).toContain('% easy');

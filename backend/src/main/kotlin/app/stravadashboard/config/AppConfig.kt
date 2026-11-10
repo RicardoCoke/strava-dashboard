@@ -29,6 +29,8 @@ data class AppConfig(
     val weatherHome: WeatherLocation? = null,
     /** Marina's own settings (feature 019), or null when she isn't set up. */
     val marina: PersonSettings? = null,
+    /** The built Angular app, served in production. Null in dev, where `ng serve` serves it. */
+    val frontendDir: String? = null,
 ) {
     val ricardo: PersonSettings
         get() =
@@ -102,6 +104,7 @@ data class AppConfig(
                 garminActivitiesFrom = garminActivitiesFrom(env, "GARMIN_ACTIVITIES_FROM"),
                 weatherHome = WeatherLocation.parse(env["WEATHER_LATITUDE"], env["WEATHER_LONGITUDE"]),
                 marina = marinaSettings(env, env.required("DB_PATH")),
+                frontendDir = env["FRONTEND_DIR"]?.trim()?.takeIf { it.isNotEmpty() },
             )
     }
 }

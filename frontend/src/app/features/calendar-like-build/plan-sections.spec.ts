@@ -119,14 +119,14 @@ describe('BuildCalendar', () => {
     expect(squash(tuesday.querySelector('.numbers'))).toBe('8.50 km');
   });
 
-  it('marks the key workouts and relabels 20 Nov', () => {
+  it('marks the key workouts with the plan text', () => {
     const element = calendar();
     expect(element.querySelectorAll('.day.key-workout').length).toBe(2);
 
-    const friday = element.querySelectorAll('.week')[13].querySelectorAll('.day')[4];
-    expect(squash(friday.querySelector('.date'))).toBe('Fri 20 Nov');
-    expect(friday.classList).toContain('key-workout');
-    expect(squash(friday.querySelector('.session'))).toBe('5x5km');
+    const thursday = element.querySelectorAll('.week')[13].querySelectorAll('.day')[3];
+    expect(squash(thursday.querySelector('.date'))).toBe('Thu 19 Nov');
+    expect(thursday.classList).toContain('key-workout');
+    expect(squash(thursday.querySelector('.session'))).toBe("50' easy");
 
     const tuesday = element.querySelectorAll('.week')[14].querySelectorAll('.day')[1];
     expect(squash(tuesday.querySelector('.date'))).toBe('Tue 24 Nov');

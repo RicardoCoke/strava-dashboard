@@ -1,0 +1,17 @@
+[Unit]
+Description=Strava Dashboard
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=rcoke
+WorkingDirectory=/home/rcoke/strava-dashboard
+EnvironmentFile=/home/rcoke/strava-dashboard/.env
+Environment=FRONTEND_DIR=/home/rcoke/strava-dashboard/frontend
+# The Pi has 2 GB of RAM.
+ExecStart=/usr/bin/java -Xmx512m -jar /home/rcoke/strava-dashboard/app.jar
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

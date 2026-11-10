@@ -3,6 +3,7 @@ package app.stravadashboard
 import app.stravadashboard.api.ErrorResponse
 import app.stravadashboard.api.XsrfProtection
 import app.stravadashboard.api.forPerson
+import app.stravadashboard.api.frontendRoutes
 import app.stravadashboard.api.healthRoutes
 import app.stravadashboard.config.AppConfig
 import app.stravadashboard.domain.Person
@@ -70,6 +71,7 @@ fun Application.module(
         }
 
     routing {
+        config.frontendDir?.let { frontendRoutes(it) }
         healthRoutes()
         forPerson(Person.RICARDO) { ricardo.routes(this, marina?.otherSync) }
         forPerson(Person.MARINA) {
