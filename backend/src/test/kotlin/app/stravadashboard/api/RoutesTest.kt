@@ -29,6 +29,7 @@ import io.ktor.http.Url
 import io.ktor.http.headersOf
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -201,6 +202,15 @@ class RoutesTest {
             assertNull(runBlocking { tokens.find() })
         }
 
+    private suspend fun awaitStartupSync() {
+        val syncState = ExposedSyncStateRepository(database)
+        repeat(500) {
+            if (syncState.get().lastAttemptAt != null) return
+            delay(10)
+        }
+        error("The startup sync did not finish")
+    }
+
     @Test
     fun `019 R5 - wrong athlete keeps ricardo data`() {
         val runs = ExposedRunRepository(database)
@@ -209,11 +219,16 @@ class RoutesTest {
             runs.upsertSummaries(listOf(summary(500, NOW.minus(Duration.ofDays(1)))))
         }
         app {
+            // The seeded tokens make a startup sync due (feature 022); compare against the store after it.
+            startApplication()
+            awaitStartupSync()
+            val before = runBlocking { tokens.find()?.athleteId to runs.findAll().map { it.id } }
+
             val response = browser().connect()
 
             assertEquals("/connect?error=wrong_athlete", response.headers[HttpHeaders.Location])
-            assertEquals(99, runBlocking { tokens.find() }?.athleteId)
-            assertEquals(1, runBlocking { runs.findAll() }.size)
+            assertEquals(99, before.first)
+            assertEquals(before, runBlocking { tokens.find()?.athleteId to runs.findAll().map { it.id } })
             assertTrue(
                 response.headers
                     .getAll(HttpHeaders.SetCookie)

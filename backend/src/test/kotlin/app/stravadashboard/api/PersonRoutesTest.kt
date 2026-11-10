@@ -14,9 +14,9 @@ import app.stravadashboard.persistence.ExposedRingDayRepository
 import app.stravadashboard.persistence.ExposedRunRepository
 import app.stravadashboard.persistence.ExposedSyncStateRepository
 import app.stravadashboard.persistence.ExposedTokenRepository
+import app.stravadashboard.testsupport.MutableClock
 import app.stravadashboard.testsupport.NOW
 import app.stravadashboard.testsupport.TEST_ZONE
-import app.stravadashboard.testsupport.fixedClock
 import app.stravadashboard.testsupport.summary
 import app.stravadashboard.testsupport.tempDbPath
 import app.stravadashboard.testsupport.testConfig
@@ -86,6 +86,9 @@ class PersonRoutesTest {
 
     /** The athlete Strava says connected. By default each app's own athlete; a test can pretend otherwise. */
     private var athleteOverride: Long? = null
+
+    // Fixed unless a test moves it past the startup sync (feature 022).
+    private val clock = MutableClock()
     private val json = headersOf(HttpHeaders.ContentType, "application/json")
 
     private val perPersonRoutes =
@@ -129,7 +132,7 @@ class PersonRoutesTest {
             }
         // Garmin answers empty, so a configured key never reaches the network.
         val garmin = MockEngine { respond("{}", HttpStatusCode.OK, json) }
-        application { module(appConfig, fixedClock(), TEST_ZONE, engine, garminEngine = garmin) }
+        application { module(appConfig, clock, TEST_ZONE, engine, garminEngine = garmin) }
         block()
     }
 
@@ -364,10 +367,22 @@ class PersonRoutesTest {
     private fun stravaCalledWith(bearer: String): Boolean =
         stravaRequests.any { it.headers[HttpHeaders.Authorization] == "Bearer $bearer" }
 
+    /** Lets the startup sync (feature 022) finish with the seeded tokens, then makes the next sync due again. */
+    private suspend fun passStartupSync(vararg databases: org.jetbrains.exposed.sql.Database) {
+        for (database in databases) {
+            val state = ExposedSyncStateRepository(database)
+            repeat(300) { if (state.get().lastSuccessfulSyncAt == null) delay(10) }
+            assertTrue(state.get().lastSuccessfulSyncAt != null)
+        }
+        clock.advance(Duration.ofMinutes(20))
+    }
+
     @Test
     fun `R6 - post starts the other person`() {
         seedTokens()
         app {
+            startApplication()
+            passStartupSync(ricardoDb, marinaDb)
             val browser = browser()
             browser.connect("marina")
             browser.postSyncAs("ricardo")
@@ -380,6 +395,8 @@ class PersonRoutesTest {
     fun `R6 - unconnected person not started`() {
         seedTokens(marina = false)
         app {
+            startApplication()
+            passStartupSync(ricardoDb)
             val browser = browser()
             browser.connect()
             browser.postSyncAs("ricardo")
