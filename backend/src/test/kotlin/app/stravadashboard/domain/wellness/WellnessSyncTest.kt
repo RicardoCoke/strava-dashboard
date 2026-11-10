@@ -42,7 +42,7 @@ class WellnessSyncTest {
     private fun state(): WellnessState = runBlocking { repo.getState() }
 
     @Test
-    fun `R3 - first refresh backfills 91 days and later ones re-fetch the last week`() =
+    fun `R3 - first refresh backfills 121 days and later ones re-fetch the last week`() =
         runBlocking {
             sync.refreshIfDue()
             clock.advance(Duration.ofDays(1))
@@ -50,7 +50,7 @@ class WellnessSyncTest {
 
             assertEquals(
                 listOf(
-                    LocalDate.of(2026, 8, 2) to WELLNESS_TODAY,
+                    LocalDate.of(2026, 7, 3) to WELLNESS_TODAY,
                     LocalDate.of(2026, 10, 25) to LocalDate.of(2026, 11, 1),
                 ),
                 source.ranges,
@@ -83,9 +83,9 @@ class WellnessSyncTest {
 
             sync.refreshIfDue()
 
-            // 2026-10-29 was in the fetched range and not returned, so it is gone; 2026-07-01 is older than today − 90.
+            // 2026-10-29 was fetched and not returned, so it is gone; 2026-07-01 is older than today − 120.
             assertEquals(listOf(wellnessDay(LocalDate.of(2026, 10, 30), hrv = 58.0)), stored())
-            assertEquals(WellnessState(now, now, WellnessFetchStatus.OK, null), state())
+            assertEquals(WellnessState(now, now, WellnessFetchStatus.OK, null, historyDays = 120), state())
         }
 
     @Test
@@ -120,6 +120,8 @@ class WellnessSyncTest {
                 assertEquals(status, state().lastStatus)
                 assertEquals(clock.now, state().lastAttemptAt)
                 assertNull(state().lastSuccessAt)
+                // 023 AC4.5: the backfill is only marked done after a success, so it is retried.
+                assertNull(state().historyDays)
                 assertEquals(until.takeIf { status == WellnessFetchStatus.RATE_LIMITED }, state().retryAfter)
             }
         }

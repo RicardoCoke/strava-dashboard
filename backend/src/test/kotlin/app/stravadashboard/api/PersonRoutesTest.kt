@@ -86,6 +86,7 @@ class PersonRoutesTest {
             "/api/marathon-pace",
             "/api/wellness",
             "/api/rings",
+            "/api/rings/history?days=30",
             "/api/weekly-summaries",
             "/api/run-weather",
         )

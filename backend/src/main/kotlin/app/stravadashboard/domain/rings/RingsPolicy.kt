@@ -4,8 +4,9 @@ import java.time.Duration
 
 /** Feature 020 constants. These approximate Whoop's published behaviour; Whoop's own formulas aren't public. */
 object RingsPolicy {
-    const val STRAIN_DAYS = 31L
-    const val RETENTION_DAYS = 90L
+    // The first graph day (today − 89) minus 3 nights of sleep debt (023 R4).
+    const val HISTORY_DAYS = 92L
+    const val RETENTION_DAYS = HISTORY_DAYS
     val MAX_SAMPLE_GAP: Duration = Duration.ofMinutes(5)
     val ZONE_PERCENTS = listOf(55, 66, 77, 88, 100)
     const val STRAIN_MAX = 21.0

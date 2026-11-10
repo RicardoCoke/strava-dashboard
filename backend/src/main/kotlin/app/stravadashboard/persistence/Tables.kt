@@ -105,5 +105,6 @@ object WellnessStateTable : Table("wellness_state") {
     val lastAttemptAt = long("last_attempt_at").nullable()
     val lastStatus = text("last_status").nullable()
     val retryAfter = long("retry_after").nullable()
+    val historyDays = integer("history_days").nullable()
     override val primaryKey = PrimaryKey(id)
 }

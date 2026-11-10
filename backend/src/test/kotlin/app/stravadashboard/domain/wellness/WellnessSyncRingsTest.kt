@@ -41,7 +41,7 @@ class WellnessSyncRingsTest {
     fun `R3 - 429 sets retryAfter and keeps status OK`() =
         runBlocking {
             val until = now.plusSeconds(120)
-            val first = WELLNESS_TODAY.minusDays(31)
+            val first = WELLNESS_TODAY.minusDays(92)
             sync(FakeRingDaySource(mapOf(first to WellnessFetchResult.RateLimited(until)))).refreshIfDue()
             assertEquals(WellnessFetchStatus.OK, state().lastStatus)
             assertEquals(until, state().retryAfter)
@@ -82,9 +82,9 @@ class WellnessSyncRingsTest {
         }
 
     @Test
-    fun `R2 - ring days are pruned after 90 days`() =
+    fun `R2 - ring days are pruned after 92 days`() =
         runBlocking {
-            val old = WELLNESS_TODAY.minusDays(91)
+            val old = WELLNESS_TODAY.minusDays(93)
             ringRepo.upsert(old, RingDay(28_800, 10.0), now)
             sync(FakeRingDaySource()).refreshIfDue()
             assertEquals(emptyMap(), ringRepo.findBetween(old, old))

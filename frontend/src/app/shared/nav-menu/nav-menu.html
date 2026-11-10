@@ -1,0 +1,56 @@
+<button
+  #menuButton
+  type="button"
+  class="menu-button"
+  aria-label="Open menu"
+  [attr.aria-expanded]="open()"
+  aria-controls="nav-menu-panel"
+  (click)="show()"
+>
+  <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+    <path
+      d="M3 6h18M3 12h18M3 18h18"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+    />
+  </svg>
+</button>
+
+@if (open()) {
+  <!-- Mouse and touch only: Escape and the close button cover the keyboard. -->
+  <div
+    class="backdrop"
+    tabindex="-1"
+    aria-hidden="true"
+    (click)="close()"
+    (keydown.escape)="close()"
+  ></div>
+  <nav
+    id="nav-menu-panel"
+    class="panel"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Menu"
+    (keydown.tab)="trapTab($event)"
+    (keydown.shift.tab)="trapTab($event)"
+  >
+    <button type="button" class="close" aria-label="Close menu" (click)="close()">×</button>
+    <a
+      #firstLink
+      routerLink="/"
+      routerLinkActive="active"
+      ariaCurrentWhenActive="page"
+      [routerLinkActiveOptions]="{ exact: true }"
+      (click)="close()"
+      >Performance</a
+    >
+    <a
+      routerLink="/recovery"
+      routerLinkActive="active"
+      ariaCurrentWhenActive="page"
+      (click)="close()"
+      >Recovery</a
+    >
+  </nav>
+}

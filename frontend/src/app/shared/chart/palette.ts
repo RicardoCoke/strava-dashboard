@@ -27,4 +27,10 @@ export const palette = {
   // Resting HR and HRV lines (feature 015), reusing the values above.
   restingHr: '#a78bfa',
   hrv: '#00f19f',
+  // The ring colours (feature 020), for the Recovery page graphs (feature 023).
+  sleep: '#7ba1bb',
+  strain: '#0093e7',
+  recoveryGreen: '#16ec06',
+  recoveryYellow: '#ffde00',
+  recoveryRed: '#ff0026',
 } as const;

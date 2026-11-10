@@ -81,10 +81,10 @@ class RingsSyncTest {
             val source = FakeRingDaySource()
             val repo = FakeRepo()
             assertNull(sync(source, repo).refresh(today))
-            assertEquals(32, source.calls.size)
-            assertEquals(today.minusDays(31), source.calls.first().first)
+            assertEquals(93, source.calls.size)
+            assertEquals(today.minusDays(92), source.calls.first().first)
             assertEquals(27_000, repo.rows[today]?.sleepSeconds)
-            assertEquals(today.minusDays(90), repo.prunedBefore)
+            assertEquals(today.minusDays(92), repo.prunedBefore)
 
             source.calls.clear()
             sync(source, repo).refresh(today)
@@ -127,13 +127,13 @@ class RingsSyncTest {
         } finally {
             logger.detachAppender(appender)
         }
-        assertEquals(listOf("Rings refresh finished: days=32, stopped=NONE"), appender.list.map { it.formattedMessage })
+        assertEquals(listOf("Rings refresh finished: days=93, stopped=NONE"), appender.list.map { it.formattedMessage })
     }
 
     @Test
     fun `R3 - strain failure stops loop and keeps rows`() =
         runBlocking {
-            val source = FakeRingDaySource(mapOf(today.minusDays(29) to WellnessFetchResult.Unavailable))
+            val source = FakeRingDaySource(mapOf(today.minusDays(90) to WellnessFetchResult.Unavailable))
             val repo = FakeRepo()
             assertNull(sync(source, repo).refresh(today))
             assertEquals(3, source.calls.size)
@@ -145,7 +145,7 @@ class RingsSyncTest {
     fun `R3 - 429 returns retryAfter`() =
         runBlocking {
             val until = now.plusSeconds(120)
-            val source = FakeRingDaySource(mapOf(today.minusDays(31) to WellnessFetchResult.RateLimited(until)))
+            val source = FakeRingDaySource(mapOf(today.minusDays(92) to WellnessFetchResult.RateLimited(until)))
             assertEquals(until, sync(source, FakeRepo()).refresh(today))
             assertEquals(1, source.calls.size)
         }

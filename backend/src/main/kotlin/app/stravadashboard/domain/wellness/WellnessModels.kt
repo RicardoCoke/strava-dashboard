@@ -25,6 +25,8 @@ data class WellnessState(
     val lastAttemptAt: Instant? = null,
     val lastStatus: WellnessFetchStatus? = null,
     val retryAfter: Instant? = null,
+    /** How many days back the last full fetch reached; below retention triggers a one-off backfill (023 R4). */
+    val historyDays: Int? = null,
 )
 
 sealed interface WellnessFetchResult {
