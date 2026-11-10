@@ -41,7 +41,6 @@ import java.time.LocalDate
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -60,7 +59,7 @@ class SyncServiceTest {
 
     private fun daysAgo(days: Long): Instant = NOW.minus(Duration.ofDays(days))
 
-    private fun sync(): SyncInfo = assertIs<SyncOutcome.Done>(runBlocking { service.syncIfDue() }).info
+    private fun sync(): SyncInfo = runBlocking { service.syncIfDue() }
 
     @Test
     fun `006 R7 - long easy run gets the same calls as an easy run`() {
@@ -639,7 +638,7 @@ class SyncServiceTest {
             SyncService(source, runs, syncState, clock, TEST_ZONE, NO_CUT_OVER, CallBudget(clock, callsPerWindow = 1))
         source.activities = (1..250L).map { summary(it, firstKeptDay.plus(Duration.ofHours(it))) }
 
-        val info = assertIs<SyncOutcome.Done>(runBlocking { tiny.syncIfDue() }).info
+        val info = runBlocking { tiny.syncIfDue() }
 
         assertEquals(listOf("list:1"), source.calls)
         assertEquals(SyncStatus.PARTIAL, info.status)
@@ -691,7 +690,7 @@ class SyncServiceTest {
         runBlocking { runs.upsertSummaries(listOf(summary(1, daysAgo(9)))) }
         source.activities = listOf(summary(2, daysAgo(9)), summary(3, daysAgo(1)))
 
-        assertIs<SyncOutcome.Done>(runBlocking { cutOverService.syncIfDue() })
+        runBlocking { cutOverService.syncIfDue() }
 
         assertEquals(listOf(1L, 3L), runBlocking { runs.findAll() }.map { it.id.value }.sorted())
     }
@@ -702,7 +701,7 @@ class SyncServiceTest {
         runBlocking { runs.upsertSummaries(listOf(summary(1, daysAgo(1)))) }
         source.activities = listOf(summary(2, daysAgo(1)))
 
-        assertIs<SyncOutcome.Done>(runBlocking { cutOverService.syncIfDue() })
+        runBlocking { cutOverService.syncIfDue() }
 
         assertEquals(listOf(2L), runBlocking { runs.findAll() }.map { it.id.value })
         assertFalse(source.calls.any { it.endsWith(":1") && !it.startsWith("list") })
@@ -714,7 +713,7 @@ class SyncServiceTest {
         runBlocking { runs.upsertSummaries(listOf(summary(1, daysAgo(4), heartRate = 150.0))) }
         val before = runBlocking { runs.findAll() }
 
-        val info = assertIs<SyncOutcome.Done>(runBlocking { cutOverService.syncIfDue() }).info
+        val info = runBlocking { cutOverService.syncIfDue() }
 
         assertEquals(listOf("list:1"), source.calls)
         assertEquals(before, runBlocking { runs.findAll() })
@@ -740,13 +739,13 @@ class SyncServiceTest {
         // A cut-over 20 days back, so the 7-day window can take over once the import is recorded.
         val earlier = SyncService(source, runs, syncState, clock, TEST_ZONE, LocalDate.of(2026, 10, 9))
         source.activities = listOf(summary(1, daysAgo(2)))
-        assertIs<SyncOutcome.Done>(runBlocking { earlier.syncIfDue() })
+        runBlocking { earlier.syncIfDue() }
         assertEquals(listOf(Instant.parse("2026-10-09T00:00:00Z")), source.listAfters)
         assertEquals(backfillStart, runBlocking { syncState.get() }.historyStart)
         clock.advance(Duration.ofMinutes(20))
         source.listAfters.clear()
 
-        assertIs<SyncOutcome.Done>(runBlocking { earlier.syncIfDue() })
+        runBlocking { earlier.syncIfDue() }
 
         assertEquals(listOf(NOW.plus(Duration.ofMinutes(20)).minus(Duration.ofDays(7))), source.listAfters)
     }

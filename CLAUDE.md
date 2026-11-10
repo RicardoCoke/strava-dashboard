@@ -1,20 +1,20 @@
 # Project: Strava Dashboard
 
-A small personal web dashboard that pulls activities from the Strava API and shows graphs and stats.
+A small personal running dashboard for two people. It pulls activities, resting HR and HRV from the Garmin Connect Personal API and shows graphs and stats. Runs synced from Strava before the switch to Garmin (feature 021) stay in the local database.
 
 ## Repo layout
 ```
-backend/    Kotlin + Ktor JSON API, Strava OAuth & sync, SQLite cache
+backend/    Kotlin + Ktor JSON API, Garmin sync, one SQLite file per person
 frontend/   Angular app (dashboard UI and charts)
 docs/features/NNN-slug/   intent.md, specs.md, review.md per feature
 .claude/    sub-agents, skills, templates
 ```
 
 ## Stack
-- **Backend:** Kotlin (JVM 21), Ktor 3 (Netty), kotlinx.serialization, Ktor client for Strava, Exposed + SQLite. Gradle Kotlin DSL, ktlint, detekt, JUnit 5 + kotlin.test + MockK.
+- **Backend:** Kotlin (JVM 21), Ktor 3 (Netty), kotlinx.serialization, Ktor client for Garmin and Open-Meteo, Exposed + SQLite. Gradle Kotlin DSL, ktlint, detekt, JUnit 5 + kotlin.test, Ktor's `MockEngine` and test host (no mocking library).
 - **Frontend:** Angular 22 (standalone components, signals), TypeScript strict, Apache ECharts via `ngx-echarts`, ESLint, Angular's default test runner.
-- **Auth pattern (backend-for-frontend):** the backend owns the Strava OAuth flow and tokens. The browser only holds an HttpOnly session cookie. Angular never sees a Strava token.
-- **Dev:** `ng serve` proxies `/api` and `/auth` to Ktor on `localhost:8080` (`frontend/proxy.conf.json`), so there's no CORS. In production Ktor serves the built Angular app from the same origin.
+- **No login:** the app has no authentication and is only served on the home network. The backend holds each person's Garmin API key; the browser never sees it. Every API call carries an `X-Person` header that picks whose data is served.
+- **Dev:** `ng serve` proxies `/api` to Ktor on `localhost:8080` (`frontend/proxy.conf.json`), so there's no CORS. In production Ktor serves the built Angular app from the same origin.
 
 ## Commands
 | What | Command |
@@ -36,7 +36,6 @@ Each feature lives in `docs/features/NNN-short-slug/` (e.g. `docs/features/001-w
 6. **Fix.** Address Blocker and Major findings. For each Minor or Nit, fix it or note in `review.md` why not. Re-run the reviewer if there were Blockers.
 
 ## Hard rules
-- Never commit secrets. Strava client ID/secret, session secret and DB path come from environment variables (see `.env.example`).
-- Strava tokens stay in the backend: never send them to the browser, never put them in localStorage, URLs or logs.
-- Never log access tokens, refresh tokens, or raw GPS coordinates.
-- Request the minimum Strava OAuth scopes the feature needs.
+- Never commit secrets. The Garmin API keys, personal heart-rate settings and DB paths come from environment variables (see `.env.example`).
+- Garmin API keys stay in the backend: never send them to the browser, never put them in localStorage, URLs or logs.
+- Never log API keys or raw GPS coordinates.

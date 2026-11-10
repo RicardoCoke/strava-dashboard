@@ -5,14 +5,12 @@ import java.time.Clock
 import java.time.LocalDate
 import java.time.ZoneId
 
-sealed interface DashboardResult {
-    data class Ready(
-        val weeks: List<WeekTotal>,
-        val heartRate: HrTrendResult,
-        val pace: PaceComparisonResult,
-        val weekComparison: WeekComparisonResult,
-    ) : DashboardResult
-}
+data class RunningDashboard(
+    val weeks: List<WeekTotal>,
+    val heartRate: HrTrendResult,
+    val pace: PaceComparisonResult,
+    val weekComparison: WeekComparisonResult,
+)
 
 /** Builds the dashboard aggregates from the local store only; syncing runs in [BackgroundSync] (feature 009). */
 class RunningDashboardService(
@@ -20,11 +18,11 @@ class RunningDashboardService(
     private val clock: Clock,
     private val zone: ZoneId,
 ) {
-    suspend fun get(): DashboardResult {
+    suspend fun get(): RunningDashboard {
         val stored = runs.findAll()
         val today = LocalDate.now(clock.withZone(zone))
         val weeks = WeeklyDistance.compute(stored, today)
-        return DashboardResult.Ready(
+        return RunningDashboard(
             weeks = weeks,
             heartRate = HeartRateTrend.compute(stored, today),
             pace = WorkoutPaceComparison.compute(stored, today),

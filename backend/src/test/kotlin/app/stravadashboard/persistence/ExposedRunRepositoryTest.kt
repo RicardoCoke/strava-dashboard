@@ -1,6 +1,5 @@
 package app.stravadashboard.persistence
 
-import app.stravadashboard.domain.SyncOutcome
 import app.stravadashboard.domain.SyncService
 import app.stravadashboard.domain.model.ActivityId
 import app.stravadashboard.domain.model.HrHistogram
@@ -32,7 +31,6 @@ import java.time.Instant
 import java.time.LocalDate
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -91,7 +89,7 @@ class ExposedRunRepositoryTest {
         source.activities = listOf(summary(1, NOW.minus(Duration.ofDays(2))))
         val clock = MutableClock()
         val first = SyncService(source, runs, ExposedSyncStateRepository(database), clock, TEST_ZONE, NO_CUT_OVER)
-        assertIs<SyncOutcome.Done>(runBlocking { first.syncIfDue() })
+        runBlocking { first.syncIfDue() }
 
         // A new connection to the same file, as after a backend restart.
         val reopened = DatabaseFactory.connect(dbPath)
@@ -137,8 +135,6 @@ class ExposedRunRepositoryTest {
             assertEquals(2L, stored.id.value)
             assertEquals(HrHistogramResult(HrHistogramStatus.COMPUTED, histogram), stored.hrHistogram)
             transaction(database) { assertEquals(1, RunHrHistogramsTable.selectAll().count().toInt()) }
-            runs.deleteAll()
-            transaction(database) { assertTrue(RunHrHistogramsTable.selectAll().empty()) }
         }
 
     @Test
@@ -248,7 +244,7 @@ class ExposedRunRepositoryTest {
         }
 
     @Test
-    fun `016 R1 - splits deleted with run, prune and deleteAll`() =
+    fun `016 R1 - splits deleted with run and prune`() =
         runBlocking {
             runs.upsertSummaries(
                 listOf(summary(1, NOW), summary(2, NOW), summary(3, Instant.parse("2026-01-01T07:00:00Z"))),
@@ -259,8 +255,6 @@ class ExposedRunRepositoryTest {
             runs.delete(listOf(ActivityId(1)))
             runs.pruneBefore(LocalDate.of(2026, 3, 1))
             assertEquals(setOf(2L), splitRunIds())
-            runs.deleteAll()
-            assertEquals(emptySet(), splitRunIds())
         }
 
     private fun splitRunIds(): Set<Long> =

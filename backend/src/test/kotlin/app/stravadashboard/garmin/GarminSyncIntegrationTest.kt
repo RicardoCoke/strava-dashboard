@@ -1,7 +1,6 @@
 package app.stravadashboard.garmin
 
 import app.stravadashboard.domain.RunClassifier
-import app.stravadashboard.domain.SyncOutcome
 import app.stravadashboard.domain.SyncService
 import app.stravadashboard.domain.model.RunType
 import app.stravadashboard.persistence.DatabaseFactory
@@ -92,7 +91,7 @@ class GarminSyncIntegrationTest {
     @Test
     fun `R5 - a Garmin workout and long run get stream pace, histograms and drift`() {
         repeat(3) {
-            assertIs<SyncOutcome.Done>(runBlocking { service.syncIfDue() })
+            runBlocking { service.syncIfDue() }
             clock.advance(Duration.ofMinutes(20))
         }
         val stored = runBlocking { runs.findAll() }.associateBy { it.id.value }

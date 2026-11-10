@@ -16,7 +16,6 @@ import org.jetbrains.exposed.sql.SqlExpressionBuilder.less
 import org.jetbrains.exposed.sql.Transaction
 import org.jetbrains.exposed.sql.batchInsert
 import org.jetbrains.exposed.sql.batchUpsert
-import org.jetbrains.exposed.sql.deleteAll
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.max
 import org.jetbrains.exposed.sql.selectAll
@@ -25,13 +24,28 @@ import org.jetbrains.exposed.sql.upsert
 import java.time.Instant
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.util.concurrent.atomic.AtomicInteger
 
 class ExposedRunRepository(
     private val database: Database,
 ) : RunRepository {
+    // Every dashboard card reads all runs, so the last read is kept until the next write (which bumps [writes]).
+    private val writes = AtomicInteger()
+
+    @Volatile private var cached: Pair<Int, List<RunActivity>>? = null
+
+    /** Bumps [writes] only after the commit, so a read racing the write can't cache the old rows as current. */
+    private suspend fun write(block: suspend Transaction.() -> Unit) {
+        try {
+            database.query(block)
+        } finally {
+            writes.incrementAndGet()
+        }
+    }
+
     override suspend fun upsertSummaries(summaries: List<ActivitySummary>) {
         if (summaries.isEmpty()) return
-        database.query {
+        write {
             RunsTable.batchUpsert(summaries) { summary ->
                 this[RunsTable.id] = summary.id.value
                 this[RunsTable.name] = summary.name
@@ -49,7 +63,7 @@ class ExposedRunRepository(
         detail: ActivityDetail,
         fetchedAt: Instant,
     ) {
-        database.query {
+        write {
             RunsTable.update({ RunsTable.id eq id.value }) {
                 it[description] = detail.description
                 it[detailFetchedAt] = fetchedAt.epochSecond
@@ -82,7 +96,7 @@ class ExposedRunRepository(
         result: StreamPaceResult,
         computedAt: Instant,
     ) {
-        database.query {
+        write {
             RunStreamPacesTable.upsert {
                 it[runId] = id.value
                 it[typeKey] = result.typeKey
@@ -98,7 +112,7 @@ class ExposedRunRepository(
         result: HrHistogramResult,
         computedAt: Instant,
     ) {
-        database.query {
+        write {
             RunHrHistogramsTable.upsert {
                 it[runId] = id.value
                 it[status] = result.status.toDbValue()
@@ -113,7 +127,7 @@ class ExposedRunRepository(
         result: HrDriftResult,
         computedAt: Instant,
     ) {
-        database.query {
+        write {
             RunHrDriftsTable.upsert {
                 it[runId] = id.value
                 it[status] = result.status.toDbValue()
@@ -123,21 +137,35 @@ class ExposedRunRepository(
         }
     }
 
-    override suspend fun findAll(): List<RunActivity> =
-        database.query {
-            val laps = RunLapsTable.selectAll().groupBy({ it[RunLapsTable.runId] }, { it.toLap() })
-            val paces = RunStreamPacesTable.selectAll().associate { it[RunStreamPacesTable.runId] to it.toStreamPace() }
-            val histograms =
-                RunHrHistogramsTable.selectAll().associate { it[RunHrHistogramsTable.runId] to it.toHrHistogram() }
-            val drifts = RunHrDriftsTable.selectAll().associate { it[RunHrDriftsTable.runId] to it.toHrDrift() }
-            val splits = RunSplitsTable.selectAll().groupBy({ it[RunSplitsTable.runId] }, { it.toSplit() })
-            RunsTable.selectAll().map { row ->
-                val id = row[RunsTable.id]
-                val splitsSaved = row[RunsTable.splitsSaved] == true
-                val runSplits = splits[id].orEmpty().sortedBy { it.index }.takeIf { splitsSaved }
-                row.toRun(laps[id].orEmpty().sortedBy { it.index }, paces[id], histograms[id], drifts[id], runSplits)
-            }
-        }
+    override suspend fun findAll(): List<RunActivity> {
+        val seen = writes.get()
+        cached?.takeIf { it.first == seen }?.let { return it.second }
+        return database
+            .query {
+                val laps = RunLapsTable.selectAll().groupBy({ it[RunLapsTable.runId] }, { it.toLap() })
+                val paces =
+                    RunStreamPacesTable.selectAll().associate {
+                        it[RunStreamPacesTable.runId] to
+                            it.toStreamPace()
+                    }
+                val histograms =
+                    RunHrHistogramsTable.selectAll().associate { it[RunHrHistogramsTable.runId] to it.toHrHistogram() }
+                val drifts = RunHrDriftsTable.selectAll().associate { it[RunHrDriftsTable.runId] to it.toHrDrift() }
+                val splits = RunSplitsTable.selectAll().groupBy({ it[RunSplitsTable.runId] }, { it.toSplit() })
+                RunsTable.selectAll().map { row ->
+                    val id = row[RunsTable.id]
+                    val splitsSaved = row[RunsTable.splitsSaved] == true
+                    val runSplits = splits[id].orEmpty().sortedBy { it.index }.takeIf { splitsSaved }
+                    row.toRun(
+                        laps[id].orEmpty().sortedBy { it.index },
+                        paces[id],
+                        histograms[id],
+                        drifts[id],
+                        runSplits,
+                    )
+                }
+            }.also { cached = seen to it }
+    }
 
     override suspend fun newestStartUtc(): Instant? =
         database.query {
@@ -152,23 +180,12 @@ class ExposedRunRepository(
     override suspend fun delete(ids: Collection<ActivityId>) {
         if (ids.isEmpty()) return
         val raw = ids.map { it.value }
-        database.query { deleteRunsWhere { RunsTable.id inList raw } }
+        write { deleteRunsWhere { RunsTable.id inList raw } }
     }
 
     override suspend fun pruneBefore(date: LocalDate) {
         val cutoff = date.format(DateTimeFormatter.ISO_LOCAL_DATE)
-        database.query { deleteRunsWhere { RunsTable.startDateLocal less cutoff } }
-    }
-
-    override suspend fun deleteAll() {
-        database.query {
-            RunLapsTable.deleteAll()
-            RunSplitsTable.deleteAll()
-            RunStreamPacesTable.deleteAll()
-            RunHrHistogramsTable.deleteAll()
-            RunHrDriftsTable.deleteAll()
-            RunsTable.deleteAll()
-        }
+        write { deleteRunsWhere { RunsTable.startDateLocal less cutoff } }
     }
 }
 

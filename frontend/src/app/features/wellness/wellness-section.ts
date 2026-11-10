@@ -1,18 +1,15 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  DestroyRef,
   OnInit,
   computed,
   inject,
   signal,
 } from '@angular/core';
-import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
-import { skip } from 'rxjs';
 import { isWellnessResponse } from '../../core/api/wellness.models';
 import { WellnessService } from '../../core/api/wellness.service';
 import { PersonStore } from '../../core/person/person.store';
-import { SyncStore } from '../../core/sync/sync.store';
+import { sectionLoader } from '../../core/sync/section-loader';
 import { WellnessChart } from './wellness-chart/wellness-chart';
 import { WellnessLatest } from './wellness-latest/wellness-latest';
 import {
@@ -33,7 +30,6 @@ import {
 })
 export class WellnessSection implements OnInit {
   private readonly service = inject(WellnessService);
-  private readonly destroyRef = inject(DestroyRef);
 
   private readonly person = inject(PersonStore).person;
 
@@ -60,15 +56,11 @@ export class WellnessSection implements OnInit {
     return data ? latestTiles(data) : [];
   });
 
-  constructor() {
-    // On the dashboard page, reload in place after each finished sync (feature 009, R9).
-    const sync = inject(SyncStore, { optional: true });
-    if (sync) {
-      toObservable(sync.dataVersion)
-        .pipe(skip(1), takeUntilDestroyed())
-        .subscribe(() => this.load({ quiet: true }));
-    }
-  }
+  private readonly load = sectionLoader<WellnessState>(this.state, {
+    fetch: () => this.service.getWellness(),
+    loaded: (data) => (isWellnessResponse(data) ? { kind: 'loaded', data } : null),
+    failed: wellnessStateFromError,
+  });
 
   ngOnInit(): void {
     this.load();
@@ -76,30 +68,5 @@ export class WellnessSection implements OnInit {
 
   protected retry(): void {
     this.load();
-  }
-
-  /** A quiet reload keeps the current content while it runs and if it fails. */
-  private load({ quiet } = { quiet: false }): void {
-    if (!quiet) {
-      this.state.set({ kind: 'loading' });
-    }
-    this.service
-      .getWellness()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (data: unknown) => {
-          if (isWellnessResponse(data)) {
-            this.state.set({ kind: 'loaded', data });
-          } else if (!quiet) {
-            this.state.set({ kind: 'error' });
-          }
-        },
-        error: (error: unknown) => {
-          const next = wellnessStateFromError(error);
-          if (!quiet) {
-            this.state.set(next);
-          }
-        },
-      });
   }
 }

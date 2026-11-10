@@ -5,7 +5,9 @@ import app.stravadashboard.testsupport.testConfig
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respondError
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsText
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
@@ -13,12 +15,17 @@ import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
+
+private const val BIG_FILE_CHARS = 5_000
 
 class FrontendRoutesTest {
     private fun ApplicationTestBuilder.appWithFrontend() {
         val dir = Files.createTempDirectory("frontend").toFile()
         dir.resolve("index.html").writeText("<app-root></app-root>")
         dir.resolve("main-ABC.js").writeText("bundle")
+        // Big enough for the Compression plugin, which leaves tiny bodies alone.
+        dir.resolve("chunk-BIG.js").writeText("x".repeat(BIG_FILE_CHARS))
         application {
             module(
                 testConfig().copy(frontendDir = dir.path),
@@ -42,6 +49,26 @@ class FrontendRoutesTest {
             appWithFrontend()
 
             assertEquals("bundle", client.get("/main-ABC.js").bodyAsText())
+        }
+
+    @Test
+    fun `hashed assets are cached for a year, index html and the api are not`() =
+        testApplication {
+            appWithFrontend()
+
+            assertEquals("max-age=31536000", client.get("/main-ABC.js").headers[HttpHeaders.CacheControl])
+            assertEquals("no-cache", client.get("/").headers[HttpHeaders.CacheControl])
+            assertNull(client.get("/api/health").headers[HttpHeaders.CacheControl])
+        }
+
+    @Test
+    fun `responses are gzipped when the client accepts it`() =
+        testApplication {
+            appWithFrontend()
+
+            val response = client.get("/chunk-BIG.js") { header(HttpHeaders.AcceptEncoding, "gzip") }
+
+            assertEquals("gzip", response.headers[HttpHeaders.ContentEncoding])
         }
 
     @Test

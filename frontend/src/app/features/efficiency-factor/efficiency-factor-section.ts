@@ -1,17 +1,14 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  DestroyRef,
   OnInit,
   computed,
   inject,
   signal,
 } from '@angular/core';
-import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
-import { Subscription, skip } from 'rxjs';
 import { isEfficiencyFactorResponse } from '../../core/api/efficiency-factor.models';
 import { EfficiencyFactorService } from '../../core/api/efficiency-factor.service';
-import { SyncStore } from '../../core/sync/sync.store';
+import { sectionLoader } from '../../core/sync/section-loader';
 import { formatTwoDecimals } from '../../shared/format/numbers';
 import { RingSpinner } from '../../shared/spinner/ring-spinner';
 import { EfficiencyFactorChart } from './efficiency-factor-chart/efficiency-factor-chart';
@@ -36,8 +33,6 @@ import {
 })
 export class EfficiencyFactorSection implements OnInit {
   private readonly service = inject(EfficiencyFactorService);
-  private readonly destroyRef = inject(DestroyRef);
-  private request?: Subscription;
 
   protected readonly noCurrentNote = NO_CURRENT_NOTE;
   protected readonly noChangeNote = NO_CHANGE_NOTE;
@@ -65,15 +60,10 @@ export class EfficiencyFactorSection implements OnInit {
     return data ? footnoteText(data) : [];
   });
 
-  constructor() {
-    // On the dashboard page, reload in place after each finished sync (feature 009, R9).
-    const sync = inject(SyncStore, { optional: true });
-    if (sync) {
-      toObservable(sync.dataVersion)
-        .pipe(skip(1), takeUntilDestroyed())
-        .subscribe(() => this.load({ quiet: true }));
-    }
-  }
+  private readonly load = sectionLoader<EfficiencyFactorState>(this.state, {
+    fetch: () => this.service.getEfficiencyFactor(),
+    loaded: (data) => (isEfficiencyFactorResponse(data) ? { kind: 'loaded', data } : null),
+  });
 
   ngOnInit(): void {
     this.load();
@@ -81,35 +71,5 @@ export class EfficiencyFactorSection implements OnInit {
 
   protected retry(): void {
     this.load();
-  }
-
-  /**
-   * A quiet reload keeps the current content while it runs and if it fails. It is only quiet when there is
-   * content to keep: one that replaces a first load or a Retry still in flight shows its errors as usual.
-   */
-  private load(options = { quiet: false }): void {
-    const quiet = options.quiet && this.state().kind === 'loaded';
-    if (!quiet) {
-      this.state.set({ kind: 'loading' });
-    }
-    // A newer load replaces one still in flight, so an older response can't overwrite a newer one.
-    this.request?.unsubscribe();
-    this.request = this.service
-      .getEfficiencyFactor()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (data: unknown) => {
-          if (isEfficiencyFactorResponse(data)) {
-            this.state.set({ kind: 'loaded', data });
-          } else if (!quiet) {
-            this.state.set({ kind: 'error' });
-          }
-        },
-        error: () => {
-          if (!quiet) {
-            this.state.set({ kind: 'error' });
-          }
-        },
-      });
   }
 }

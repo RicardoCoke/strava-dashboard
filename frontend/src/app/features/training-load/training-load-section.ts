@@ -1,17 +1,14 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  DestroyRef,
   OnInit,
   computed,
   inject,
   signal,
 } from '@angular/core';
-import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
-import { skip } from 'rxjs';
 import { isTrainingLoadResponse } from '../../core/api/training-load.models';
 import { TrainingLoadService } from '../../core/api/training-load.service';
-import { SyncStore } from '../../core/sync/sync.store';
+import { sectionLoader } from '../../core/sync/section-loader';
 import { formatShortDate } from '../../shared/format/dates';
 import { formatOneDecimal, formatSignedOneDecimal } from '../../shared/format/numbers';
 import { RampWarning } from './ramp-warning/ramp-warning';
@@ -34,7 +31,6 @@ import {
 })
 export class TrainingLoadSection implements OnInit {
   private readonly service = inject(TrainingLoadService);
-  private readonly destroyRef = inject(DestroyRef);
 
   protected readonly state = signal<LoadState>({ kind: 'loading' });
   protected readonly data = computed(() => {
@@ -71,15 +67,11 @@ export class TrainingLoadSection implements OnInit {
     return state.kind === 'invalidConfig' ? state.message : '';
   });
 
-  constructor() {
-    // On the dashboard page, reload in place after each finished sync (feature 009, R9).
-    const sync = inject(SyncStore, { optional: true });
-    if (sync) {
-      toObservable(sync.dataVersion)
-        .pipe(skip(1), takeUntilDestroyed())
-        .subscribe(() => this.load({ quiet: true }));
-    }
-  }
+  private readonly load = sectionLoader<LoadState>(this.state, {
+    fetch: () => this.service.getTrainingLoad(),
+    loaded: (data) => (isTrainingLoadResponse(data) ? { kind: 'loaded', data } : null),
+    failed: loadStateFromError,
+  });
 
   ngOnInit(): void {
     this.load();
@@ -87,30 +79,5 @@ export class TrainingLoadSection implements OnInit {
 
   protected retry(): void {
     this.load();
-  }
-
-  /** A quiet reload keeps the current content while it runs and if it fails. */
-  private load({ quiet } = { quiet: false }): void {
-    if (!quiet) {
-      this.state.set({ kind: 'loading' });
-    }
-    this.service
-      .getTrainingLoad()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (data: unknown) => {
-          if (isTrainingLoadResponse(data)) {
-            this.state.set({ kind: 'loaded', data });
-          } else if (!quiet) {
-            this.state.set({ kind: 'error' });
-          }
-        },
-        error: (error: unknown) => {
-          const next = loadStateFromError(error);
-          if (!quiet) {
-            this.state.set(next);
-          }
-        },
-      });
   }
 }
