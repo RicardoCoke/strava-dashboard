@@ -67,6 +67,7 @@ describe('RunningDashboardPage with the VO2max card', () => {
     expect(requests.map((request) => request.request.method)).toEqual(['GET', 'GET', 'GET', 'GET']);
     requests[3].flush(vo2max());
     fixture.detectChanges();
+    http.expectOne('/api/vo2max/normalized');
     http.verify();
   });
 
@@ -113,6 +114,8 @@ describe('RunningDashboardPage with the VO2max card', () => {
     reloads[1].flush(trainingLoad());
     reloads[2].flush(vo2max());
     fixture.detectChanges();
+    // The first normalized load (cancelled by the refresh) and its reload.
+    expect(http.match('/api/vo2max/normalized').length).toBe(2);
     http.verify();
   });
 

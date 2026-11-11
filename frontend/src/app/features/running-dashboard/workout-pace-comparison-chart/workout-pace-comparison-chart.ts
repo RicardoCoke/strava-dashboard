@@ -10,11 +10,12 @@ import {
   notEnoughPaceText,
   paceChangeText,
   paceChangeTone,
+  paceLabel,
   paceSummaryPrefix,
   runsNotShownText,
 } from '../chart-options/workout-pace.options';
 
-/** "Workout pace by type": pick a workout type, one rep-pace point per run, the 30-day change below (feature 010). */
+/** "Workout pace by type": pick a workout type or easy runs, one pace point per run, the 30-day change below (feature 010). */
 @Component({
   selector: 'app-workout-pace-comparison-chart',
   imports: [ChartComponent],
@@ -37,7 +38,7 @@ import {
         </label>
         @if (selected(); as type) {
           @if (type.points.length > 0) {
-            <app-chart [options]="options()" [label]="'Average rep pace per run: ' + type.label" />
+            <app-chart [options]="options()" [label]="chartLabel()" />
           } @else {
             <p class="empty">No runs with a rep pace for this workout type yet</p>
           }
@@ -74,6 +75,10 @@ export class WorkoutPaceComparisonChart {
   protected readonly options = computed(() => {
     const type = this.selected();
     return type ? buildWorkoutPaceTrendOptions(type) : {};
+  });
+  protected readonly chartLabel = computed(() => {
+    const type = this.selected();
+    return type ? `Average ${paceLabel(type).toLowerCase()} per run: ${type.label}` : '';
   });
   protected readonly summaryPrefix = computed(() => {
     const type = this.selected();

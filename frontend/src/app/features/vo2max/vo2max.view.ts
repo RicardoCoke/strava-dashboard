@@ -70,9 +70,8 @@ export function emptyKind(data: Vo2maxResponse): EmptyKind | null {
   return data.runsPendingDetail > 0 ? 'importing' : 'none';
 }
 
-/** The "Normalized Vo2" tab's state; `idle` until the tab is first opened (feature 016). */
+/** The "Normalized Vo2" tab's state (feature 016). */
 export type NormalizedVo2maxState =
-  | { kind: 'idle' }
   | { kind: 'loading' }
   | { kind: 'invalidConfig'; message: string }
   | { kind: 'error' }

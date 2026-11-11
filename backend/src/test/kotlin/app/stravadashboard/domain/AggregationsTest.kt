@@ -1,6 +1,5 @@
 package app.stravadashboard.domain
 
-import app.stravadashboard.domain.model.RunType
 import app.stravadashboard.domain.model.SecondsPerKm
 import app.stravadashboard.domain.model.StreamPaceResult
 import app.stravadashboard.domain.model.StreamPaceStatus
@@ -43,7 +42,7 @@ class AggregationsTest {
 
         assertEquals(3, WeeklyDistance.compute(runs, TODAY).last().runCount)
         assertEquals(3, HeartRateTrend.compute(runs, TODAY).types.sumOf { it.runCount })
-        val pace = WorkoutPaceComparison.compute(runs, TODAY).types.single()
+        val pace = WorkoutPaceComparison.compute(runs, TODAY).types.first()
         assertEquals(2, pace.runsWithoutPace + (pace.current?.runCount ?: 0))
     }
 
@@ -261,8 +260,7 @@ class AggregationsTest {
                 run(id = 4, date = date("2026-10-01"), name = "3x10min"),
             )
         val types = WorkoutPaceComparison.compute(runs, TODAY).types
-        assertEquals(listOf("5x6min", "3x10min", "4x8min"), types.map { it.type.key })
-        assertTrue(types.none { it.type == RunType.Easy })
+        assertEquals(listOf("5x6min", "3x10min", "4x8min", "easy"), types.map { it.type.key })
     }
 
     @Test
