@@ -116,22 +116,17 @@ describe('Vo2maxSection tabs', () => {
     expect(tablist).not.toBeNull();
   });
 
-  it('R8 - normalized loads on first open only', () => {
-    http.expectNone(NORMALIZED);
-    openNormalized(normalizedVo2max());
+  it('normalized loads with the card, before its tab opens', () => {
+    http.expectOne(NORMALIZED).flush(normalizedVo2max());
+    open('Normalized Vo2');
+    expect(panel()?.querySelector('[role="status"]')).toBeNull();
+    expect(all('.vo2max-value')).toEqual(['54.2']);
     open('Vo2');
     open('Normalized Vo2');
-    http.expectNone(NORMALIZED);
-    expect(all('.vo2max-value')).toEqual(['54.2']);
     http.verify();
   });
 
-  it('R8 - quiet refresh reloads loaded tabs only', () => {
-    sync.finish();
-    fixture.detectChanges();
-    http.expectOne('/api/vo2max').flush(vo2max());
-    http.expectNone(NORMALIZED);
-
+  it('R8 - quiet refresh reloads both tabs', () => {
     openNormalized(normalizedVo2max());
     sync.finish();
     fixture.detectChanges();

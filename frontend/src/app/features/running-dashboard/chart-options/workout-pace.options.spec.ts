@@ -31,6 +31,9 @@ describe('workout pace options (010)', () => {
     ]);
     expect(options.xAxis).toMatchObject({ type: 'time' });
     expect(options.yAxis).toMatchObject({ name: 'Rep pace (min/km), lower is faster' });
+    expect(buildWorkoutPaceTrendOptions({ ...paceType(), typeKey: 'easy' }).yAxis).toMatchObject({
+      name: 'Pace (min/km), lower is faster',
+    });
     const axisFormatter = (options.yAxis as { axisLabel: { formatter: (v: number) => string } })
       .axisLabel.formatter;
     expect(axisFormatter(253)).toBe('4:13');

@@ -16,19 +16,11 @@ describe('App', () => {
     stubCharts();
   });
 
-  it('R1 - app shell shows Powered by Strava', async () => {
-    const fixture = TestBed.createComponent(App);
-    await fixture.whenStable();
-    expect((fixture.nativeElement as HTMLElement).querySelector('footer')?.textContent).toContain(
-      'Powered by Strava',
-    );
-  });
-
   it('R1 - root route shows running dashboard, not placeholder', async () => {
     const harness = await RouterTestingHarness.create();
     await harness.navigateByUrl('/');
     const element = harness.routeNativeElement as HTMLElement;
-    expect(element.querySelector('h1')?.textContent).toBe('Running');
+    expect(element.querySelector('h1')).toBeNull();
     expect(element.textContent).not.toContain('Hello, frontend');
     expect(element.textContent).not.toContain('Explore the Docs');
     TestBed.inject(HttpTestingController).expectOne('/api/dashboard/running');
@@ -47,19 +39,16 @@ describe('App', () => {
     const harness = await RouterTestingHarness.create();
     await harness.navigateByUrl('/foo');
     expect(TestBed.inject(HttpTestingController).expectOne('/api/dashboard/running')).toBeTruthy();
-    expect((harness.routeNativeElement as HTMLElement).querySelector('h1')?.textContent).toBe(
-      'Running',
-    );
+    expect(harness.routeNativeElement).not.toBeNull();
   });
 
-  it('021 R2 - /connect redirects to the dashboard, which keeps the footer', async () => {
+  it('021 R2 - /connect redirects to the dashboard, without a footer', async () => {
     const fixture = TestBed.createComponent(App);
     const router = TestBed.inject(Router);
     await router.navigateByUrl('/connect');
     await fixture.whenStable();
     expect(router.url).toBe('/');
-    const footer = (fixture.nativeElement as HTMLElement).querySelector('footer');
-    expect(footer?.textContent).toContain('Powered by Strava');
+    expect((fixture.nativeElement as HTMLElement).querySelector('footer')).toBeNull();
     TestBed.inject(HttpTestingController).match('/api/dashboard/running');
   });
 });

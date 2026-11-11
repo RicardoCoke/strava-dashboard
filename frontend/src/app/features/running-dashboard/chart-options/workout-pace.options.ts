@@ -18,6 +18,11 @@ const LINE_SERIES = 'Pace line';
 const OUTDOOR_SYMBOL_SIZE = 7;
 const TREADMILL_SYMBOL_SIZE = 9;
 
+/** Workouts plot their rep pace; easy runs the whole run's average pace. */
+export function paceLabel(type: PaceTypeComparison): string {
+  return type.typeKey === 'easy' ? 'Pace' : 'Rep pace';
+}
+
 /** "14 Oct 2026 · 4:13 /km", plus " · Treadmill" for treadmill runs. */
 export function pacePointTooltip(point: PacePoint): string {
   const text = `${formatDayMonthYear(point.date)} · ${formatPace(point.repPaceSecondsPerKm)} /km`;
@@ -132,7 +137,7 @@ export function buildWorkoutPaceTrendOptions(type: PaceTypeComparison): EChartsO
     yAxis: {
       ...valueAxis,
       type: 'value',
-      name: 'Rep pace (min/km), lower is faster',
+      name: `${paceLabel(type)} (min/km), lower is faster`,
       scale: true,
       axisLabel: { ...valueAxis.axisLabel, formatter: (value: number) => formatPace(value) },
     },

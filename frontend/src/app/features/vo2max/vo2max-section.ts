@@ -39,7 +39,7 @@ const TAB_KEYS: Record<string, ((tab: Vo2maxTab) => Vo2maxTab) | undefined> = {
 
 /**
  * The "VO2max" card under "Training load", with two tabs: "Vo2" (feature 008) and "Normalized Vo2" (feature 016).
- * Each tab has its own request and states; the normalized data loads the first time its tab opens.
+ * Each tab has its own request and states; both load with the card, so switching tabs never waits.
  */
 @Component({
   selector: 'app-vo2max-section',
@@ -53,7 +53,7 @@ export class Vo2maxSection implements OnInit {
 
   protected readonly activeTab = signal<Vo2maxTab>('vo2');
   protected readonly state = signal<Vo2maxState>({ kind: 'loading' });
-  protected readonly normalizedState = signal<NormalizedVo2maxState>({ kind: 'idle' });
+  protected readonly normalizedState = signal<NormalizedVo2maxState>({ kind: 'loading' });
   protected readonly data = computed(() => {
     const state = this.state();
     return state.kind === 'loaded' ? state.data : null;
@@ -96,6 +96,7 @@ export class Vo2maxSection implements OnInit {
 
   ngOnInit(): void {
     this.load();
+    this.loadNormalized();
   }
 
   protected retry(): void {
@@ -104,9 +105,6 @@ export class Vo2maxSection implements OnInit {
 
   protected selectTab(tab: Vo2maxTab): void {
     this.activeTab.set(tab);
-    if (tab === 'normalized' && this.normalizedState().kind === 'idle') {
-      this.loadNormalized();
-    }
   }
 
   /** Arrow keys and Home/End move between the tabs and select them (WAI-ARIA tabs pattern). */

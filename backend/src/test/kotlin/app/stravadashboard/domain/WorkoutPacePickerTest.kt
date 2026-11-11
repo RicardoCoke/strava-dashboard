@@ -70,14 +70,20 @@ class WorkoutPacePickerTest {
     }
 
     @Test
-    fun `010 R1 - only workout runs are listed`() {
+    fun `easy runs are listed last with their average pace, long runs and rides are not`() {
         val result =
             types(
-                run(id = 1, date = date("2026-10-01"), name = "Easy run"),
+                // 10 km in 3000 s of moving time.
+                run(id = 1, date = date("2026-10-05"), name = "Easy run"),
                 run(id = 2, date = date("2026-10-02"), name = "Long run", distanceMeters = 28_000.0),
                 outdoor(3, "2026-10-03", 250).copy(sportType = "Ride"),
+                outdoor(4, "2026-10-01", 250),
+                run(id = 5, date = date("2026-10-04"), name = "Easy run", laps = null),
             )
-        assertTrue(result.isEmpty())
+        assertEquals(listOf("5x6min", "easy"), result.map { it.type.key })
+        val easy = result.last()
+        assertEquals(listOf(PacePoint(date("2026-10-05"), SecondsPerKm(300), treadmill = false)), easy.points)
+        assertEquals(1, easy.runsWithoutPace)
     }
 
     @Test
