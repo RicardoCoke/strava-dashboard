@@ -45,7 +45,11 @@ describe('RecoveryPage', () => {
     http = TestBed.inject(HttpTestingController);
   });
 
-  afterEach(() => http.verify());
+  afterEach(() => {
+    http.verify();
+    // A test here selects marina; don't leak that into spec files that run later in this worker.
+    localStorage.clear();
+  });
 
   describe('page', () => {
     let fixture: ComponentFixture<RecoveryPage>;
