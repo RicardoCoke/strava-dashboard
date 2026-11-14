@@ -1,6 +1,7 @@
-import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import type { EChartsCoreOption } from 'echarts/core';
 import { NgxEchartsDirective } from 'ngx-echarts';
+import { withTouchZoom } from './touch-zoom';
 
 /** The single wrapper around ngx-echarts; every chart in the app renders through it. */
 @Component({
@@ -12,16 +13,22 @@ import { NgxEchartsDirective } from 'ngx-echarts';
     class="chart"
     role="img"
     [attr.aria-label]="label()"
-    [options]="options()"
+    [options]="chartOptions()"
   ></div>`,
   styles: `
     .chart {
       width: 100%;
       height: 300px;
+      /* Feature 024: a pinch on a chart must not zoom the page; one finger still scrolls it. */
+      touch-action: pan-x pan-y;
     }
   `,
 })
 export class ChartComponent {
   readonly options = input.required<EChartsCoreOption>();
   readonly label = input.required<string>();
+
+  // `?.`: jsdom (tests) has no matchMedia.
+  private readonly touch = globalThis.matchMedia?.('(pointer: coarse)').matches ?? false;
+  protected readonly chartOptions = computed(() => withTouchZoom(this.options(), this.touch));
 }
