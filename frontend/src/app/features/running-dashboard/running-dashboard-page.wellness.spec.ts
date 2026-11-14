@@ -23,6 +23,8 @@ describe('RunningDashboardPage with the resting HR & HRV card', () => {
   let http: HttpTestingController;
 
   beforeEach(() => {
+    // The not-connected card is hidden for marina, so start from the default person.
+    localStorage.clear();
     TestBed.configureTestingModule({
       providers: [provideHttpClient(), provideHttpClientTesting()],
     });
