@@ -19,8 +19,6 @@ import { withTouchZoom } from './touch-zoom';
     .chart {
       width: 100%;
       height: 300px;
-      /* Feature 024: a pinch on a chart must not zoom the page; one finger still scrolls it. */
-      touch-action: pan-x pan-y;
     }
   `,
 })

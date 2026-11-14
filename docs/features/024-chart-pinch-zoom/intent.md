@@ -15,7 +15,7 @@ On a touch screen, pinching on a chart zooms only that chart's date axis, in or 
 - S1: On an iPhone, pinching in on any chart zooms in on its date axis and the rest of the page does not zoom.
 - S2: Pinching out on a zoomed chart brings it back toward (and up to) the full view.
 - S3: Dragging one finger over a chart scrolls the page as it does today; the chart does not pan or get stuck.
-- S4: Pinching outside a chart still zooms the whole page, as it does today.
+- S4: The page itself cannot be zoomed by accident in any browser: not by a pinch or double-tap on a touch screen, and not by a trackpad pinch or Ctrl + mouse wheel on desktop. (Changed 2026-11-14, see "Amendment" below.)
 - S5: Reloading or switching page shows every chart at the full view again.
 - S6: Desktop behaviour is unchanged: the mouse wheel over a chart still scrolls the page.
 
@@ -44,6 +44,12 @@ None directly. Touches the shared chart wrapper used by the charts from earlier 
 - Zoom limits (how far in or out) are left to the spec writer; "out" stops at the full range (assumed).
 - Android and other touch devices should behave the same, though iPhone is the target (assumed).
 - Nothing has been tried on a real iPhone yet; the touch behaviour can only be confirmed by the user on the device.
+
+## Amendment (2026-11-14, after the first release)
+The user asked to lock page zoom so a pinch can't zoom the page by accident instead of the graph ("Yes, lock it"), and added: "It should work for not only iphone but every brwoser". This replaces the earlier answer "Keep it" to "A pinch outside a chart still zooms the whole page".
+- Locked: touch pinch and double-tap zoom anywhere on the page, trackpad pinch and Ctrl + mouse wheel on desktop.
+- Not locked: deliberate zoom with Ctrl/Cmd + plus/minus or the browser's zoom menu. These are never accidental, and the menu cannot be blocked by a page anyway.
+- Trade-off accepted: small text can no longer be pinched bigger on the phone.
 
 ## Open questions
 None. Answered on 2026-11-14:

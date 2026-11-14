@@ -54,3 +54,53 @@ Not checked: backend checks (no backend code changed), and any behaviour on a re
 - **Minor (AC3.1 test):** fixed. `chart.spec.ts` now keeps the real template, finds the rendered `.chart` element and matches the `touch-action` rule scoped to that element's own attribute.
 - **Nit (`.env.example`):** not changed. That edit was already in the working tree before this feature started and is not part of it; it should be committed separately.
 - Backend checks were run during the build step and passed (`ktlintCheck detekt test`).
+
+---
+
+# Review: 024-chart-pinch-zoom
+**Base:** main (f3c7595) → **Head:** f3c7595 + uncommitted working tree (branch feat/lock-page-zoom)
+**Verdict:** APPROVE
+
+## Checks
+- Backend: not run. The diff changes no backend code; only `.env.example` changed.
+- Frontend: lint pass · tests 466 passed, 0 failed (80 files) · build pass
+
+## Spec coverage
+| Req | Implemented | Tested | Notes |
+|---|---|---|---|
+| R1 | ✅ | ✅ | Already on main: `touch-zoom.ts` and `chart.ts:30-31`; AC1.1 covered by `touch-zoom.spec.ts:7`. AC1.2/1.3 are manual |
+| R2 | ✅ | ✅ | `touch-zoom.spec.ts:13`. AC2.2/2.3 are manual |
+| R3 | ✅ | ✅ | Moved from the `.chart` rule to `<html>` at `no-page-zoom.ts:7`. AC3.1 is tested through the AC5.1 test (`no-page-zoom.spec.ts:15`). AC3.2/3.3 are manual |
+| R4 | ✅ | ✅ | `touch-zoom.spec.ts:17`. AC4.2/4.3 are manual |
+| R5 | ✅ | ✅ | `no-page-zoom.ts:7,9,11-13`; AC5.1, AC5.2 (both the ctrl and plain wheel cases) and AC5.3 tested in `no-page-zoom.spec.ts`. Called once from `main.ts` before bootstrap. AC5.4/5.5 are manual |
+| R6 | ✅ | ✅ | Covered by the R2 test (start 0, end 100). AC6.2 is manual |
+| R7 | ✅ | ✅ | `touch-zoom.spec.ts:28` |
+| R8 | ✅ | ✅ | `DataZoomInsideComponent` registered (`echarts-setup.ts:4,16`); diff touches no `features/` files; build passes |
+
+## Findings
+### [Nit] Unrelated `.env.example` cleanup in this change
+- **Where:** `.env.example` (removed lines 5-9: `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`, `STRAVA_REDIRECT_URI`)
+- **Problem:** Removing the Strava keys has nothing to do with feature 024. It is harmless: `backend/src/main` reads none of the `STRAVA_*` variables, and only tests mention them, as leftovers that get ignored (`AppConfigTest.kt:97`). But it gets mixed into a feature commit.
+- **Failure scenario:** None at runtime. Someone reading history later finds a config change inside a chart-zoom commit.
+- **Suggested fix:** Put it in its own `chore(config): ...` commit.
+
+## Privacy checklist
+1. ✅ No secrets in the diff. The `.env.example` change only removes empty keys.
+2. n/a · 3. n/a · 4. n/a · 5. n/a · 6. n/a · 7. n/a
+8. ✅ No new logging or `console` output
+9. n/a · 10. n/a · 11. n/a · 12. n/a
+13. ✅ No new formatters, `innerHTML` or HTML building
+14. n/a · 15. n/a
+16. ✅ No new dependency or external call. `DataZoomInsideComponent` comes from the bundled `echarts` package.
+17. n/a · 18. n/a · 19. n/a · 20. n/a
+21. ✅ Tests use a fresh in-memory `createHTMLDocument` and invented events, with no personal data.
+
+## Summary
+The amendment is small and does what the amended R5 asks. `blockPageZoom` (`frontend/src/app/core/no-page-zoom.ts`) is 8 lines of logic and its tests would fail if the behaviour broke. The deleted `chart.spec.ts` and the removed `.chart` rule in `frontend/src/app/shared/chart/chart.ts` are consistent with each other. Before committing, note that `no-page-zoom.ts` and `no-page-zoom.spec.ts` are still untracked and must be added. I could not verify one thing in code: whether the root `touch-action` also stops page pinch inside the two inner `overflow-y: auto` containers (`build-calendar.scss:8`, `weekly-summary-panel.scss:11`). Include those areas in the AC5.4 manual check on the iPhone.
+
+Not checked: real-device behaviour (iOS Safari touch-action and gesture events), and the backend checks, since no backend code changed.
+
+## Follow-up (2026-11-14, after the amendment review)
+- **Nit (`.env.example`):** not part of this change. It stays out of the feature commit and should get its own `chore(config)` commit.
+- Backend checks were run for the amendment and passed (`ktlintCheck detekt test`).
+- The two scrolling areas the reviewer named (build calendar, weekly summary panel) are added to the manual iPhone check.
