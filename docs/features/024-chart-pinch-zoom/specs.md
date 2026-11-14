@@ -12,7 +12,7 @@ On touch devices, the shared chart wrapper adds an ECharts "inside" dataZoom on 
 | R2 | Zoom is clamped: zooming out stops at the full range, zooming in stops at 5% of the full range (20x). | Must |
 | R3 | A pinch that starts on a chart never zooms the page, even when the chart cannot zoom any further. | Must |
 | R4 | A one-finger drag over a chart scrolls the page as it does today. The chart does not pan and does not capture the touch. | Must |
-| R5 | A pinch that starts outside any chart still zooms the page (browser default). | Must |
+| R5 | The page cannot be zoomed by accident in any browser: touch pinch and double-tap anywhere on the page, trackpad pinch and Ctrl + mouse wheel on desktop all leave the page at its normal size. Ctrl/Cmd + plus/minus and the browser's zoom menu still work. (Amended 2026-11-14.) | Must |
 | R6 | Every chart starts at the full range each time it is created (reload, page switch). Zoom is not saved anywhere. | Must |
 | R7 | On non-touch devices (primary pointer is not coarse), the wrapper does not change the chart options, so the mouse wheel and mouse drag over a chart behave as they do today. | Must |
 | R8 | This applies to every chart that renders through `app-chart`, with no changes to the individual chart option builders. | Must |
@@ -29,7 +29,7 @@ On touch devices, the shared chart wrapper adds an ECharts "inside" dataZoom on 
 - **AC2.3** Given a chart on an iPhone, when the user keeps pinching in, then the visible range stops shrinking at about one twentieth of the full range. (Manual.)
 
 ### R3: The page does not zoom while you pinch on a chart
-- **AC3.1** Given the rendered `app-chart`, then its chart element has the CSS `touch-action: pan-x pan-y`.
+- **AC3.1** Given `blockPageZoom(document)`, then `<html>` has `touch-action: pan-x pan-y`. A child can't widen its parent's `touch-action`, so this covers every chart. (Amended 2026-11-14: replaces the rule on `.chart`; tested as AC5.1.)
 - **AC3.2** Given an iPhone and a chart already at full range, when the user pinches out on it, then neither the chart nor the page zooms. (Manual.)
 - **AC3.3** Given an iPhone, when the user pinches on a chart's axis labels or legend (inside the chart box but outside the plot area), then the page does not zoom. (Manual.)
 
@@ -38,8 +38,12 @@ On touch devices, the shared chart wrapper adds an ECharts "inside" dataZoom on 
 - **AC4.2** Given an iPhone, zoomed in or not, when the user drags one finger up or down starting on a chart's plot area, then the page scrolls and the chart's range does not change. (Manual.)
 - **AC4.3** Given an iPhone, when the user taps a data point, then the tooltip shows as it does today. (Manual.)
 
-### R5: Pinching outside charts still zooms the page
-- **AC5.1** Given an iPhone, when the user pinches on a heading, a stat card or empty page space, then the page zooms as it does today. (Manual.)
+### R5: The page cannot be zoomed by accident
+- **AC5.1** Given `blockPageZoom(document)`, then `<html>` has the inline style `touch-action: pan-x pan-y`, so touch browsers neither pinch-zoom nor double-tap-zoom the page but still scroll it.
+- **AC5.2** Given `blockPageZoom(document)`, when a cancelable `wheel` event with `ctrlKey` (what a trackpad pinch and Ctrl + wheel send) reaches the document, then its default is prevented. A `wheel` without `ctrlKey` is left alone, so normal scrolling works.
+- **AC5.3** Given `blockPageZoom(document)`, when Safari's `gesturestart` or `gesturechange` event reaches the document, then its default is prevented (macOS Safari trackpad pinch).
+- **AC5.4** Given an iPhone, when the user pinches or double-taps on a heading, a stat card or empty page space, then the page does not zoom. (Manual.)
+- **AC5.5** Given a desktop browser (Chrome, Edge, Firefox, Safari), when the user pinches on the trackpad or turns the wheel with Ctrl held, then the page does not zoom; Ctrl + plus/minus still zooms it. (Manual.)
 
 ### R6: Every chart starts at full range
 - **AC6.1** Given any options object, when `withTouchZoom` is called, then the dataZoom always has `start: 0` and `end: 100` (no stored state is read).
@@ -60,7 +64,7 @@ On touch devices, the shared chart wrapper adds an ECharts "inside" dataZoom on 
 | S1: pinch in zooms the date axis, the page does not zoom | R1, R3, R8 |
 | S2: pinch out goes back toward and up to the full view | R1, R2 |
 | S3: one-finger drag scrolls the page, the chart does not pan or get stuck | R4 |
-| S4: pinching outside a chart zooms the page | R5 |
+| S4: the page cannot be zoomed by accident in any browser | R3, R5 |
 | S5: reload or page switch shows the full view | R6 |
 | S6: on desktop the mouse wheel still scrolls the page | R7 |
 
@@ -100,8 +104,12 @@ n/a. No endpoints added or changed.
 - **`ChartComponent`** (`shared/chart/chart.ts`):
   - Works out touch once: `private readonly touch = matchMedia('(pointer: coarse)').matches;` (primary pointer is a finger. Touch laptops with a mouse count as desktop.)
   - `protected readonly chartOptions = computed(() => withTouchZoom(this.options(), this.touch));` and the template binds `[options]="chartOptions()"`.
-  - Style: add `touch-action: pan-x pan-y;` to `.chart`, so the browser never pinch-zooms the page from a chart (R3) but still scrolls it with one finger (R4). On desktop this does nothing.
   - Inputs (`options`, `label`) unchanged. No new inputs or outputs.
+- **`blockPageZoom(doc: Document): void`** in `frontend/src/app/core/no-page-zoom.ts`, called once from `main.ts` before bootstrap (R3, R5):
+  - `doc.documentElement.style.touchAction = 'pan-x pan-y'`: touch browsers scroll but never pinch- or double-tap-zoom the page. Child elements can't widen it, so this also covers every chart (R3) and replaces the earlier `.chart` rule.
+  - `wheel` listener (`passive: false`) that calls `preventDefault()` only when `ctrlKey` is set: desktop trackpad pinch and Ctrl + wheel.
+  - `gesturestart` and `gesturechange` listeners that call `preventDefault()`: macOS Safari trackpad pinch.
+  - Keyboard zoom is not blocked (deliberate, see intent amendment).
 - **`echarts-setup.ts`:** add `DataZoomInsideComponent` from `echarts/components` to `echarts.use([...])`. The slider dataZoom is not registered.
 - **Reset (R6):** comes for free. Each page creates new chart components, and zoom is never stored. When a chart's `options` input changes (e.g. switching person), ngx-echarts replaces the whole option and the zoom resets to full range. That's fine and needs no extra code.
 - **States:** loading, empty and error states stay with each feature component as they are today. The wrapper only renders in the normal state, so this feature adds no new states. A chart with one point or a few categories zooms harmlessly: ECharts always shows at least one category.
@@ -111,7 +119,10 @@ n/a. No endpoints added or changed.
 - `frontend/src/app/shared/chart/touch-zoom.ts` (new)
 - `frontend/src/app/shared/chart/touch-zoom.spec.ts` (new)
 - `frontend/src/app/shared/chart/chart.ts`
-- `frontend/src/app/shared/chart/chart.spec.ts` (new, small component test for AC3.1)
+- `frontend/src/app/core/no-page-zoom.ts` (new, amendment)
+- `frontend/src/app/core/no-page-zoom.spec.ts` (new, amendment)
+- `frontend/src/main.ts` (amendment)
+- `frontend/src/app/shared/chart/chart.spec.ts` (removed by the amendment: the `.chart` rule it tested moved to `<html>`)
 - `frontend/src/app/shared/chart/echarts-setup.ts`
 
 ### Spot-check list (manual, on an iPhone)
@@ -126,9 +137,10 @@ Weekly distance, heart-rate trend, workout pace comparison (running dashboard) Â
 | Chart with two y axes (wellness) | Only x axis 0 zooms. Both y axes keep their ranges (`filterMode: 'none'`). |
 | Mark lines (race-day form race day, threshold lines) | They stay drawn. A mark line outside the visible range is clipped. |
 | Pinch at full range | Chart stays as it is. The page does not zoom (open question 2). |
-| Pinch starting on the chart's axis labels or legend | Page does not zoom (`touch-action`). The chart does not zoom either (ECharts only zooms from the plot area). |
+| Pinch starting on the chart's axis labels or legend | Page does not zoom (`touch-action` on `<html>`). The chart does not zoom either (ECharts only zooms from the plot area). |
 | Touch laptop / iPad with trackpad | Decided by `(pointer: coarse)`. If the primary pointer is a mouse or trackpad, it behaves like desktop. |
-| Desktop trackpad pinch (ctrl+wheel) | Unchanged. No dataZoom on desktop, so the browser zooms the page as it does today. |
+| Desktop trackpad pinch (ctrl+wheel) | Page does not zoom (R5). Charts don't zoom either: there is no dataZoom on desktop. |
+| Ctrl/Cmd + plus/minus, browser zoom menu | Still zooms the page, on purpose. |
 | Manual activities without GPS, activities without HR, unit conversion, time zones | Not affected. No data or bucketing changes. |
 
 ## Privacy
@@ -145,10 +157,12 @@ Weekly distance, heart-rate trend, workout pace comparison (running dashboard) Â
 | AC4.1 | frontend unit | `R4 - disables wheel, pan and mouse-move preventDefault` |
 | AC7.1 | frontend unit | `R7 - returns options unchanged when not touch` |
 | AC8.1 | frontend unit | `R8 - keeps existing keys and does not mutate input` |
-| AC3.1 | frontend component (`chart.spec.ts`) | `R3 - chart element blocks browser pinch-zoom` |
+| AC3.1, AC5.1 | frontend unit (`no-page-zoom.spec.ts`) | `R5 - touch browsers only pan the page` |
+| AC5.2 | frontend unit | `R5 - blocks ctrl+wheel zoom but not scrolling` |
+| AC5.3 | frontend unit | `R5 - blocks Safari gesture zoom` |
 | AC8.2 | build + review | `npm run build` passes; diff touches no `features/` files |
-| AC1.2, AC1.3, AC2.2, AC2.3, AC3.2, AC3.3, AC4.2, AC4.3, AC5.1, AC6.2, AC8.3 | manual on iPhone (Safari) | user runs the spot-check list |
-| AC7.2 | manual on desktop | mouse wheel over each chart scrolls the page |
+| AC1.2, AC1.3, AC2.2, AC2.3, AC3.2, AC3.3, AC4.2, AC4.3, AC5.4, AC6.2, AC8.3 | manual on iPhone (Safari) | user runs the spot-check list |
+| AC7.2, AC5.5 | manual on desktop | mouse wheel over each chart scrolls the page; trackpad pinch and Ctrl + wheel don't zoom the page |
 
 ## Out of scope
 - Home-screen app, PWA or native app.
@@ -166,5 +180,5 @@ Weekly distance, heart-rate trend, workout pace comparison (running dashboard) Â
 - **Decision: touch is detected with `(pointer: coarse)` and the dataZoom is only added on touch devices.** This keeps desktop exactly as it is (S6). I chose it because ECharts' inside dataZoom can block the page's wheel scroll over the plot area even with `zoomOnMouseWheel: false`. The downside is that a touch laptop whose primary pointer is a mouse gets no pinch zoom.
 - **Decision: max zoom-in is 20x (`minSpan: 5`), chosen by the user on 2026-11-14.** For a year of daily data that's about 18 days on screen.
 - **Decision: the y axis stays fixed while zoomed (`filterMode: 'none'`).** This keeps lines continuous to the plot edges and matches "don't zoom the vertical axis". The other option, `'filter'`, rescales y to the visible points but can cut lines at the edges.
-- **Risk: iOS Safari touch behaviour can only be checked on the device.** The settings `preventDefaultMouseMove: false` (one-finger scroll) and `touch-action: pan-x pan-y` (no page zoom from a chart) are based on how ECharts and the browser normally handle touch, and the project uses ECharts 6.1. Automated tests cover only the option builder and the CSS. If one-finger scroll gets stuck on the device, check `preventDefaultMouseMove` first.
+- **Risk: iOS Safari touch behaviour can only be checked on the device.** The settings `preventDefaultMouseMove: false` (one-finger scroll) and `touch-action: pan-x pan-y` (no page zoom) are based on how ECharts and the browser normally handle touch, and the project uses ECharts 6.1. Automated tests cover only the option builder and the CSS. If one-finger scroll gets stuck on the device, check `preventDefaultMouseMove` first.
 - **Note:** the intent calls the long-run drift chart's horizontal axis "not a date", but in code it is `type: 'time'`. Either way it zooms like the others, as the intent requires.
