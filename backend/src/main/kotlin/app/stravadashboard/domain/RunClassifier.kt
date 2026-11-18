@@ -5,12 +5,21 @@ import app.stravadashboard.domain.model.RunType
 
 /**
  * Classifies a run as an `NxMmin` workout (from the name, else the description), a long run (over 20 km)
- * or an easy run. A workout pattern wins over distance.
+ * or an easy run. A workout pattern wins over distance. A bare `NxM` without a unit counts as minutes.
  */
 object RunClassifier {
     const val LONG_RUN_MIN_EXCLUSIVE_METERS = 20_000.0
     private val WORKOUT_PATTERN =
-        Regex("""(?<![\d.])(\d{1,2})\s*[x×]\s*(\d{1,3})\s*(?:min(?:ute)?s?|')(?![a-z])""", RegexOption.IGNORE_CASE)
+        Regex(
+            """
+            (?<![\d.]) (\d{1,2}) \s*[x×]\s* (\d{1,3})
+            (?:
+                \s*(?:min(?:ute)?s?|'(?!')) (?![a-z])                      # 5x6min, 5x6 minutes, 5x6'
+              | (?<!\d{3}) (?![\d:a-z'"] | \.\d | \s*(?:km|k|m)(?![a-z])) # 10x3; not 8x100, 6x20", 5x1 km
+            )
+            """,
+            setOf(RegexOption.IGNORE_CASE, RegexOption.COMMENTS),
+        )
     private val REPS_RANGE = 1..50
     private val MINUTES_RANGE = 1..120
 

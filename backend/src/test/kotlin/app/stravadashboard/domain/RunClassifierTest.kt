@@ -17,6 +17,21 @@ class RunClassifierTest {
     }
 
     @Test
+    fun `R7 - bare NxM without a unit is minutes`() {
+        listOf("10x3", "10 x 3", "10×3", "Tuesday 10x3 session", "10x3 @ threshold", "Did 10x3.").forEach {
+            assertEquals(RunType.Workout(10, 3), RunClassifier.classify(it, null), it)
+        }
+        assertEquals("10x3min", RunClassifier.classify("Morning Run", "10x3").key)
+    }
+
+    @Test
+    fun `R7 - bare NxM that looks like distance or seconds is easy`() {
+        listOf("8x100", "6x800", "5x1 km", "3x2K", "6x1:30", "6x1.5", "10x30s", "6x20\"", "6x20''").forEach {
+            assertEquals(RunType.Easy, RunClassifier.classify(it, null), it)
+        }
+    }
+
+    @Test
     fun `R7 - description used when name has no pattern and name wins`() {
         assertEquals("5x6min", RunClassifier.classify("Morning Run", "Did 5x6min today").key)
         assertEquals("4x8min", RunClassifier.classify("4x8min", "5x6min").key)
