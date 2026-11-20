@@ -124,6 +124,18 @@ describe('LongRunDriftSection', () => {
     );
   });
 
+  it('R6 - a sync during the first load still shows a failure', () => {
+    sync.finish();
+    fixture.detectChanges();
+    const [first, reload] = http.match('/api/long-run-drift');
+    expect(first.cancelled).toBe(true);
+    reload.flush({ error: 'internal_error', message: 'x' }, { status: 500, statusText: 'Error' });
+    fixture.detectChanges();
+    expect(element().querySelector('[role="alert"]')?.textContent).toContain(
+      "Couldn't load heart-rate drift.",
+    );
+  });
+
   it('R6 - shows zone legend', () => {
     respond(longRunDrift());
     expect(text()).toContain('Good < 5% · Watch 5–10% · Poor > 10%');
