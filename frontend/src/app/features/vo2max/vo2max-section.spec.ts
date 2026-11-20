@@ -2,17 +2,25 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Vo2maxResponse } from '../../core/api/vo2max.models';
+import { SyncStore } from '../../core/sync/sync.store';
 import { stubCharts } from '../../testing/dashboard-fixtures';
+import { SyncStoreStub } from '../../testing/sync-store-stub';
 import { emptyVo2max, vo2max, vo2maxWeeks } from '../../testing/vo2max-fixtures';
 import { Vo2maxSection } from './vo2max-section';
 
 describe('Vo2maxSection', () => {
   let fixture: ComponentFixture<Vo2maxSection>;
   let http: HttpTestingController;
+  let sync: SyncStoreStub;
 
   beforeEach(() => {
+    sync = new SyncStoreStub();
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: SyncStore, useValue: sync },
+      ],
     });
     stubCharts();
     fixture = TestBed.createComponent(Vo2maxSection);
@@ -78,6 +86,18 @@ describe('Vo2maxSection', () => {
     expect(text()).toContain('Loading VO2max…');
     respond(vo2max());
     expect(element().querySelector('app-vo2max-chart')).not.toBeNull();
+  });
+
+  it('R13 - a sync during the first load still shows a failure', () => {
+    sync.finish();
+    fixture.detectChanges();
+    const [first, reload] = http.match('/api/vo2max');
+    expect(first.cancelled).toBe(true);
+    reload.flush({ error: 'internal_error', message: 'x' }, { status: 500, statusText: 'Error' });
+    fixture.detectChanges();
+    expect(element().querySelector('[role="alert"]')?.textContent).toContain(
+      "Couldn't load VO2max.",
+    );
   });
 
   it('R13 - unexpected body shows the error state', () => {
