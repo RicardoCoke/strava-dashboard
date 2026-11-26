@@ -25,6 +25,11 @@ describe('withTouchZoom', () => {
     );
   });
 
+  it('025 - a chart with its own dataZoom keeps it on touch', () => {
+    const own = { ...options, dataZoom: [{ type: 'slider' }] };
+    expect(withTouchZoom(own, true)).toBe(own);
+  });
+
   it('R7 - returns options unchanged when not touch', () => {
     expect(withTouchZoom(options, false)).toBe(options);
   });

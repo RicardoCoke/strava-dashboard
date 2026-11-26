@@ -24,6 +24,7 @@ import { RingSpinner } from '../../shared/spinner/ring-spinner';
 import { WeeklySummaryBell } from '../weekly-summary/weekly-summary-bell';
 import {
   CompareAxis,
+  CompareZoom,
   ShownRuns,
   buildCompareOptions,
   compareChartLabel,
@@ -62,6 +63,7 @@ const FILTERS: { value: CompareFilter; label: string }[] = [
 ];
 
 const MAX_SELECTED = 2;
+const ZOOMS: CompareZoom[] = [1, 2, 4];
 
 /** Two of the person's runs side by side: one pace and HR chart, stats and reps (feature 025). */
 @Component({
@@ -86,7 +88,11 @@ export class WorkoutComparePage implements OnInit {
   protected readonly selected = signal<number[]>([]);
   protected readonly compare = signal<CompareState>({ kind: 'idle' });
   protected readonly axis = signal<CompareAxis>('distance');
-  protected readonly shown = signal<ShownRuns>({});
+  protected readonly zooms = ZOOMS;
+  protected readonly zoom = signal<CompareZoom>(1);
+  // Not a signal: ECharts hides the run itself, so a legend click needs no rebuild (which would also reset the
+  // scroll bar). The tooltip reads it on each hover and the next rebuild starts from it.
+  private shown: ShownRuns = {};
 
   protected readonly emptyText = computed(() => emptyListText(this.filter()));
   protected readonly prompt = computed(() => promptText(this.selected().length));
@@ -110,7 +116,7 @@ export class WorkoutComparePage implements OnInit {
     }
     const data = state.data;
     return {
-      options: buildCompareOptions(data, this.axis(), this.shown()),
+      options: buildCompareOptions(data, this.axis(), this.shown, this.zoom()),
       label: compareChartLabel(this.axis()),
       coarse: coarseNote(data),
       noPoints: hasNoPoints(data),
@@ -189,8 +195,13 @@ export class WorkoutComparePage implements OnInit {
   protected loadComparison(): void {
     const [a, b] = this.selected();
     this.compare.set({ kind: 'loading' });
-    this.shown.set({}); // a new pair starts with both runs shown
+    this.shown = {}; // a new pair starts with both runs shown
     this.compareLoads.next([a, b]);
+  }
+
+  /** Kept in place: the tooltip already built holds this object. */
+  protected onLegend(selected: ShownRuns): void {
+    Object.assign(this.shown, selected);
   }
 
   private select(ids: number[]): void {

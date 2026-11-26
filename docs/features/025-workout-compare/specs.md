@@ -615,3 +615,23 @@ No config, `.env.example` or dependency changes.
 - **Selection:** the default filter is All. A third pick replaces the first, and changing the filter clears the selection.
 - **Compare starts the background sync** (the 023 Recovery decision), so a run just finished shows up without visiting Performance first.
 - **Concurrency:** compare can overlap a sync on the same Garmin connection. The FIT cache gets a Mutex. The token cache stays unlocked, since a race at most costs one extra token request.
+
+## Amendment (2026-11-26): zoom presets and narrow header
+From the intent amendment (S14, S15).
+
+- **AC7.9 (new, S15)** Next to the x-axis toggle, in the same wrapping row, a `role="group"` with `aria-label="Chart zoom"` holds three buttons, "1x" (the default), "2x" and "4x", each with `aria-pressed`.
+  - 1x: no `dataZoom`; the chart shows the whole run, as before.
+  - 2x / 4x: one `slider` dataZoom on x-axis 0 with `start: 0`, `end: 50` / `25`, `zoomLock: true` (the window keeps its width, so dragging only scrolls) and `filterMode: 'none'`. The grid's bottom grows to 72 px to fit it. The pace and HR axes stay in place while scrolling.
+  - Changing the zoom or the x-axis sends no request and starts at the left edge again.
+- **AC7.4 (changed)** 024's pinch zoom applies at 1x. At 2x / 4x the chart's own scroll bar replaces it: `withTouchZoom` keeps a chart's own `dataZoom`.
+- **AC7.1 (changed)** A legend click doesn't rebuild the chart options, because a rebuild would reset the scroll bar. The page keeps the selection in a plain object: the tooltip reads it on each hover, and options rebuilt for an axis or zoom change start from it.
+- **AC13.1 (fixed)** The shared `.page-header` wraps: when the person switch and bell don't fit beside the page title, they move to a second row, right-aligned. This also fixes the Recovery page, which scrolled sideways below about 400 px. Checked at 360 px (page 360 px wide) and 1280 px (one row).
+- `echarts-setup.ts` registers `DataZoomSliderComponent`; a new palette entry `zoomWindow` (the accent at 12 %) colours the scroll window.
+
+| AC | Test type | Test name |
+|---|---|---|
+| AC7.9 | frontend options unit | `R7 - 2x and 4x show part of the x axis with a scroll bar` |
+| AC7.9 | frontend component | `R7 - zoom buttons pick 1x, 2x or 4x without a request` |
+| AC7.4 | shared unit (touch-zoom) | `025 - a chart with its own dataZoom keeps it on touch` |
+| AC7.1 | frontend options unit + component | `R7 - tooltip reads the legend selection on each hover`, `R7 - a legend click survives an axis switch` |
+| AC13.1 | manual at 360 px and 1280 px | browser check (header wraps, no sideways scroll) |

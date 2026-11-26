@@ -100,7 +100,13 @@ button:focus-visible,
   min-width: 0;
 }
 
-.compare > .toggle {
+.chart-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+}
+
+.chart-controls .toggle {
   margin: 0;
 }
 

@@ -296,12 +296,43 @@ describe('WorkoutComparePage', () => {
       const selected = () =>
         (chart().options() as { legend: { selected: object } }).legend.selected;
 
+      const before = chart().options();
       chart().legendChange.emit({ 'Earlier · 10 Nov': false, 'Later · 24 Nov': true });
       fixture.detectChanges();
+      // ECharts hides the run itself; rebuilding would also reset the scroll bar.
+      expect(chart().options()).toBe(before);
       axisButtons()[1].click();
       fixture.detectChanges();
 
       expect(selected()).toEqual({ 'Earlier · 10 Nov': false, 'Later · 24 Nov': true });
+    });
+
+    it('R7 - zoom buttons pick 1x, 2x or 4x without a request', () => {
+      loadComparison();
+      const zoomButtons = () =>
+        Array.from(el().querySelectorAll<HTMLButtonElement>('[aria-label="Chart zoom"] button'));
+      const dataZoom = () =>
+        (
+          fixture.debugElement.query(By.directive(ChartComponent))
+            .componentInstance as ChartComponent
+        ).options()['dataZoom'] as { end: number }[] | undefined;
+
+      expect(zoomButtons().map((b) => [text(b), b.getAttribute('aria-pressed')])).toEqual([
+        ['1x', 'true'],
+        ['2x', 'false'],
+        ['4x', 'false'],
+      ]);
+      expect(dataZoom()).toBeUndefined();
+
+      zoomButtons()[2].click();
+      fixture.detectChanges();
+      expect(zoomButtons()[2].getAttribute('aria-pressed')).toBe('true');
+      expect(dataZoom()?.[0].end).toBe(25);
+
+      axisButtons()[1].click();
+      fixture.detectChanges();
+      expect(dataZoom()?.[0].end).toBe(25);
+      http.expectNone(() => true);
     });
 
     it('R7 - missing points notes and caption', () => {

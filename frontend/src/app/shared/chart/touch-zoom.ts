@@ -15,6 +15,7 @@ const TOUCH_ZOOM = {
   preventDefaultMouseMove: false,
 };
 
+/** A chart with its own dataZoom (the compare chart's 2x/4x scroll bar, feature 025) keeps it instead. */
 export function withTouchZoom(options: EChartsCoreOption, touch: boolean): EChartsCoreOption {
-  return touch ? { ...options, dataZoom: [TOUCH_ZOOM] } : options;
+  return touch && !options['dataZoom'] ? { ...options, dataZoom: [TOUCH_ZOOM] } : options;
 }

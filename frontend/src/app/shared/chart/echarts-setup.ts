@@ -2,6 +2,7 @@
 import { BarChart, LineChart } from 'echarts/charts';
 import {
   DataZoomInsideComponent,
+  DataZoomSliderComponent,
   GridComponent,
   LegendComponent,
   MarkLineComponent,
@@ -14,6 +15,7 @@ echarts.use([
   BarChart,
   LineChart,
   DataZoomInsideComponent,
+  DataZoomSliderComponent,
   GridComponent,
   LegendComponent,
   MarkLineComponent,
