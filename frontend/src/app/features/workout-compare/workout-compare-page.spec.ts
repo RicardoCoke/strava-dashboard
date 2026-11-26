@@ -6,11 +6,13 @@ import {
   provideHttpClientTesting,
 } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { provideRouter } from '@angular/router';
 import { WorkoutCompareResponse } from '../../core/api/workout-compare.models';
 import { personInterceptor } from '../../core/interceptors/person.interceptor';
 import { PersonStore } from '../../core/person/person.store';
 import { SyncStore } from '../../core/sync/sync.store';
+import { ChartComponent } from '../../shared/chart/chart';
 import { stubCharts } from '../../testing/dashboard-fixtures';
 import { SyncStoreStub } from '../../testing/sync-store-stub';
 import { COMPARE_RUNS, PIECES, comparison } from '../../testing/workout-compare-fixtures';
@@ -284,6 +286,22 @@ describe('WorkoutComparePage', () => {
       expect(chart()).toBe('Pace and heart rate of two runs by time');
       expect(axisButtons()[1].getAttribute('aria-pressed')).toBe('true');
       http.expectNone(() => true);
+    });
+
+    it('R7 - a legend click survives an axis switch', () => {
+      loadComparison();
+      const chart = () =>
+        fixture.debugElement.query(By.directive(ChartComponent))
+          .componentInstance as ChartComponent;
+      const selected = () =>
+        (chart().options() as { legend: { selected: object } }).legend.selected;
+
+      chart().legendChange.emit({ 'Earlier · 10 Nov': false, 'Later · 24 Nov': true });
+      fixture.detectChanges();
+      axisButtons()[1].click();
+      fixture.detectChanges();
+
+      expect(selected()).toEqual({ 'Earlier · 10 Nov': false, 'Later · 24 Nov': true });
     });
 
     it('R7 - missing points notes and caption', () => {

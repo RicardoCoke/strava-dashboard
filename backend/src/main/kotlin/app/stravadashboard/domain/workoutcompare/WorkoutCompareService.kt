@@ -10,7 +10,6 @@ import app.stravadashboard.domain.ports.ActivitySource
 import app.stravadashboard.domain.ports.RunRepository
 import app.stravadashboard.domain.ports.SourceResult
 import app.stravadashboard.domain.ports.SyncStateRepository
-import org.slf4j.LoggerFactory
 import java.time.Clock
 import java.time.LocalDate
 
@@ -84,7 +83,6 @@ class WorkoutCompareService(
         val fetched = upFront(earlier, later)?.let { listOf(Fetch.Fallback(it)) } ?: fetchEach(listOf(earlier, later))
         val streams = fetched.filterIsInstance<Fetch.Got>().map { it.stream }.takeIf { it.size == 2 }
         val coarse = fetched.filterIsInstance<Fetch.Fallback>().firstOrNull()?.coarse
-        coarse?.let { log.info("Workout compare uses splits: {}", it.reason) }
         return WorkoutComparison(
             resolution = if (streams != null) Resolution.STREAM else Resolution.SPLITS,
             coarse = coarse,
@@ -172,6 +170,5 @@ class WorkoutCompareService(
 
     companion object {
         const val LIST_SIZE = 30
-        private val log = LoggerFactory.getLogger(WorkoutCompareService::class.java)
     }
 }

@@ -3,11 +3,11 @@ package app.stravadashboard.api
 import app.stravadashboard.domain.RunClassifier
 import app.stravadashboard.domain.model.METERS_PER_KM
 import app.stravadashboard.domain.model.RunActivity
-import app.stravadashboard.domain.model.paceOf
 import app.stravadashboard.domain.model.roundHalfUpToInt
 import app.stravadashboard.domain.model.roundOneDecimal
 import app.stravadashboard.domain.model.toKmOneDecimal
 import app.stravadashboard.domain.workoutcompare.Coarse
+import app.stravadashboard.domain.workoutcompare.CompareCalculator
 import app.stravadashboard.domain.workoutcompare.CompareSide
 import app.stravadashboard.domain.workoutcompare.RepCell
 import app.stravadashboard.domain.workoutcompare.RepComparison
@@ -17,14 +17,13 @@ import app.stravadashboard.domain.workoutcompare.WorkoutComparison
 fun List<RunActivity>.toCompareRunsDto(): CompareRunsResponse =
     CompareRunsResponse(
         map { run ->
-            val moving = run.movingTime?.takeIf { it.value > 0 && run.distance.value > 0 }
             CompareRunItemDto(
                 id = run.id.value,
                 date = run.localDate.toString(),
                 name = run.name,
                 typeKey = RunClassifier.classify(run).key,
                 distanceKm = run.distance.toKmOneDecimal(),
-                averagePaceSecondsPerKm = moving?.let { paceOf(it.value.toDouble(), run.distance.value).value },
+                averagePaceSecondsPerKm = CompareCalculator.averagePace(run)?.value,
                 treadmill = run.trainer,
             )
         },
@@ -95,17 +94,7 @@ private fun RepRow.toDto(): RepRowDto {
 
 private fun RepCell.toDto(): RepCellDto = RepCellDto(pace.value, heartRate?.let(::roundHalfUpToInt))
 
+private val WORD_BREAK = Regex("_([a-z])")
+
 /** `NO_DETAIL_FILE` → `noDetailFile`. */
-private fun camelCase(name: String): String =
-    name
-        .lowercase()
-        .split('_')
-        .mapIndexed { i, word ->
-            if (i ==
-                0
-            ) {
-                word
-            } else {
-                word.replaceFirstChar(Char::uppercase)
-            }
-        }.joinToString("")
+private fun camelCase(name: String): String = name.lowercase().replace(WORD_BREAK) { it.groupValues[1].uppercase() }

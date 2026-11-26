@@ -72,6 +72,15 @@ class CompareCalculatorTest {
         assertEquals(150.0, CompareCalculator.averageBpm(drift, 5.0, 15.0))
         assertNull(CompareCalculator.averageBpm(drift, 20.0, 50.0))
         assertNull(CompareCalculator.averageBpm(null, 0.0, 70.0))
+        // A 0 bpm dropout inside a short interval is skipped on its own: 5 s at 140, not (5 × 140 + 5 × 0) / 10.
+        val dropout =
+            DriftStream(
+                times = listOf(0, 5, 10).map(::Seconds),
+                speeds = List(3) { MetersPerSecond(3.0) },
+                bpm = listOf(140, 0, 160).map(::Bpm),
+                moving = null,
+            )
+        assertEquals(140.0, CompareCalculator.averageBpm(dropout, 0.0, 10.0))
     }
 
     @Test
@@ -128,6 +137,14 @@ class CompareCalculatorTest {
         assertNull(noTime.pace)
         assertNull(noTime.efficiency)
         assertNull(noDistance.pace)
+        // The list rows use the same rule (AC2.3).
+        assertNull(CompareCalculator.averagePace(run(movingSeconds = 0)))
+        assertNull(CompareCalculator.averagePace(run(distanceMeters = 0.0)))
+        assertNull(CompareCalculator.averagePace(run(laps = null)))
+        assertEquals(
+            SecondsPerKm(292),
+            CompareCalculator.averagePace(run(distanceMeters = 10_400.0, movingSeconds = 3036)),
+        )
         assertNull(noHr.elevationGain) // no splits
         assertNull(CompareCalculator.stats(run(splits = listOf(split(0, 1000.0, 300, null))), null).elevationGain)
     }

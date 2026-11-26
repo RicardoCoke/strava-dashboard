@@ -22,7 +22,12 @@ import { NavMenu } from '../../shared/nav-menu/nav-menu';
 import { PersonSwitch } from '../../shared/person-switch/person-switch';
 import { RingSpinner } from '../../shared/spinner/ring-spinner';
 import { WeeklySummaryBell } from '../weekly-summary/weekly-summary-bell';
-import { CompareAxis, buildCompareOptions, compareChartLabel } from './workout-compare.options';
+import {
+  CompareAxis,
+  ShownRuns,
+  buildCompareOptions,
+  compareChartLabel,
+} from './workout-compare.options';
 import {
   DRIFT_FOOTNOTE,
   PIECES_CAVEAT,
@@ -81,6 +86,7 @@ export class WorkoutComparePage implements OnInit {
   protected readonly selected = signal<number[]>([]);
   protected readonly compare = signal<CompareState>({ kind: 'idle' });
   protected readonly axis = signal<CompareAxis>('distance');
+  protected readonly shown = signal<ShownRuns>({});
 
   protected readonly emptyText = computed(() => emptyListText(this.filter()));
   protected readonly prompt = computed(() => promptText(this.selected().length));
@@ -104,7 +110,7 @@ export class WorkoutComparePage implements OnInit {
     }
     const data = state.data;
     return {
-      options: buildCompareOptions(data, this.axis()),
+      options: buildCompareOptions(data, this.axis(), this.shown()),
       label: compareChartLabel(this.axis()),
       coarse: coarseNote(data),
       noPoints: hasNoPoints(data),
@@ -183,6 +189,7 @@ export class WorkoutComparePage implements OnInit {
   protected loadComparison(): void {
     const [a, b] = this.selected();
     this.compare.set({ kind: 'loading' });
+    this.shown.set({}); // a new pair starts with both runs shown
     this.compareLoads.next([a, b]);
   }
 

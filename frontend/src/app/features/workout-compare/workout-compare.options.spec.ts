@@ -73,25 +73,48 @@ describe('workout compare chart options', () => {
 
   it('R7 - tooltip lines use labels and numbers only', () => {
     const data = comparison();
-    const params = (dataIndex: number) =>
-      [0, 1, 2, 3].map((seriesIndex) => ({ seriesIndex, dataIndex }));
 
-    expect(compareTooltipLines(params(0), data, 'distance')).toEqual([
+    // Each run at its own nearest point: earlier 0.027 km, later 0.029 km.
+    expect(compareTooltipLines(0.03, data, 'distance')).toEqual([
       '0.03 km',
       'Earlier · 10 Nov: 6:10 /km · 101 bpm',
       'Later · 24 Nov: 5:45 /km · 98 bpm',
     ]);
-    expect(compareTooltipLines(params(1), data, 'time')).toEqual([
+    expect(compareTooltipLines(20 / 60, data, 'time')).toEqual([
       '0:20',
       'Earlier · 10 Nov: 5:57 /km',
       'Later · 24 Nov: — /km · 103 bpm',
     ]);
     // The earlier run hidden from the legend: only the later run's line.
-    expect(compareTooltipLines([{ seriesIndex: 3, dataIndex: 0 }], data, 'time')).toEqual([
+    expect(compareTooltipLines(10 / 60, data, 'time', { 'Earlier · 10 Nov': false })).toEqual([
       '0:10',
       'Later · 24 Nov: 5:45 /km · 98 bpm',
     ]);
-    expect(compareTooltipLines(params(0), data, 'distance').join(' ')).not.toContain('threshold');
+    // Past the earlier run's last point (0.055 km), only the later run has a value.
+    expect(compareTooltipLines(0.057, data, 'distance')).toEqual([
+      '0.06 km',
+      'Later · 24 Nov: — /km · 103 bpm',
+    ]);
+    expect(compareTooltipLines(0.03, data, 'distance').join(' ')).not.toContain('threshold');
+  });
+
+  it('R7 - tooltip shows both runs when ECharts passes only the nearest series', () => {
+    // On a value x-axis ECharts keeps only the series whose x is closest to the pointer: here the earlier run's.
+    const options = buildCompareOptions(comparison(), 'distance');
+    const formatter = (options.tooltip as { formatter: (params: unknown) => string }).formatter;
+    const params = [0, 2].map((seriesIndex) => ({ seriesIndex, dataIndex: 1, axisValue: 0.055 }));
+
+    expect(formatter(params).split('<br/>').slice(1)).toEqual([
+      'Earlier · 10 Nov: 5:57 /km',
+      'Later · 24 Nov: — /km · 103 bpm',
+    ]);
+  });
+
+  it('R7 - legend selection is kept in rebuilt options', () => {
+    const shown = { 'Later · 24 Nov': false };
+    expect(
+      (buildCompareOptions(comparison(), 'time', shown).legend as { selected: object }).selected,
+    ).toEqual(shown);
   });
 
   it('R7 - single x axis so touch zoom applies', () => {

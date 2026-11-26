@@ -98,15 +98,11 @@ internal fun Application.personStack(
     val garmin = settings.garminApiKey?.let { garminConnect(it, deps.garminEngine, clock) }
     // One budget and one FIT cache per person, shared by the sync and the compare page (feature 025).
     val budget = CallBudget(clock)
-    val activities = garmin?.let { GarminActivitySource(it, clock, zone) }
-    val sync =
-        if (garmin != null &&
-            activities != null
-        ) {
-            backgroundSync(garmin, activities, budget, settings, stores, deps)
-        } else {
-            null
-        }
+    val (activities, sync) =
+        garmin?.let {
+            val source = GarminActivitySource(it, clock, zone)
+            source to backgroundSync(it, source, budget, settings, stores, deps)
+        } ?: (null to null)
     val compare =
         WorkoutCompareService(runs, activities, budget, stores.syncState, settings.garminActivitiesFrom, clock)
     val plan = TrainingPlanService(planSource, settings.trainingPlanStartDate, clock, zone)

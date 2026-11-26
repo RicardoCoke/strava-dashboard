@@ -110,7 +110,11 @@
               @if (v.missing) {
                 <p class="note">{{ v.missing }}</p>
               }
-              <app-chart [options]="v.options" [label]="v.label" />
+              <app-chart
+                [options]="v.options"
+                [label]="v.label"
+                (legendChange)="shown.set($event)"
+              />
               <p class="note caption">Solid line: pace · dashed line: heart rate</p>
             }
           </section>

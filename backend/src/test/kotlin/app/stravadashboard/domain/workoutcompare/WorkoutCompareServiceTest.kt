@@ -34,7 +34,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNull
-import kotlin.test.assertTrue
 
 /** Reads only: any write fails the test (R5, AC5.8). */
 private class ReadOnlyRuns(
@@ -133,6 +132,23 @@ class WorkoutCompareServiceTest {
     }
 
     @Test
+    fun `R2 - list ties on start time go by id descending`() {
+        runs.stored =
+            listOf(run(id = 5, date = TODAY), run(id = 6, date = TODAY), run(id = 7, date = TODAY.minusDays(1)))
+
+        assertEquals(listOf(6L, 5L, 7L), runBlocking { service().list(CompareFilter.ALL) }.map { it.id.value })
+    }
+
+    @Test
+    fun `R4 - equal start times put the smaller id first`() {
+        runs.stored = listOf(earlier, later.copy(startUtc = earlier.startUtc, startLocal = earlier.startLocal))
+
+        val result = compare()
+
+        assertEquals(listOf(earlier.id, later.id), listOf(result.earlier.run.id, result.later.run.id))
+    }
+
+    @Test
     fun `R5 - both outdoor Garmin runs fetch one stream each`() {
         streams()
         val budget = CallBudget(clock)
@@ -152,11 +168,14 @@ class WorkoutCompareServiceTest {
         val speed = driftStream(Segment(60, 3.0, 150)).let { SpeedStream(it.times, it.speeds) }
         source.streams[1] = speed
         source.streams[2] = speed
+        val budget = CallBudget(clock)
 
-        val result = compare()
+        val result = compare(service(budget))
 
         assertEquals(listOf("stream:1", "driftstream:2", "stream:2"), source.calls)
         assertEquals(Resolution.STREAM, result.resolution)
+        // Each port call takes its own unit, the speed call after a drift NotFound included.
+        assertEquals(CallBudget.CALLS_PER_WINDOW - 3, budget.remaining())
     }
 
     @Test
@@ -234,7 +253,8 @@ class WorkoutCompareServiceTest {
     }
 
     @Test
-    fun `R5 - compare logs only the reason code`() {
+    fun `R5 - compare adds no log lines of its own`() {
+        // AC5.10 allows one line; a Garmin failure is already logged once by the Garmin client, so compare adds none.
         val logger = LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME) as Logger
         val appender = ListAppender<ILoggingEvent>().apply { start() }
         logger.addAppender(appender)
@@ -244,8 +264,6 @@ class WorkoutCompareServiceTest {
         } finally {
             logger.detachAppender(appender)
         }
-        val logs = appender.list.map { it.formattedMessage }
-        assertEquals(1, logs.size, logs.toString())
-        assertTrue("NO_DETAIL_FILE" in logs.single() && "157" !in logs.single() && "2" !in logs.single(), logs.single())
+        assertEquals(emptyList(), appender.list.map { it.formattedMessage })
     }
 }

@@ -36,6 +36,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
+// shortcut: real latency, so a very slow runner could miss a lost Mutex (never a false failure); use a virtual-time
+// engine if this runs in CI.
 private const val SLOW_FIT_MILLIS = 200L
 
 // All keys, tokens and activities here are invented.

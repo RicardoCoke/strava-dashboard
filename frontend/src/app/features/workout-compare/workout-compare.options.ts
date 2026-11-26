@@ -21,47 +21,62 @@ function xOf(point: ComparePoint, axis: CompareAxis): number {
   return axis === 'distance' ? point.distanceKm : point.timeSeconds / SECONDS_PER_MINUTE;
 }
 
-interface TooltipParam {
-  seriesIndex: number;
-  dataIndex: number;
+/** Legend selection by run label, as ECharts reports it; a missing label is shown. */
+export type ShownRuns = Record<string, boolean>;
+
+/** The run's point nearest [x]; none once [x] is past the run's last point. */
+function nearestPoint(
+  points: ComparePoint[],
+  x: number,
+  axis: CompareAxis,
+): ComparePoint | undefined {
+  const last = points.at(-1);
+  if (!last || x > xOf(last, axis)) {
+    return undefined;
+  }
+  const distance = (point: ComparePoint) => Math.abs(xOf(point, axis) - x);
+  return points.reduce((best, point) => (distance(point) < distance(best) ? point : best));
 }
 
 /**
- * The x value, then one line per visible run, e.g. "Earlier · 10 Nov: 4:10 /km · 152 bpm". Series 0–1 are the
- * runs' pace and 2–3 their HR, so a run is visible when either of its series is in [params]. Labels and numbers only.
+ * The hovered x, then one line per shown run at its nearest point, e.g. "Earlier · 10 Nov: 4:10 /km · 152 bpm".
+ * ECharts' axis params hold only the series nearest the pointer, and the runs' x values rarely match, so each run's
+ * point is looked up here. Labels and numbers only.
  */
 export function compareTooltipLines(
-  params: unknown,
+  x: number,
   data: WorkoutCompareResponse,
   axis: CompareAxis,
+  shown: ShownRuns = {},
 ): string[] {
-  const list = (Array.isArray(params) ? params : [params]) as TooltipParam[];
   const labels = runLabels(data);
-  const points = [0, 1].map((run) => {
-    const param = list.find((p) => p.seriesIndex % 2 === run);
-    return param ? data.runs[run].points[param.dataIndex] : undefined;
-  });
-  const first = points.find((point) => point !== undefined);
-  if (!first) {
-    return [];
-  }
-  const x =
-    axis === 'distance' ? `${first.distanceKm.toFixed(2)} km` : formatRaceTime(first.timeSeconds);
-  const lines = points.flatMap((point, run) => {
-    if (!point) {
+  const lines = data.runs.flatMap((run, i) => {
+    const point = nearestPoint(run.points, x, axis);
+    if (!point || shown[labels[i]] === false) {
       return [];
     }
     const pace = point.paceSecondsPerKm === null ? '—' : formatPace(point.paceSecondsPerKm);
     const heartRate = point.heartRateBpm === null ? '' : ` · ${point.heartRateBpm} bpm`;
-    return [`${labels[run]}: ${pace} /km${heartRate}`];
+    return [`${labels[i]}: ${pace} /km${heartRate}`];
   });
-  return [x, ...lines];
+  const head =
+    axis === 'distance' ? `${x.toFixed(2)} km` : formatRaceTime(Math.round(x * SECONDS_PER_MINUTE));
+  return lines.length > 0 ? [head, ...lines] : [];
 }
 
-/** Pace solid on the inverted left axis, HR dashed on the right; both series of a run share its legend entry. */
+function axisValueOf(params: unknown): number | undefined {
+  const first = (Array.isArray(params) ? params[0] : params) as { axisValue?: unknown } | undefined;
+  return typeof first?.axisValue === 'number' ? first.axisValue : undefined;
+}
+
+/**
+ * Pace solid on the inverted left axis, HR dashed on the right; both series of a run share its legend entry.
+ * [shown] is the page's copy of the legend selection, so rebuilt options (an axis switch) keep it.
+ */
 export function buildCompareOptions(
   data: WorkoutCompareResponse,
   axis: CompareAxis,
+  shown: ShownRuns = {},
 ): EChartsOption {
   const labels = runLabels(data);
   const line = (run: 0 | 1, value: 'pace' | 'hr') => ({
@@ -84,11 +99,14 @@ export function buildCompareOptions(
   return {
     ...baseChartStyle(),
     grid: { left: 52, right: 48, top: 48, bottom: 40 },
-    legend: { data: labels, top: 0, textStyle: { color: palette.textMuted } },
+    legend: { data: labels, selected: shown, top: 0, textStyle: { color: palette.textMuted } },
     tooltip: {
       ...tooltipStyle(),
       trigger: 'axis',
-      formatter: (params) => compareTooltipLines(params, data, axis).join('<br/>'),
+      formatter: (params) => {
+        const x = axisValueOf(params);
+        return x === undefined ? '' : compareTooltipLines(x, data, axis, shown).join('<br/>');
+      },
     },
     xAxis: {
       ...valueAxisStyle(),

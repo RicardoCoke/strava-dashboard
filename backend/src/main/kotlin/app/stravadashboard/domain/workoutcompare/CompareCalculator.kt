@@ -76,19 +76,26 @@ object CompareCalculator {
         }
     }
 
+    /** Moving time over distance; null when either is missing or 0 (list rows and stats share it). */
+    fun averagePace(run: RunActivity): SecondsPerKm? =
+        movingTimeOf(run)?.let { paceOf(it.value.toDouble(), run.distance.value) }
+
+    private fun movingTimeOf(run: RunActivity): Seconds? =
+        run.movingTime?.takeIf { it.value > 0 && run.distance.value > 0 }
+
     /** [drift] is this request's stream, used for drift when no stored long-run drift exists. */
     fun stats(
         run: RunActivity,
         drift: DriftStream?,
     ): CompareStats {
         val meters = run.distance.value
-        val moving = run.movingTime?.takeIf { it.value > 0 && meters > 0 }
+        val moving = movingTimeOf(run)
         val heartRate = run.averageHeartRateBpm?.takeIf { it > 0 }
         val minutes = moving?.let { it.value.toDouble() / SECONDS_PER_MINUTE }
         return CompareStats(
             distance = run.distance,
             movingTime = run.movingTime,
-            pace = moving?.let { paceOf(it.value.toDouble(), meters) },
+            pace = averagePace(run),
             averageHeartRateBpm = heartRate,
             elevationGain =
                 run.splits
