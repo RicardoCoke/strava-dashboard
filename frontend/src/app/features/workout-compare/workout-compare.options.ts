@@ -84,7 +84,7 @@ function scrollBar(zoom: CompareZoom) {
     brushSelect: false,
     showDetail: false,
     showDataShadow: false,
-    height: 20,
+    height: 28,
     bottom: 6,
     borderColor: palette.border,
     fillerColor: palette.zoomWindow,
@@ -125,7 +125,7 @@ export function buildCompareOptions(
   return {
     ...baseChartStyle(),
     // The scroll bar sits under the x-axis name.
-    grid: { left: 52, right: 48, top: 48, bottom: zoom > 1 ? 72 : 40 },
+    grid: { left: 52, right: 48, top: 48, bottom: zoom > 1 ? 80 : 40 },
     legend: {
       data: labels,
       selected: { ...shown },

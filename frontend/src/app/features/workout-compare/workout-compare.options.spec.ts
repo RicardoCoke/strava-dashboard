@@ -136,10 +136,18 @@ describe('workout compare chart options', () => {
     expect(zoomed(1).dataZoom).toBeUndefined();
     expect((zoomed(1).grid as { bottom: number }).bottom).toBe(40);
     expect(bar(2)).toEqual(
-      expect.objectContaining({ type: 'slider', xAxisIndex: 0, start: 0, end: 50, zoomLock: true }),
+      expect.objectContaining({
+        type: 'slider',
+        xAxisIndex: 0,
+        start: 0,
+        end: 50,
+        zoomLock: true,
+        // 'none' keeps both y-axes still while scrolling; the slider default 'filter' rescales them.
+        filterMode: 'none',
+      }),
     );
-    expect(bar(4)).toEqual(expect.objectContaining({ start: 0, end: 25 }));
-    expect((zoomed(4).grid as { bottom: number }).bottom).toBe(72);
+    expect(bar(4)).toEqual(expect.objectContaining({ start: 0, end: 25, filterMode: 'none' }));
+    expect((zoomed(4).grid as { bottom: number }).bottom).toBe(80);
   });
 
   it('R7 - single x axis so touch zoom applies', () => {

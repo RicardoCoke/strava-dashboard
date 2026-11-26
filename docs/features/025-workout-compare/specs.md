@@ -621,7 +621,7 @@ From the intent amendment (S14, S15).
 
 - **AC7.9 (new, S15)** Next to the x-axis toggle, in the same wrapping row, a `role="group"` with `aria-label="Chart zoom"` holds three buttons, "1x" (the default), "2x" and "4x", each with `aria-pressed`.
   - 1x: no `dataZoom`; the chart shows the whole run, as before.
-  - 2x / 4x: one `slider` dataZoom on x-axis 0 with `start: 0`, `end: 50` / `25`, `zoomLock: true` (the window keeps its width, so dragging only scrolls) and `filterMode: 'none'`. The grid's bottom grows to 72 px to fit it. The pace and HR axes stay in place while scrolling.
+  - 2x / 4x: one `slider` dataZoom on x-axis 0 with `start: 0`, `end: 50` / `25`, `zoomLock: true` (the window keeps its width, so dragging only scrolls) and `filterMode: 'none'`. The grid's bottom grows to 80 px to fit the 28 px bar. The pace and HR axes stay in place while scrolling.
   - Changing the zoom or the x-axis sends no request and starts at the left edge again.
 - **AC7.4 (changed)** 024's pinch zoom applies at 1x. At 2x / 4x the chart's own scroll bar replaces it: `withTouchZoom` keeps a chart's own `dataZoom`.
 - **AC7.1 (changed)** A legend click doesn't rebuild the chart options, because a rebuild would reset the scroll bar. The page keeps the selection in a plain object: the tooltip reads it on each hover, and options rebuilt for an axis or zoom change start from it.
