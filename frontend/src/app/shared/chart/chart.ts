@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import type { EChartsCoreOption } from 'echarts/core';
 import { NgxEchartsDirective } from 'ngx-echarts';
 import { withTouchZoom } from './touch-zoom';
@@ -14,6 +14,7 @@ import { withTouchZoom } from './touch-zoom';
     role="img"
     [attr.aria-label]="label()"
     [options]="chartOptions()"
+    (chartLegendSelectChanged)="legendChange.emit($event.selected)"
   ></div>`,
   styles: `
     .chart {
@@ -25,6 +26,8 @@ import { withTouchZoom } from './touch-zoom';
 export class ChartComponent {
   readonly options = input.required<EChartsCoreOption>();
   readonly label = input.required<string>();
+  /** The legend selection by series name after a legend click. */
+  readonly legendChange = output<Record<string, boolean>>();
 
   // `?.`: jsdom (tests) has no matchMedia.
   private readonly touch = globalThis.matchMedia?.('(pointer: coarse)').matches ?? false;

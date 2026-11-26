@@ -11,6 +11,9 @@ data class ErrorResponse(
         val PERSON_NOT_CONFIGURED = ErrorResponse("person_not_configured", "This person is not set up.")
         val INTERNAL = ErrorResponse("internal_error", "Something went wrong.")
         val INVALID_DAYS = ErrorResponse("invalid_days", "days must be 7, 30 or 90.")
+        val INVALID_TYPE = ErrorResponse("invalid_type", "type must be all, workouts, long or easy.")
+        val INVALID_RUNS = ErrorResponse("invalid_runs", "a and b must be two different run ids.")
+        val RUN_NOT_FOUND = ErrorResponse("run_not_found", "Run not found.")
         val XSRF_INVALID = ErrorResponse("xsrf_invalid", "Request could not be verified. Reload the page.")
         val TRAINING_PLAN_NOT_CONFIGURED =
             ErrorResponse("training_plan_not_configured", "No training plan is configured.")

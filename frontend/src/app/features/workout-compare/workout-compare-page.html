@@ -1,0 +1,195 @@
+<header class="page-header">
+  <div class="header-start">
+    <app-nav-menu />
+    <h1>Compare</h1>
+  </div>
+  <div class="header-actions">
+    <app-person-switch />
+    <app-weekly-summary-bell />
+  </div>
+</header>
+
+<div class="toggle" role="group" aria-label="Run type">
+  @for (option of filters; track option.value) {
+    <button
+      type="button"
+      [attr.aria-pressed]="filter() === option.value"
+      (click)="selectFilter(option.value)"
+    >
+      {{ option.label }}
+    </button>
+  }
+</div>
+
+<div class="layout">
+  <section class="run-list" aria-label="Runs">
+    @switch (list().kind) {
+      @case ('loading') {
+        <div class="loading" role="status" aria-live="polite">
+          <app-ring-spinner />
+          <p class="loading-text">Loading runs…</p>
+        </div>
+      }
+      @case ('error') {
+        <div class="card status-card" role="alert">
+          <p>Couldn't load runs.</p>
+          <button type="button" class="retry" (click)="loadList()">Retry</button>
+        </div>
+      }
+      @case ('loaded') {
+        @for (row of rows(); track row.id) {
+          <label class="row" [class.selected]="row.checked">
+            <input
+              #box
+              type="checkbox"
+              [checked]="row.checked"
+              (change)="toggle(row.id, box.checked)"
+            />
+            <span class="row-body">
+              <span>
+                {{ row.text }}
+                @if (row.treadmill) {
+                  <span class="tag">Treadmill</span>
+                }
+              </span>
+              @if (row.name) {
+                <span class="row-name">{{ row.name }}</span>
+              }
+            </span>
+          </label>
+        } @empty {
+          <p class="empty">{{ emptyText() }}</p>
+        }
+      }
+    }
+  </section>
+
+  <section class="compare" aria-label="Comparison">
+    @switch (compare().kind) {
+      @case ('idle') {
+        <p class="card prompt">{{ prompt() }}</p>
+      }
+      @case ('loading') {
+        <div class="loading" role="status" aria-live="polite">
+          <app-ring-spinner />
+          <p class="loading-text">Loading comparison…</p>
+        </div>
+      }
+      @case ('error') {
+        <div class="card status-card" role="alert">
+          <p>Couldn't load the comparison.</p>
+          <button type="button" class="retry" (click)="loadComparison()">Retry</button>
+        </div>
+      }
+      @case ('loaded') {
+        @if (view(); as v) {
+          @if (v.coarse) {
+            <p class="notice coarse">{{ v.coarse }}</p>
+          }
+          <div class="toggle" role="group" aria-label="Chart x-axis">
+            <button
+              type="button"
+              [attr.aria-pressed]="axis() === 'distance'"
+              (click)="axis.set('distance')"
+            >
+              Distance
+            </button>
+            <button
+              type="button"
+              [attr.aria-pressed]="axis() === 'time'"
+              (click)="axis.set('time')"
+            >
+              Time
+            </button>
+          </div>
+
+          <section class="card chart-card">
+            @if (v.noPoints) {
+              <p class="empty">No pace data for these runs.</p>
+            } @else {
+              @if (v.missing) {
+                <p class="note">{{ v.missing }}</p>
+              }
+              <app-chart
+                [options]="v.options"
+                [label]="v.label"
+                (legendChange)="shown.set($event)"
+              />
+              <p class="note caption">Solid line: pace · dashed line: heart rate</p>
+            }
+          </section>
+
+          <section class="card stats-card">
+            <h2>Stats</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col"><span class="visually-hidden">Stat</span></th>
+                  @for (header of v.statsHeaders; track $index) {
+                    <th scope="col">
+                      {{ header.label }}<span class="detail">{{ header.detail }}</span>
+                    </th>
+                  }
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of v.stats; track row.label) {
+                  <tr>
+                    <th scope="row">{{ row.label }}</th>
+                    <td>{{ row.earlier }}</td>
+                    <td>{{ row.later }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+            @if (v.driftFootnote) {
+              <p class="note">{{ driftFootnote }}</p>
+            }
+          </section>
+
+          @if (v.reps) {
+            <section class="card reps-card">
+              <h2>Reps</h2>
+              @if (v.repsNote; as note) {
+                <p>{{ note.message }}</p>
+                <p class="note">Whole-session averages:</p>
+                <ul class="averages">
+                  @for (line of note.averages; track $index) {
+                    <li>{{ line }}</li>
+                  }
+                </ul>
+              } @else {
+                <table>
+                  <thead>
+                    <tr>
+                      <th scope="col">#</th>
+                      @for (header of v.repHeaders; track $index) {
+                        <th scope="col">
+                          {{ header.label }}<span class="detail">{{ header.detail }}</span>
+                        </th>
+                      }
+                      <th scope="col">Difference</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (row of v.repRows; track row.number) {
+                      <tr>
+                        <th scope="row">{{ row.number }}</th>
+                        <td>{{ row.earlier }}</td>
+                        <td>{{ row.later }}</td>
+                        <td>{{ row.difference }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+                @if (v.reps.mode === 'pieces') {
+                  <p class="note caveat">{{ piecesCaveat }}</p>
+                }
+              }
+            </section>
+          }
+        }
+      }
+    }
+  </section>
+</div>

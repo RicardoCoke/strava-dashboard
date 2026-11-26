@@ -16,6 +16,7 @@ describe('NavMenu', () => {
         provideRouter([
           { path: '', pathMatch: 'full', component: Page },
           { path: 'recovery', component: Page },
+          { path: 'compare', component: Page },
         ]),
       ],
     });
@@ -33,13 +34,14 @@ describe('NavMenu', () => {
     await harness.fixture.whenStable();
   }
 
-  it('R1 - menu button opens panel with two links', async () => {
+  it('R1 - menu lists Performance, Recovery and Compare', async () => {
     expect(button().getAttribute('aria-label')).toBe('Open menu');
     expect(button().getAttribute('aria-controls')).toBe('nav-menu-panel');
     await openMenu();
     expect(links().map((link) => [link.textContent?.trim(), link.getAttribute('href')])).toEqual([
       ['Performance', '/'],
       ['Recovery', '/recovery'],
+      ['Compare', '/compare'],
     ]);
   });
 
@@ -53,11 +55,15 @@ describe('NavMenu', () => {
 
   it('R1 - current page link is marked active', async () => {
     await openMenu();
-    expect(links().map((link) => link.getAttribute('aria-current'))).toEqual(['page', null]);
+    expect(links().map((link) => link.getAttribute('aria-current'))).toEqual(['page', null, null]);
     await harness.navigateByUrl('/recovery');
     await openMenu();
-    expect(links().map((link) => link.getAttribute('aria-current'))).toEqual([null, 'page']);
+    expect(links().map((link) => link.getAttribute('aria-current'))).toEqual([null, 'page', null]);
     expect(links()[1].classList).toContain('active');
+    await harness.navigateByUrl('/compare');
+    await openMenu();
+    expect(links().map((link) => link.getAttribute('aria-current'))).toEqual([null, null, 'page']);
+    expect(links()[2].classList).toContain('active');
   });
 
   it('R2 - picking an entry navigates and closes the panel', async () => {
@@ -85,11 +91,11 @@ describe('NavMenu', () => {
       panel()?.dispatchEvent(
         new KeyboardEvent('keydown', { key: 'Tab', shiftKey, bubbles: true, cancelable: true }),
       );
-    links()[1].focus();
+    links()[2].focus();
     tab(false);
     expect(document.activeElement).toBe(close);
     tab(true);
-    expect(document.activeElement).toBe(links()[1]);
+    expect(document.activeElement).toBe(links()[2]);
   });
 
   it('R2 - escape, backdrop and close button close and refocus', async () => {

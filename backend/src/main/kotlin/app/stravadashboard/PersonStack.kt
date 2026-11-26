@@ -15,6 +15,7 @@ import app.stravadashboard.api.trainingPlanRoutes
 import app.stravadashboard.api.vo2maxRoutes
 import app.stravadashboard.api.weeklySummaryRoutes
 import app.stravadashboard.api.wellnessRoutes
+import app.stravadashboard.api.workoutCompareRoutes
 import app.stravadashboard.config.LthrSetting
 import app.stravadashboard.config.PersonSettings
 import app.stravadashboard.config.WeatherLocation
@@ -37,6 +38,7 @@ import app.stravadashboard.domain.weather.RunWeatherService
 import app.stravadashboard.domain.weeklysummary.WeeklySummaryService
 import app.stravadashboard.domain.wellness.WellnessService
 import app.stravadashboard.domain.wellness.WellnessSync
+import app.stravadashboard.domain.workoutcompare.WorkoutCompareService
 import app.stravadashboard.garmin.GarminActivitySource
 import app.stravadashboard.garmin.GarminConnect
 import app.stravadashboard.garmin.GarminWellnessSource
@@ -94,7 +96,15 @@ internal fun Application.personStack(
     val (clock, zone) = deps.clock to deps.zone
     val runs = stores.runs
     val garmin = settings.garminApiKey?.let { garminConnect(it, deps.garminEngine, clock) }
-    val sync = garmin?.let { backgroundSync(it, settings, stores, deps) }
+    // One budget and one FIT cache per person, shared by the sync and the compare page (feature 025).
+    val budget = CallBudget(clock)
+    val (activities, sync) =
+        garmin?.let {
+            val source = GarminActivitySource(it, clock, zone)
+            source to backgroundSync(it, source, budget, settings, stores, deps)
+        } ?: (null to null)
+    val compare =
+        WorkoutCompareService(runs, activities, budget, stores.syncState, settings.garminActivitiesFrom, clock)
     val plan = TrainingPlanService(planSource, settings.trainingPlanStartDate, clock, zone)
     val load = TrainingLoadService(settings.lthr, runs, clock, zone)
     val marathonPace =
@@ -121,20 +131,22 @@ internal fun Application.personStack(
         ringsRoutes(RingsService(garmin != null, stores.wellness, stores.ringDays, clock, zone))
         weeklySummaryRoutes(WeeklySummaryService(settings.lthr, runs, stores.wellness, clock, zone))
         runWeatherRoutes(RunWeatherService(deps.weatherHome, deps.weatherSource, plan, clock, zone))
+        workoutCompareRoutes(compare)
     }
 }
 
 /** Activities (feature 021), then resting HR, HRV (015) and ring days (020), all from the person's Garmin account. */
+@Suppress("LongParameterList")
 private fun backgroundSync(
     garmin: GarminConnect,
+    activities: GarminActivitySource,
+    budget: CallBudget,
     settings: PersonSettings,
     stores: PersonStores,
     deps: SharedDeps,
 ): BackgroundSync {
     val (clock, zone) = deps.clock to deps.zone
-    val budget = CallBudget(clock)
     val from = settings.garminActivitiesFrom
-    val activities = GarminActivitySource(garmin, clock, zone)
     val syncService = SyncService(activities, stores.runs, stores.syncState, clock, zone, from, budget)
     val source = GarminWellnessSource(garmin)
     val rings = RingsSync(source, stores.ringDays, (settings.lthr as? LthrSetting.Valid)?.lthr, clock, zone)
