@@ -11,5 +11,10 @@ export const routes: Routes = [
     path: 'recovery',
     loadComponent: () => import('./features/recovery/recovery-shell').then((m) => m.RecoveryShell),
   },
+  {
+    path: 'compare',
+    loadComponent: () =>
+      import('./features/workout-compare/workout-compare-shell').then((m) => m.WorkoutCompareShell),
+  },
   { path: '**', redirectTo: '' },
 ];

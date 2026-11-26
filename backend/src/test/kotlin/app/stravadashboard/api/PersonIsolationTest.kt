@@ -99,6 +99,7 @@ class PersonIsolationTest {
             "/api/rings/history?days=30",
             "/api/weekly-summaries",
             "/api/run-weather",
+            "/api/workout-compare/runs?type=all",
         )
 
     /** Each key gets its own access token, so every data call shows whose key it was made with. */
@@ -461,6 +462,27 @@ class PersonIsolationTest {
                 assertEquals(plain.status, named.status, path)
                 assertEquals(plain.bodyAsText(), named.bodyAsText(), path)
             }
+        }
+    }
+
+    @Test
+    fun `025 R2 - compare list and runs follow X-Person`() {
+        runBlocking {
+            ricardoRuns.upsertSummaries(listOf(summary(1, NOW.minus(Duration.ofHours(1)), name = "Ricardo run")))
+            marinaRuns.upsertSummaries(
+                (2L..3L).map { summary(it, NOW.minus(Duration.ofHours(it)), name = "Marina run") },
+            )
+        }
+        app {
+            val browser = browser()
+            val ricardo = browser.getAs("ricardo", "/api/workout-compare/runs?type=all").bodyAsText()
+            val marinaList = browser.getAs("marina", "/api/workout-compare/runs?type=all").bodyAsText()
+
+            assertTrue("Ricardo run" in ricardo && "Marina run" !in ricardo, ricardo)
+            assertTrue("Marina run" in marinaList && "Ricardo run" !in marinaList, marinaList)
+            assertEquals(HttpStatusCode.OK, browser.getAs("marina", "/api/workout-compare?a=2&b=3").status)
+            // Run 1 exists only in Ricardo's store.
+            assertEquals(HttpStatusCode.NotFound, browser.getAs("marina", "/api/workout-compare?a=1&b=2").status)
         }
     }
 

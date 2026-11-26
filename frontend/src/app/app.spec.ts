@@ -35,6 +35,15 @@ describe('App', () => {
     TestBed.inject(HttpTestingController).match(() => true);
   });
 
+  it('025 R1 - /compare shows the Compare page', async () => {
+    const harness = await RouterTestingHarness.create();
+    await harness.navigateByUrl('/compare');
+    expect((harness.routeNativeElement as HTMLElement).querySelector('h1')?.textContent).toBe(
+      'Compare',
+    );
+    TestBed.inject(HttpTestingController).match(() => true);
+  });
+
   it('R1 - unknown route redirects to dashboard', async () => {
     const harness = await RouterTestingHarness.create();
     await harness.navigateByUrl('/foo');

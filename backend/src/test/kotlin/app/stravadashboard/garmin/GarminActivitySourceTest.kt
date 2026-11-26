@@ -23,6 +23,9 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import io.ktor.utils.io.ByteReadChannel
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import java.io.IOException
 import java.time.Duration
@@ -31,6 +34,9 @@ import java.time.LocalDateTime
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertTrue
+
+private const val SLOW_FIT_MILLIS = 200L
 
 // All keys, tokens and activities here are invented.
 class GarminActivitySourceTest {
@@ -239,6 +245,27 @@ class GarminActivitySourceTest {
         assertEquals(SourceResult.Unavailable, runBlocking { source.listActivities(now, 1, 200) })
         // The cached token, one fresh token, one retry.
         assertEquals(listOf(GARMIN_LIST_PATH, GARMIN_TOKEN_PATH, GARMIN_LIST_PATH), requests.map { it.url.encodedPath })
+    }
+
+    @Test
+    fun `R5 - concurrent detail and stream download the FIT once`() {
+        // The file arrives slowly, so the second call (feature 025, AC5.9) asks while the first is still downloading.
+        val slow =
+            source { request ->
+                if (request.url.encodedPath.startsWith("/download-service/")) delay(SLOW_FIT_MILLIS)
+                garmin(request)
+            }
+
+        val results =
+            runBlocking {
+                listOf(
+                    async { slow.activityDetail(ActivityId(1)) },
+                    async { slow.driftStream(ActivityId(1)) },
+                ).awaitAll()
+            }
+
+        assertTrue(results.all { it is SourceResult.Success }, results.toString())
+        assertEquals(1, dataCalls().count { it.startsWith("/download-service/") })
     }
 
     @Test

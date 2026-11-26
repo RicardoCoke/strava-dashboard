@@ -15,6 +15,8 @@ import app.stravadashboard.domain.ports.SourceResult
 import io.ktor.client.call.body
 import io.ktor.client.request.parameter
 import io.ktor.client.request.url
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
@@ -34,8 +36,9 @@ class GarminActivitySource(
     private val clock: Clock,
     private val zone: ZoneId,
 ) : ActivitySource {
-    // Access-ordered LRU. Null means the activity has no readable file (404 or undecodable). Calls run one at a time
-    // inside a person's sync job, so it needs no lock.
+    // Access-ordered LRU. Null means the activity has no readable file (404 or undecodable). The sync and the compare
+    // page (feature 025) can ask at the same time, so lookups and downloads run under [fitLock].
+    private val fitLock = Mutex()
     private val fitCache =
         object : LinkedHashMap<ActivityId, FitData?>(FIT_CACHE_SIZE, LOAD_FACTOR, true) {
             override fun removeEldestEntry(eldest: MutableMap.MutableEntry<ActivityId, FitData?>?): Boolean =
@@ -74,7 +77,9 @@ class GarminActivitySource(
     override suspend fun driftStream(id: ActivityId): SourceResult<DriftStream> =
         fit(id).toSource { it?.driftStream() }.notFoundIfNull()
 
-    private suspend fun fit(id: ActivityId): GarminCall<FitData?> {
+    private suspend fun fit(id: ActivityId): GarminCall<FitData?> = fitLock.withLock { cachedFit(id) }
+
+    private suspend fun cachedFit(id: ActivityId): GarminCall<FitData?> {
         if (fitCache.containsKey(id)) return GarminCall.Ok(fitCache[id])
         val download = garmin.getBytes("fit") { url("${GarminConnect.BASE_URL}$FIT_PATH/${id.value}") }
         // A manual activity has no file: Garmin answers 404, which is final like a file that doesn't decode.

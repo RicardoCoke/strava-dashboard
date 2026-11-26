@@ -59,8 +59,8 @@ private class AccessToken(
  * One person's Garmin Connect Personal API connection, shared by the wellness (feature 015) and activity (feature 021)
  * sources. The personal API key is exchanged for an access token, kept in memory until shortly before it expires; a
  * cached token Garmin rejects gets one retry with a fresh one. Only the call name and the status code or exception
- * class are logged, never the key, token, URL, query or body. Calls run one at a time inside a person's background
- * sync job, so the token needs no lock.
+ * class are logged, never the key, token, URL, query or body. The compare page (feature 025) can call while a sync
+ * runs; the token has no lock, since a race costs at most one extra token request.
  */
 class GarminConnect(
     private val http: HttpClient,
