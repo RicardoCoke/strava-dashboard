@@ -117,6 +117,39 @@ describe('workout compare chart options', () => {
     ).toEqual(shown);
   });
 
+  it('R7 - tooltip reads the legend selection on each hover', () => {
+    const shown: Record<string, boolean> = {};
+    const options = buildCompareOptions(comparison(), 'distance', shown);
+    const formatter = (options.tooltip as { formatter: (params: unknown) => string }).formatter;
+    const lines = () =>
+      formatter([{ seriesIndex: 0, dataIndex: 0, axisValue: 0.03 }]).split('<br/>');
+
+    expect(lines().length).toBe(3);
+    shown['Earlier · 10 Nov'] = false; // a legend click, without new options
+    expect(lines()).toEqual(['0.03 km', 'Later · 24 Nov: 5:45 /km · 98 bpm']);
+  });
+
+  it('R7 - 2x and 4x show part of the x axis with a scroll bar', () => {
+    const zoomed = (zoom: 1 | 2 | 4) => buildCompareOptions(comparison(), 'distance', {}, zoom);
+    const bar = (zoom: 2 | 4) => (zoomed(zoom).dataZoom as Record<string, unknown>[])[0];
+
+    expect(zoomed(1).dataZoom).toBeUndefined();
+    expect((zoomed(1).grid as { bottom: number }).bottom).toBe(40);
+    expect(bar(2)).toEqual(
+      expect.objectContaining({
+        type: 'slider',
+        xAxisIndex: 0,
+        start: 0,
+        end: 50,
+        zoomLock: true,
+        // 'none' keeps both y-axes still while scrolling; the slider default 'filter' rescales them.
+        filterMode: 'none',
+      }),
+    );
+    expect(bar(4)).toEqual(expect.objectContaining({ start: 0, end: 25, filterMode: 'none' }));
+    expect((zoomed(4).grid as { bottom: number }).bottom).toBe(80);
+  });
+
   it('R7 - single x axis so touch zoom applies', () => {
     expect(Array.isArray(buildCompareOptions(comparison(), 'distance').xAxis)).toBe(false);
   });

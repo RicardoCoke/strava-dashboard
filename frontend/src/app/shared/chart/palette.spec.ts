@@ -39,6 +39,7 @@ describe('dark theme palette', () => {
       recoveryGreen: '#16ec06',
       recoveryYellow: '#ffde00',
       recoveryRed: '#ff0026',
+      zoomWindow: 'rgba(0, 241, 159, 0.12)',
     });
   });
 

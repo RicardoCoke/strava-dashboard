@@ -69,3 +69,8 @@ Heart rate and pace/performance data, personal to each person. No GPS or locatio
 2. Please confirm: the 30-run limit applies after the type filter (30 latest of the chosen type)?
 3. Please confirm: if the Garmin call budget is exhausted, fall back to per-km splits with a visible note?
 4. Workouts named by distance (e.g. "6x1000m") aren't recognised as workouts today. Are they in scope? (assumed: no, time-based only.)
+
+## Amendment (2026-11-26)
+After the first deploy the user asked: "allow the compare graph to be zoomed in and zoomed out otherwise the lines get difficult to read", then refined it: "have a option where i can see less minutes but more in details and i can just scroll to the right for the rest. Have those options be checked in the side. For example 1x, 2x, 4x". On a narrow phone the page also scrolled sideways (the shared header did not fit).
+- S15: Beside the chart there are 1x / 2x / 4x options. 2x and 4x show a half or a quarter of the run in more detail, and I can scroll to the right for the rest.
+- S14 is clarified: on a phone (360 px) nothing on the page scrolls sideways, the shared header included.

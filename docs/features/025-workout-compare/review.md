@@ -119,3 +119,73 @@ Backend: ktlint, detekt and 754 tests pass. Frontend: lint, 497 tests and the bu
 - **[Nit] `camelCase` hard to read:** fixed. It is now one regex replace.
 - **[Nit] Concurrency test uses wall-clock timing:** not fixed. With the `Mutex`, the second call waits on the lock and makes no request, so nothing outside the source can observe that it started; a gate on the FIT response would still need a timeout to tell the two cases apart. The test can only miss a regression on a very slow runner, never fail when the code is right. Upgrade to a virtual-time engine if it ever runs in CI.
 - **Not done:** the manual 360 px / 1280 px layout check (AC13.1–13.2). The uncommitted `.env.example` change belongs to the user's own work and is not part of this feature.
+
+---
+
+# Review: 025-workout-compare
+**Base:** main → **Head:** 21c2b16
+**Verdict:** APPROVE
+
+## Checks
+- Backend: not run. The diff changes no backend files, so ktlint, detekt and tests were skipped.
+- Frontend: lint pass · tests 501 passed, 0 failed · build pass
+
+## Spec coverage
+The range `main...HEAD` holds only the amendment commit, "zoom presets and narrow header". It touches AC7.1, AC7.4, AC7.9 and AC13.1. R1–R6 and R8–R12 are already on `main` and this diff does not change them.
+
+| Req | Implemented | Tested | Notes |
+|---|---|---|---|
+| R7 / AC7.9 (new) | ✅ | ✅ | The `role="group"` "Chart zoom" sits in the wrapping `.chart-controls` row with 1x/2x/4x buttons and `aria-pressed`. 1x has no `dataZoom`. 2x/4x use a slider with `start: 0`, `end: 50/25`, `zoomLock` and `filterMode: 'none'`, and the grid bottom is 72. Changing zoom or axis sends no request. The test does not assert `filterMode` (see Minor). |
+| R7 / AC7.4 (changed) | ✅ | ✅ | `withTouchZoom` keeps a chart's own `dataZoom` (`touch-zoom.ts:20`). Test: `025 - a chart with its own dataZoom keeps it on touch`. |
+| R7 / AC7.1 (changed) | ✅ | ✅ | The selection is a plain object, updated in place by `onLegend`. The tooltip closure reads it on each hover, and rebuilt options copy it into `legend.selected`. Tests: `tooltip reads the legend selection on each hover`, and `a legend click survives an axis switch`, which asserts the options are not rebuilt (`toBe(before)`). |
+| R13 / AC13.1 (fixed) | ✅ | n/a (manual) | `.page-header` now wraps (`flex-wrap: wrap`). `.header-actions { margin-left: auto }` keeps the actions right-aligned on the second row. Performance, Recovery and Compare all use the same markup. |
+| R1–R6, R8–R12 | — | — | Not changed by this diff. |
+
+## Findings
+### [Minor] AC7.9 test does not check `filterMode: 'none'`, the setting that keeps the axes in place
+- **Where:** `frontend/src/app/features/workout-compare/workout-compare.options.spec.ts:138-141` (implementation at `frontend/src/app/features/workout-compare/workout-compare.options.ts:80`)
+- **Problem:** The 2x/4x test uses `objectContaining({ type, xAxisIndex, start, end, zoomLock })` and never asserts `filterMode`. AC7.9 requires `filterMode: 'none'` so that "the pace and HR axes stay in place while scrolling".
+- **Failure scenario:** Someone deletes or changes `filterMode: 'none'`, so ECharts falls back to its slider default, `'filter'`. Both y-axes have `scale: true`, so they then rescale to the visible points on every scroll step and the lines jump. The test still passes.
+- **Suggested fix:** Add `filterMode: 'none'` to the `objectContaining` for `bar(2)` (and for `bar(4)`).
+
+### [Nit] At 2x/4x a keyboard user cannot reach the rest of the run
+- **Where:** `frontend/src/app/features/workout-compare/workout-compare.options.ts:76-94` and `frontend/src/app/shared/chart/chart.ts:14`
+- **Problem:** At 2x/4x the slider is the only way to scroll. It is drawn on the canvas inside a `role="img"` div that cannot take focus, so it does not work with the keyboard. It is also only 20 px tall (`height: 20`), compared with the 44 px used for the page's other controls on phones.
+- **Failure scenario:** A keyboard-only user picks 4x and sees only the first 25 % of the x-axis, with no way to scroll. They can still go back to 1x to see the whole run.
+- **Suggested fix:** Optional. Accept this, or add small "earlier/later window" buttons, or make the slider taller on `(pointer: coarse)`.
+
+## Privacy checklist
+1. ✅ No secrets, keys or `.env` files in the diff. Fixtures are unchanged.
+2. ✅ No token or key handling in this diff.
+3. n/a
+4. n/a (no OAuth)
+5. n/a (no scopes)
+6. ✅ Nothing new is stored.
+7. ✅ No GPS.
+8. ✅ No new logging or `console` output.
+9. n/a (no client logging change)
+10. ✅ No new error responses.
+11. ⚠ This is the existing state since 021: no auth, home network only. The diff does not change it.
+12. n/a
+13. ✅ No `[innerHTML]`. The tooltip still builds HTML only from "Earlier/Later · d MMM" labels and numbers, and the new zoom buttons render numbers through interpolation.
+14. n/a (no state-changing endpoint)
+15. ✅ No API change.
+16. ✅ `DataZoomSliderComponent` comes from the bundled npm `echarts`. No CDN or third party.
+17. ✅ Data stays local.
+18. ❌ Existing gap, not introduced here: there is no in-app delete.
+19. n/a
+20. ✅ Unchanged.
+21. ✅ Only invented fixture data is used.
+
+## Summary
+The amendment is small and correct and matches the spec. ngx-echarts applies new options with `notMerge`, so going from 4x back to 1x removes the slider, and every rebuild for an axis or zoom change starts back at the left edge. A legend click now updates the shared selection object without rebuilding the options, so the scroll position survives it. The one thing worth fixing is the missing `filterMode: 'none'` assertion in the AC7.9 test. Not checked: the AC13.1 360 px / 1280 px layout, which needs a manual browser check, and the uncommitted `.env.example` change in the working tree, which is outside `main...HEAD` (permission to inspect it was denied). Check it for real values before committing it.
+
+---
+
+## Fixes (after this review)
+Frontend: lint, 501 tests and the build pass. Backend untouched.
+
+- **[Minor] `filterMode: 'none'` not asserted:** fixed. Both the 2x and 4x expectations now check it, with a comment on why it matters.
+- **[Nit] Keyboard and small slider:** partly fixed. The scroll bar is now 28 px tall (the grid bottom grows to 80 px), so it's easier to grab on a phone; its window is also much wider than tall, at half or a quarter of the chart. Keyboard scrolling is not added: the chart is a canvas `role="img"`, like every chart in the app, and 1x always shows the whole run. The numbers are also in the stats and rep tables. Revisit if keyboard use of the charts becomes a need.
+- **AC13.1 manual check:** done before this review, in the browser against the Pi's backend: at 360 px the page is exactly 360 px wide, with the header on two rows; at 1280 px the header is one row and the chart controls share one row.
+- **`.env.example`:** the user's own uncommitted change, not part of this branch.

@@ -86,21 +86,34 @@
           @if (v.coarse) {
             <p class="notice coarse">{{ v.coarse }}</p>
           }
-          <div class="toggle" role="group" aria-label="Chart x-axis">
-            <button
-              type="button"
-              [attr.aria-pressed]="axis() === 'distance'"
-              (click)="axis.set('distance')"
-            >
-              Distance
-            </button>
-            <button
-              type="button"
-              [attr.aria-pressed]="axis() === 'time'"
-              (click)="axis.set('time')"
-            >
-              Time
-            </button>
+          <div class="chart-controls">
+            <div class="toggle" role="group" aria-label="Chart x-axis">
+              <button
+                type="button"
+                [attr.aria-pressed]="axis() === 'distance'"
+                (click)="axis.set('distance')"
+              >
+                Distance
+              </button>
+              <button
+                type="button"
+                [attr.aria-pressed]="axis() === 'time'"
+                (click)="axis.set('time')"
+              >
+                Time
+              </button>
+            </div>
+            <div class="toggle" role="group" aria-label="Chart zoom">
+              @for (option of zooms; track option) {
+                <button
+                  type="button"
+                  [attr.aria-pressed]="zoom() === option"
+                  (click)="zoom.set(option)"
+                >
+                  {{ option }}x
+                </button>
+              }
+            </div>
           </div>
 
           <section class="card chart-card">
@@ -113,7 +126,7 @@
               <app-chart
                 [options]="v.options"
                 [label]="v.label"
-                (legendChange)="shown.set($event)"
+                (legendChange)="onLegend($event)"
               />
               <p class="note caption">Solid line: pace · dashed line: heart rate</p>
             }

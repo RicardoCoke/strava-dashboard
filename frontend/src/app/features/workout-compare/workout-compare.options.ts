@@ -69,14 +69,40 @@ function axisValueOf(params: unknown): number | undefined {
   return typeof first?.axisValue === 'number' ? first.axisValue : undefined;
 }
 
+/** 2x and 4x show half or a quarter of the x axis; a scroll bar under the plot moves along to the rest. */
+export type CompareZoom = 1 | 2 | 4;
+
+/** zoomLock keeps the window at the chosen width, so dragging only scrolls; the axes stay in place. */
+function scrollBar(zoom: CompareZoom) {
+  return {
+    type: 'slider' as const,
+    xAxisIndex: 0,
+    filterMode: 'none' as const,
+    start: 0,
+    end: 100 / zoom,
+    zoomLock: true,
+    brushSelect: false,
+    showDetail: false,
+    showDataShadow: false,
+    height: 28,
+    bottom: 6,
+    borderColor: palette.border,
+    fillerColor: palette.zoomWindow,
+    handleStyle: { color: palette.textMuted, borderColor: palette.border },
+    moveHandleStyle: { color: palette.textMuted },
+  };
+}
+
 /**
  * Pace solid on the inverted left axis, HR dashed on the right; both series of a run share its legend entry.
- * [shown] is the page's copy of the legend selection, so rebuilt options (an axis switch) keep it.
+ * [shown] is the page's legend selection: the tooltip reads it on each hover, so a legend click needs no rebuild,
+ * and rebuilt options (an axis or zoom change) start from it.
  */
 export function buildCompareOptions(
   data: WorkoutCompareResponse,
   axis: CompareAxis,
   shown: ShownRuns = {},
+  zoom: CompareZoom = 1,
 ): EChartsOption {
   const labels = runLabels(data);
   const line = (run: 0 | 1, value: 'pace' | 'hr') => ({
@@ -98,8 +124,14 @@ export function buildCompareOptions(
   });
   return {
     ...baseChartStyle(),
-    grid: { left: 52, right: 48, top: 48, bottom: 40 },
-    legend: { data: labels, selected: shown, top: 0, textStyle: { color: palette.textMuted } },
+    // The scroll bar sits under the x-axis name.
+    grid: { left: 52, right: 48, top: 48, bottom: zoom > 1 ? 80 : 40 },
+    legend: {
+      data: labels,
+      selected: { ...shown },
+      top: 0,
+      textStyle: { color: palette.textMuted },
+    },
     tooltip: {
       ...tooltipStyle(),
       trigger: 'axis',
@@ -134,5 +166,6 @@ export function buildCompareOptions(
       },
     ],
     series: [line(0, 'pace'), line(1, 'pace'), line(0, 'hr'), line(1, 'hr')],
+    ...(zoom > 1 ? { dataZoom: [scrollBar(zoom)] } : {}),
   };
 }

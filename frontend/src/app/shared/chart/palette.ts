@@ -33,4 +33,6 @@ export const palette = {
   recoveryGreen: '#16ec06',
   recoveryYellow: '#ffde00',
   recoveryRed: '#ff0026',
+  // The window of the compare chart's 2x/4x scroll bar (feature 025): the accent at 12 %.
+  zoomWindow: 'rgba(0, 241, 159, 0.12)',
 } as const;
